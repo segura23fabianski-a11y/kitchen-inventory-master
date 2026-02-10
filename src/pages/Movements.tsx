@@ -20,10 +20,18 @@ import { es } from "date-fns/locale";
 export default function Movements() {
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState("");
-  const [type, setType] = useState<string>("entrada");
   const [quantity, setQuantity] = useState("");
   const [notes, setNotes] = useState("");
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+
+  // Cocina only sees "salida", bodega sees "entrada", admin sees all
+  const allowedTypes = hasRole("admin")
+    ? ["entrada", "salida", "ajuste"]
+    : hasRole("bodega")
+    ? ["entrada", "ajuste"]
+    : ["salida"]; // cocina
+
+  const [type, setType] = useState<string>(allowedTypes[0]);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -90,7 +98,9 @@ export default function Movements() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-heading text-3xl font-bold">Movimientos</h1>
-            <p className="text-muted-foreground">Registro de entradas, salidas y ajustes</p>
+            <p className="text-muted-foreground">
+              {hasRole("cocina") ? "Registro de consumos" : "Registro de entradas, salidas y ajustes"}
+            </p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -117,9 +127,9 @@ export default function Movements() {
                   <Select value={type} onValueChange={setType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="entrada">Entrada</SelectItem>
-                      <SelectItem value="salida">Salida</SelectItem>
-                      <SelectItem value="ajuste">Ajuste</SelectItem>
+                      {allowedTypes.includes("entrada") && <SelectItem value="entrada">Entrada</SelectItem>}
+                      {allowedTypes.includes("salida") && <SelectItem value="salida">Salida</SelectItem>}
+                      {allowedTypes.includes("ajuste") && <SelectItem value="ajuste">Ajuste</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>

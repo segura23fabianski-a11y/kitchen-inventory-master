@@ -3,11 +3,20 @@ import { useAuth } from "@/lib/auth";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+type AppRole = "admin" | "cocina" | "bodega";
+
+interface NavItem {
+  to: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  roles?: AppRole[]; // undefined = all roles can see
+}
+
+const navItems: NavItem[] = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/products", icon: Archive, label: "Productos" },
+  { to: "/products", icon: Archive, label: "Productos", roles: ["admin", "bodega"] },
   { to: "/movements", icon: ArrowRightLeft, label: "Movimientos" },
-  { to: "/categories", icon: Tag, label: "Categorías" },
+  { to: "/categories", icon: Tag, label: "Categorías", roles: ["admin"] },
 ];
 
 const adminItems = [
@@ -29,7 +38,9 @@ export default function AppSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => (
+        {navItems
+          .filter((item) => !item.roles || item.roles.some((r) => hasRole(r)))
+          .map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

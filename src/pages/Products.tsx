@@ -12,8 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 export default function Products() {
+  const { hasRole } = useAuth();
+  const canManage = hasRole("admin") || hasRole("bodega");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -75,7 +78,7 @@ export default function Products() {
             <h1 className="font-heading text-3xl font-bold">Productos</h1>
             <p className="text-muted-foreground">Gestión de productos del inventario</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          {canManage && <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Producto</Button>
             </DialogTrigger>
@@ -122,7 +125,7 @@ export default function Products() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
         </div>
 
         <Card>
