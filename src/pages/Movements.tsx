@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2 } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -25,6 +25,7 @@ export default function Movements() {
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
+  const [search, setSearch] = useState("");
   const { user, hasRole } = useAuth();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission("movements_create");
@@ -213,6 +214,12 @@ export default function Movements() {
 
         <Card>
           <CardContent className="p-0">
+            <div className="p-4 pb-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-10" placeholder="Buscar por producto..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -232,7 +239,9 @@ export default function Movements() {
                 ) : !movements?.length ? (
                   <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
                 ) : (
-                  movements.map((m) => (
+                  movements
+                    .filter((m) => (m as any).products?.name?.toLowerCase().includes(search.toLowerCase()))
+                    .map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="font-medium flex items-center gap-2">
                         {typeIcon(m.type)}

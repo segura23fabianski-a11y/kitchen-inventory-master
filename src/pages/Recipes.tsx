@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChefHat, DollarSign, Eye } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search } from "lucide-react";
 
 interface IngredientLine {
   product_id: string;
@@ -37,6 +37,7 @@ export default function Recipes() {
   const canUpdate = hasPermission("recipes_update");
   const canDelete = hasPermission("recipes_delete");
   const canManage = canCreate || canUpdate;
+  const [search, setSearch] = useState("");
 
   const { data: products } = useQuery({
     queryKey: ["products"],
@@ -250,14 +251,20 @@ export default function Recipes() {
           )}
         </div>
 
-        {/* Recipe list */}
+        {/* Search + Recipe list */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-10" placeholder="Buscar receta..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
             <p className="text-muted-foreground col-span-full text-center py-12">Cargando...</p>
           ) : !recipes?.length ? (
             <p className="text-muted-foreground col-span-full text-center py-12">Sin recetas registradas</p>
           ) : (
-            recipes.map((recipe) => {
+            recipes
+              .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+              .map((recipe) => {
               const ings = (recipe.recipe_ingredients ?? []).map((ri) => ({
                 product_id: ri.product_id,
                 quantity: Number(ri.quantity),
