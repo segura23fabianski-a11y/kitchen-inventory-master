@@ -28,7 +28,7 @@ export default function Recipes() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const isAdmin = hasRole("admin");
+  const canManage = hasRole("admin") || hasRole("bodega");
 
   const { data: products } = useQuery({
     queryKey: ["products"],
@@ -113,7 +113,7 @@ export default function Recipes() {
             <h1 className="font-heading text-3xl font-bold">Recetas</h1>
             <p className="text-muted-foreground">Preparaciones con ingredientes y costo teórico</p>
           </div>
-          {isAdmin && (
+          {canManage && (
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nueva Receta</Button>
@@ -226,7 +226,7 @@ export default function Recipes() {
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
                       </Button>
-                      {isAdmin && (
+                      {canManage && (
                         <Button variant="ghost" size="sm" onClick={() => deleteRecipe.mutate(recipe.id)} disabled={deleteRecipe.isPending}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
