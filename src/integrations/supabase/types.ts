@@ -220,6 +220,65 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          created_at: string
+          function_key: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          function_key: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          function_key?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_function_key_fkey"
+            columns: ["function_key"]
+            isOneToOne: false
+            referencedRelation: "system_functions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      system_functions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

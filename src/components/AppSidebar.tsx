@@ -1,33 +1,35 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3 } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-
-type AppRole = "admin" | "cocina" | "bodega";
 
 interface NavItem {
   to: string;
   icon: typeof LayoutDashboard;
   label: string;
-  roles?: AppRole[]; // undefined = all roles can see
+  permKey: string;
 }
 
-const navItems: NavItem[] = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/products", icon: Archive, label: "Productos", roles: ["admin", "bodega"] },
-  { to: "/movements", icon: ArrowRightLeft, label: "Movimientos" },
-  { to: "/categories", icon: Tag, label: "Categorías", roles: ["admin", "bodega"] },
-  { to: "/recipes", icon: ChefHat, label: "Recetas" },
-  { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina" },
-];
-
-const adminItems = [
-  { to: "/users", icon: Users, label: "Usuarios" },
-  { to: "/reports", icon: BarChart3, label: "Reportes" },
+const allNavItems: NavItem[] = [
+  { to: "/", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
+  { to: "/products", icon: Archive, label: "Productos", permKey: "products" },
+  { to: "/movements", icon: ArrowRightLeft, label: "Movimientos", permKey: "movements" },
+  { to: "/categories", icon: Tag, label: "Categorías", permKey: "categories" },
+  { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
+  { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
+  { to: "/reports", icon: BarChart3, label: "Reportes", permKey: "reports" },
+  { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
+  { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
 ];
 
 export default function AppSidebar() {
-  const { signOut, hasRole, user } = useAuth();
+  const { signOut, user } = useAuth();
+  const { hasPermission } = usePermissions();
+
+  const visibleItems = allNavItems.filter((item) => hasPermission(item.permKey));
+  const mainItems = visibleItems.filter((i) => !["users", "roles"].includes(i.permKey));
+  const adminItems = visibleItems.filter((i) => ["users", "roles"].includes(i.permKey));
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
@@ -41,9 +43,7 @@ export default function AppSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems
-          .filter((item) => !item.roles || item.roles.some((r) => hasRole(r)))
-          .map((item) => (
+        {mainItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -62,7 +62,7 @@ export default function AppSidebar() {
           </NavLink>
         ))}
 
-        {hasRole("admin") && (
+        {adminItems.length > 0 && (
           <>
             <div className="my-3 border-t border-sidebar-border" />
             <p className="px-3 py-1 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40">
