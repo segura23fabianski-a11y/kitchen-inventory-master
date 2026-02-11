@@ -353,6 +353,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      register_recipe_consumption: {
+        Args: {
+          _notes: string
+          _portions: number
+          _recipe_id: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "cocina" | "bodega"
