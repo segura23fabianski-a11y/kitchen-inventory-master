@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList } from "lucide-react";
+import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 
 type Step = "products" | "recipe" | "quantities";
@@ -30,6 +30,7 @@ export default function KitchenKiosk() {
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [recipeId, setRecipeId] = useState("");
   const [customQuantities, setCustomQuantities] = useState<Record<string, number>>({});
+  const [productSearch, setProductSearch] = useState("");
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -213,28 +214,49 @@ export default function KitchenKiosk() {
         {/* Step 1: Select Products */}
         {step === "products" && (
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Package className="h-5 w-5 text-primary" /> Seleccionar productos
               </CardTitle>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-10"
+                  placeholder="Buscar producto..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                />
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="max-h-80 overflow-y-auto space-y-2">
-                {products?.map((p) => (
-                  <label
-                    key={p.id}
-                    className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <Checkbox
-                      checked={selectedProductIds.has(p.id)}
-                      onCheckedChange={() => toggleProduct(p.id)}
-                    />
-                    <span className="flex-1 font-medium">{p.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      Stock: {p.current_stock} {p.unit}
-                    </span>
-                  </label>
-                ))}
+              <div className="max-h-[28rem] overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {products
+                    ?.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                    .map((p) => {
+                      const selected = selectedProductIds.has(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleProduct(p.id)}
+                          className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
+                            selected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          <p className="font-medium text-sm truncate">{p.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Stock: {p.current_stock} {p.unit}
+                          </p>
+                        </button>
+                      );
+                    })}
+                </div>
+                {products?.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">Sin resultados</p>
+                )}
               </div>
               <Button
                 className="w-full"

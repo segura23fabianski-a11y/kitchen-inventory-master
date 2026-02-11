@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 
 export default function Categories() {
   const [open, setOpen] = useState(false);
@@ -24,6 +24,7 @@ export default function Categories() {
   const canCreate = hasPermission("categories_create");
   const canUpdate = hasPermission("categories_update");
   const canDelete = hasPermission("categories_delete");
+  const [search, setSearch] = useState("");
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ["categories"],
@@ -113,6 +114,12 @@ export default function Categories() {
 
         <Card>
           <CardContent className="p-0">
+            <div className="p-4 pb-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-10" placeholder="Buscar categoría..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -127,7 +134,9 @@ export default function Categories() {
                 ) : !categories?.length ? (
                   <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">Sin categorías</TableCell></TableRow>
                 ) : (
-                  categories.map((c) => (
+                  categories
+                    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+                    .map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell className="text-muted-foreground">{c.description || "—"}</TableCell>
