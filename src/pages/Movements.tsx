@@ -6,7 +6,7 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,15 +21,15 @@ export default function Movements() {
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const { user, hasRole } = useAuth();
 
-  // Cocina only sees "salida", bodega sees "entrada", admin sees all
   const allowedTypes = hasRole("admin")
     ? ["entrada", "salida", "ajuste"]
     : hasRole("bodega")
     ? ["entrada", "ajuste"]
-    : ["salida"]; // cocina
+    : ["salida"];
 
   const [type, setType] = useState<string>(allowedTypes[0]);
   const { toast } = useToast();
@@ -40,29 +40,46 @@ export default function Movements() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("*, products(name)")
+        .select("*, products(name, unit)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
+  const { data: profiles } = useQuery({
+    queryKey: ["all-profiles"],
+    queryFn: async () => {
+      // Admins can see all profiles via RLS; others won't — graceful fallback
+      const { data } = await supabase.from("profiles").select("user_id, full_name");
+      return data ?? [];
+    },
+  });
+
+  const profileMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) ?? []);
+
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, unit").order("name");
+      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost").order("name");
       if (error) throw error;
       return data;
     },
   });
 
+  const computedTotal = (Number(quantity) || 0) * (Number(unitCost) || 0);
+
   const addMovement = useMutation({
     mutationFn: async () => {
+      const uc = Number(unitCost) || 0;
+      const qty = Number(quantity);
       const { error } = await supabase.from("inventory_movements").insert({
         product_id: productId,
         user_id: user!.id,
         type,
-        quantity: Number(quantity),
+        quantity: qty,
+        unit_cost: uc,
+        total_cost: qty * uc,
         notes,
       });
       if (error) throw error;
@@ -72,13 +89,21 @@ export default function Movements() {
       qc.invalidateQueries({ queryKey: ["products"] });
       setOpen(false);
       setProductId("");
-      setType("entrada");
+      setType(allowedTypes[0]);
       setQuantity("");
+      setUnitCost("");
       setNotes("");
       toast({ title: "Movimiento registrado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // Pre-fill unit cost from product's average_cost when product changes
+  const handleProductChange = (id: string) => {
+    setProductId(id);
+    const prod = products?.find((p) => p.id === id);
+    if (prod) setUnitCost(String(prod.average_cost));
+  };
 
   const typeIcon = (t: string) => {
     if (t === "entrada") return <ArrowDownCircle className="h-4 w-4 text-success" />;
@@ -91,6 +116,8 @@ export default function Movements() {
     if (t === "salida") return <Badge className="bg-warning text-warning-foreground">Salida</Badge>;
     return <Badge variant="secondary">Ajuste</Badge>;
   };
+
+  const isValid = productId && Number(quantity) > 0;
 
   return (
     <AppLayout>
@@ -110,10 +137,10 @@ export default function Movements() {
               <DialogHeader>
                 <DialogTitle className="font-heading">Registrar Movimiento</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); addMovement.mutate(); }} className="space-y-4">
+              <form onSubmit={(e) => { e.preventDefault(); if (isValid) addMovement.mutate(); }} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Producto</Label>
-                  <Select value={productId} onValueChange={setProductId}>
+                  <Label>Producto *</Label>
+                  <Select value={productId} onValueChange={handleProductChange}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar producto..." /></SelectTrigger>
                     <SelectContent>
                       {products?.map((p) => (
@@ -133,15 +160,27 @@ export default function Movements() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Cantidad</Label>
-                  <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} min="0" step="0.01" required />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Cantidad *</Label>
+                    <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} min="0.01" step="0.01" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Costo Unitario</Label>
+                    <Input type="number" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} min="0" step="0.01" />
+                  </div>
                 </div>
+                {computedTotal > 0 && (
+                  <div className="rounded-md bg-muted p-3 text-sm">
+                    <span className="text-muted-foreground">Costo total:</span>{" "}
+                    <span className="font-semibold">${computedTotal.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Notas (opcional)</Label>
-                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observaciones..." />
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observaciones..." maxLength={500} />
                 </div>
-                <Button type="submit" className="w-full" disabled={addMovement.isPending || !productId}>
+                <Button type="submit" className="w-full" disabled={addMovement.isPending || !isValid}>
                   {addMovement.isPending ? "Registrando..." : "Registrar"}
                 </Button>
               </form>
@@ -157,15 +196,17 @@ export default function Movements() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cantidad</TableHead>
-                  <TableHead>Notas</TableHead>
+                  <TableHead>Costo Unit.</TableHead>
+                  <TableHead>Costo Total</TableHead>
+                  <TableHead>Usuario</TableHead>
                   <TableHead>Fecha</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : !movements?.length ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
                 ) : (
                   movements.map((m) => (
                     <TableRow key={m.id}>
@@ -175,7 +216,9 @@ export default function Movements() {
                       </TableCell>
                       <TableCell>{typeBadge(m.type)}</TableCell>
                       <TableCell className="font-semibold">{Number(m.quantity)}</TableCell>
-                      <TableCell className="text-muted-foreground max-w-[200px] truncate">{m.notes || "—"}</TableCell>
+                      <TableCell>${Number(m.unit_cost).toFixed(2)}</TableCell>
+                      <TableCell className="font-semibold">${Number(m.total_cost).toFixed(2)}</TableCell>
+                      <TableCell className="text-muted-foreground">{profileMap.get(m.user_id) || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {format(new Date(m.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
                       </TableCell>

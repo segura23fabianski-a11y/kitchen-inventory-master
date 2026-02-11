@@ -42,7 +42,9 @@ export type Database = {
           notes: string | null
           product_id: string
           quantity: number
+          total_cost: number
           type: string
+          unit_cost: number
           user_id: string
         }
         Insert: {
@@ -51,7 +53,9 @@ export type Database = {
           notes?: string | null
           product_id: string
           quantity: number
+          total_cost?: number
           type: string
+          unit_cost?: number
           user_id: string
         }
         Update: {
@@ -60,7 +64,9 @@ export type Database = {
           notes?: string | null
           product_id?: string
           quantity?: number
+          total_cost?: number
           type?: string
+          unit_cost?: number
           user_id?: string
         }
         Relationships: [
