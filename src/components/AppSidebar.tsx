@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
 
 const adminItems = [
   { to: "/users", icon: Users, label: "Usuarios" },
+  { to: "/reports", icon: BarChart3, label: "Reportes" },
 ];
 
 export default function AppSidebar() {
