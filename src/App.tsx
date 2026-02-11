@@ -14,6 +14,7 @@ import Recipes from "./pages/Recipes";
 import KitchenKiosk from "./pages/KitchenKiosk";
 import Reports from "./pages/Reports";
 import Roles from "./pages/Roles";
+import Warehouses from "./pages/Warehouses";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const AppRoutes = () => (
     <Route path="/kitchen" element={<ProtectedRoute><KitchenKiosk /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute roles={["admin"]}><Reports /></ProtectedRoute>} />
     <Route path="/roles" element={<ProtectedRoute roles={["admin"]}><Roles /></ProtectedRoute>} />
+    <Route path="/warehouses" element={<ProtectedRoute roles={["admin", "bodega"]}><Warehouses /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
