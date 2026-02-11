@@ -31,7 +31,7 @@ serve(async (req) => {
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) throw new Error("Solo administradores pueden crear usuarios");
 
-    const { email, password, full_name, role } = await req.json();
+    const { email, password, full_name, role, restaurant_id } = await req.json();
 
     if (!email || !password || !role) throw new Error("email, password y role son requeridos");
     if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres");
@@ -42,7 +42,7 @@ serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name || "" },
+      user_metadata: { full_name: full_name || "", restaurant_id: restaurant_id || "00000000-0000-0000-0000-000000000001" },
     });
     if (createError) throw createError;
 

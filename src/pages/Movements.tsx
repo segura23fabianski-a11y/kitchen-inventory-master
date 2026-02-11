@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -28,6 +29,7 @@ export default function Movements() {
   const [search, setSearch] = useState("");
   const { user, hasRole } = useAuth();
   const { hasPermission } = usePermissions();
+  const restaurantId = useRestaurantId();
   const canCreate = hasPermission("movements_create");
   const canDelete = hasPermission("movements_delete");
 
@@ -87,6 +89,7 @@ export default function Movements() {
         unit_cost: uc,
         total_cost: qty * uc,
         notes,
+        restaurant_id: restaurantId!,
       });
       if (error) throw error;
     },

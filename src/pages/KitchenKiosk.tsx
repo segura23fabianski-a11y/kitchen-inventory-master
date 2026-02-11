@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 
@@ -33,6 +34,7 @@ export default function KitchenKiosk() {
   const [productSearch, setProductSearch] = useState("");
   const { user } = useAuth();
   const { toast } = useToast();
+  const restaurantId = useRestaurantId();
   const qc = useQueryClient();
 
   // All products
@@ -173,6 +175,7 @@ export default function KitchenKiosk() {
             unit_cost: line.unitCost,
             total_cost: line.totalCost,
             notes: `Consumo kiosco manual`,
+            restaurant_id: restaurantId!,
           });
           if (error) throw error;
         }

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 
 export default function Categories() {
@@ -25,6 +26,7 @@ export default function Categories() {
   const canUpdate = hasPermission("categories_update");
   const canDelete = hasPermission("categories_delete");
   const [search, setSearch] = useState("");
+  const restaurantId = useRestaurantId();
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ["categories"],
@@ -48,7 +50,7 @@ export default function Categories() {
         const { error } = await supabase.from("categories").update({ name, description }).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("categories").insert({ name, description });
+        const { error } = await supabase.from("categories").insert({ name, description, restaurant_id: restaurantId! });
         if (error) throw error;
       }
     },

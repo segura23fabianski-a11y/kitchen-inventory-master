@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, ShieldPlus } from "lucide-react";
 
 const ROLES = ["admin", "cocina", "bodega"] as const;
@@ -26,6 +27,7 @@ export default function Users() {
   const [newRole, setNewRole] = useState<AppRole>("bodega");
   const { toast } = useToast();
   const qc = useQueryClient();
+  const restaurantId = useRestaurantId();
 
   const { data: profiles, isLoading } = useQuery({
     queryKey: ["profiles"],
@@ -57,7 +59,7 @@ export default function Users() {
   const createUser = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, full_name: fullName, role },
+        body: { email, password, full_name: fullName, role, restaurant_id: restaurantId },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);

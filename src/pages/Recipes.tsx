@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, ChefHat, DollarSign, Eye, Search } from "lucide-react";
 
 interface IngredientLine {
@@ -37,6 +38,7 @@ export default function Recipes() {
   const canUpdate = hasPermission("recipes_update");
   const canDelete = hasPermission("recipes_delete");
   const canManage = canCreate || canUpdate;
+  const restaurantId = useRestaurantId();
   const [search, setSearch] = useState("");
 
   const { data: products } = useQuery({
@@ -93,12 +95,12 @@ export default function Recipes() {
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description }).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, restaurant_id: restaurantId! }).select("id").single();
       if (error) throw error;
       const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
       if (validIngredients.length > 0) {
         const { error: ingError } = await supabase.from("recipe_ingredients").insert(
-          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion }))
+          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! }))
         );
         if (ingError) throw ingError;
       }
