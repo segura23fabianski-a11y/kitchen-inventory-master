@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import * as XLSX from "xlsx";
 
 const UNITS = ["unidad", "kg", "g", "litro", "ml", "caja", "bolsa", "paquete"];
@@ -29,7 +30,11 @@ const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", catego
 
 export default function Products() {
   const { hasRole } = useAuth();
-  const canManage = hasRole("admin") || hasRole("bodega");
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission("products_create");
+  const canUpdate = hasPermission("products_update");
+  const canDelete = hasPermission("products_delete");
+  const canManage = canCreate || canUpdate;
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -202,15 +207,19 @@ export default function Products() {
             <h1 className="font-heading text-3xl font-bold">Productos</h1>
             <p className="text-muted-foreground">Gestión de productos del inventario</p>
           </div>
-          {canManage && (
+          {(canCreate || canUpdate) && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setBulkOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" /> Carga Masiva
-              </Button>
+              {canCreate && (
+                <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" /> Carga Masiva
+                </Button>
+              )}
               <Dialog open={open} onOpenChange={(v) => { if (!v) closeDialog(); else setOpen(true); }}>
+                {canCreate && (
                 <DialogTrigger asChild>
                   <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Producto</Button>
                 </DialogTrigger>
+                )}
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle className="font-heading">{editId ? "Editar Producto" : "Agregar Producto"}</DialogTitle>
@@ -380,7 +389,7 @@ export default function Products() {
                   <TableHead>Unidad</TableHead>
                   <TableHead>Costo Prom.</TableHead>
                   <TableHead>Estado</TableHead>
-                  {canManage && <TableHead className="w-20" />}
+                  {(canUpdate || canDelete) && <TableHead className="w-20" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -404,11 +413,11 @@ export default function Products() {
                           <Badge className="bg-success text-success-foreground">OK</Badge>
                         )}
                       </TableCell>
-                      {canManage && (
+                      {(canUpdate || canDelete) && (
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
+                            {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                           </div>
                         </TableCell>
                       )}
