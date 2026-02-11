@@ -22,11 +22,10 @@ interface ProductForm {
   unit: string;
   minStock: string;
   categoryId: string;
-  averageCost: string;
   warehouseId: string;
 }
 
-const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", averageCost: "0", warehouseId: "" };
+const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "" };
 
 export default function Products() {
   const { hasRole } = useAuth();
@@ -75,12 +74,11 @@ export default function Products() {
 
   const upsertProduct = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name: form.name.trim(),
         unit: form.unit,
         min_stock: Number(form.minStock),
         category_id: form.categoryId || null,
-        average_cost: Number(form.averageCost),
         warehouse_id: form.warehouseId || null,
       };
       if (editId) {
@@ -148,7 +146,6 @@ export default function Products() {
       unit: p.unit,
       minStock: String(p.min_stock),
       categoryId: p.category_id ?? "",
-      averageCost: String(p.average_cost),
       warehouseId: p.warehouse_id ?? "",
     });
     setOpen(true);
@@ -195,7 +192,7 @@ export default function Products() {
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0 && Number(form.averageCost) >= 0;
+  const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0;
 
   return (
     <AppLayout>
@@ -243,15 +240,9 @@ export default function Products() {
                         </Select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Stock Mínimo</Label>
-                        <Input type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} min="0" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Costo Promedio</Label>
-                        <Input type="number" value={form.averageCost} onChange={(e) => setForm({ ...form, averageCost: e.target.value })} min="0" step="0.01" />
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Stock Mínimo</Label>
+                      <Input type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} min="0" />
                     </div>
                     <div className="space-y-2">
                       <Label>Almacén</Label>
