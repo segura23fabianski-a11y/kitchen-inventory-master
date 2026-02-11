@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import * as XLSX from "xlsx";
 
 const UNITS = ["unidad", "kg", "g", "litro", "ml", "caja", "bolsa", "paquete"];
@@ -35,6 +36,7 @@ export default function Products() {
   const canUpdate = hasPermission("products_update");
   const canDelete = hasPermission("products_delete");
   const canManage = canCreate || canUpdate;
+  const restaurantId = useRestaurantId();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export default function Products() {
         const { error } = await supabase.from("products").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("products").insert(payload);
+        const { error } = await supabase.from("products").insert({ ...payload, restaurant_id: restaurantId! });
         if (error) throw error;
       }
     },
@@ -125,7 +127,7 @@ export default function Products() {
         category_id: r.categoria ? (categoryMap.get(String(r.categoria).toLowerCase()) ?? null) : null,
         warehouse_id: r.almacen ? (warehouseMap.get(String(r.almacen).toLowerCase()) ?? null) : null,
       }));
-      const { error } = await supabase.from("products").insert(rows);
+      const { error } = await supabase.from("products").insert(rows.map(r => ({ ...r, restaurant_id: restaurantId! })));
       if (error) throw error;
     },
     onSuccess: () => {

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, Warehouse } from "lucide-react";
 
 export default function Warehouses() {
@@ -17,6 +18,7 @@ export default function Warehouses() {
   const [description, setDescription] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
+  const restaurantId = useRestaurantId();
 
   const { data: warehouses, isLoading } = useQuery({
     queryKey: ["warehouses"],
@@ -29,7 +31,7 @@ export default function Warehouses() {
 
   const addWarehouse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("warehouses").insert({ name: name.trim(), description: description.trim() });
+      const { error } = await supabase.from("warehouses").insert({ name: name.trim(), description: description.trim(), restaurant_id: restaurantId! });
       if (error) throw error;
     },
     onSuccess: () => {

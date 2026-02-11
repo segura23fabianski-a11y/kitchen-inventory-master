@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,6 +33,7 @@ export default function BulkUploadDialog({ products }: BulkUploadDialogProps) {
   const [progress, setProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const restaurantId = useRestaurantId();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -108,6 +110,7 @@ export default function BulkUploadDialog({ products }: BulkUploadDialogProps) {
           unit_cost: r.costo_unitario,
           total_cost: r.cantidad * r.costo_unitario,
           notes: "Carga masiva",
+          restaurant_id: restaurantId!,
         }));
 
         const { error } = await supabase.from("inventory_movements").insert(inserts);
