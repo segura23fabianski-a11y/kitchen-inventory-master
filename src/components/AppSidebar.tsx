@@ -16,7 +16,7 @@ const navItems: NavItem[] = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/products", icon: Archive, label: "Productos", roles: ["admin", "bodega"] },
   { to: "/movements", icon: ArrowRightLeft, label: "Movimientos" },
-  { to: "/categories", icon: Tag, label: "Categorías", roles: ["admin"] },
+  { to: "/categories", icon: Tag, label: "Categorías", roles: ["admin", "bodega"] },
   { to: "/recipes", icon: ChefHat, label: "Recetas" },
   { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina" },
 ];
