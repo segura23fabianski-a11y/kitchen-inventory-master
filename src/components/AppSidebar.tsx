@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink } from "react-router-dom";
@@ -20,6 +20,7 @@ const allNavItems: NavItem[] = [
   { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
   { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
   { to: "/reports", icon: BarChart3, label: "Reportes", permKey: "reports" },
+  { to: "/executive", icon: PieChart, label: "Dashboard Ejecutivo", permKey: "reports" },
   { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
   { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
 ];
