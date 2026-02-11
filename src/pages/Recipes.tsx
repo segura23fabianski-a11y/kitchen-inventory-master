@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { convertToProductUnit, getRecipeUnits, getDefaultRecipeUnit } from "@/lib/unit-conversion";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { Plus, Trash2, ChefHat, DollarSign, Eye } from "lucide-react";
 interface IngredientLine {
   product_id: string;
   quantity: number;
+  unit: string;
 }
 
 export default function Recipes() {
@@ -46,23 +48,39 @@ export default function Recipes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("*, recipe_ingredients(id, product_id, quantity)")
+        .select("*, recipe_ingredients(id, product_id, quantity, unit)")
         .order("name");
       if (error) throw error;
       return data;
     },
   });
 
-  const calcRecipeCost = (items: { product_id: string; quantity: number }[]) =>
-    items.reduce((sum, item) => {
-      const prod = productMap.get(item.product_id);
-      return sum + (prod ? Number(prod.average_cost) * item.quantity : 0);
-    }, 0);
+  const calcLineCost = (item: { product_id: string; quantity: number; unit: string }) => {
+    const prod = productMap.get(item.product_id);
+    if (!prod) return 0;
+    const qtyInProductUnit = convertToProductUnit(item.quantity, item.unit, prod.unit);
+    return Number(prod.average_cost) * qtyInProductUnit;
+  };
 
-  const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0 }]);
+  const calcRecipeCost = (items: { product_id: string; quantity: number; unit: string }[]) =>
+    items.reduce((sum, item) => sum + calcLineCost(item), 0);
+
+  const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g" }]);
   const removeIngredientLine = (i: number) => setIngredients((prev) => prev.filter((_, idx) => idx !== i));
+
   const updateIngredient = (i: number, field: keyof IngredientLine, value: string) =>
-    setIngredients((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: field === "quantity" ? Number(value) : value } : item)));
+    setIngredients((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== i) return item;
+        if (field === "quantity") return { ...item, quantity: Number(value) };
+        if (field === "product_id") {
+          const prod = productMap.get(value);
+          const defaultUnit = prod ? getDefaultRecipeUnit(prod.unit) : "unidad";
+          return { ...item, product_id: value, unit: defaultUnit };
+        }
+        return { ...item, [field]: value };
+      })
+    );
 
   const resetForm = () => { setName(""); setDescription(""); setIngredients([]); };
 
@@ -73,7 +91,7 @@ export default function Recipes() {
       const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
       if (validIngredients.length > 0) {
         const { error: ingError } = await supabase.from("recipe_ingredients").insert(
-          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity }))
+          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit }))
         );
         if (ingError) throw ingError;
       }
@@ -146,7 +164,8 @@ export default function Recipes() {
 
                     {ingredients.map((ing, i) => {
                       const prod = productMap.get(ing.product_id);
-                      const lineCost = prod ? Number(prod.average_cost) * ing.quantity : 0;
+                      const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
+                      const lineCost = calcLineCost(ing);
                       return (
                         <div key={i} className="flex items-end gap-2">
                           <div className="flex-1 space-y-1">
@@ -163,6 +182,21 @@ export default function Recipes() {
                           <div className="w-24 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
                             <Input type="number" value={ing.quantity || ""} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} min="0.01" step="0.01" />
+                          </div>
+                          <div className="w-20 space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
+                            {availableUnits.length > 1 ? (
+                              <Select value={ing.unit} onValueChange={(v) => updateIngredient(i, "unit", v)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {availableUnits.map((u) => (
+                                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
+                            )}
                           </div>
                           <div className="w-24 text-right space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
@@ -202,8 +236,13 @@ export default function Recipes() {
             <p className="text-muted-foreground col-span-full text-center py-12">Sin recetas registradas</p>
           ) : (
             recipes.map((recipe) => {
-              const cost = calcRecipeCost(recipe.recipe_ingredients ?? []);
-              const ingCount = recipe.recipe_ingredients?.length ?? 0;
+              const ings = (recipe.recipe_ingredients ?? []).map((ri) => ({
+                product_id: ri.product_id,
+                quantity: Number(ri.quantity),
+                unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
+              }));
+              const cost = calcRecipeCost(ings);
+              const ingCount = ings.length;
               return (
                 <Card key={recipe.id} className="group hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
@@ -247,43 +286,49 @@ export default function Recipes() {
                 <ChefHat className="h-5 w-5 text-primary" /> {viewedRecipe?.name}
               </DialogTitle>
             </DialogHeader>
-            {viewedRecipe && (
-              <div className="space-y-4">
-                {viewedRecipe.description && (
-                  <p className="text-sm text-muted-foreground">{viewedRecipe.description}</p>
-                )}
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ingrediente</TableHead>
-                      <TableHead className="text-right">Cantidad</TableHead>
-                      <TableHead className="text-right">Costo Unit.</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {viewedRecipe.recipe_ingredients?.map((ing) => {
-                      const prod = productMap.get(ing.product_id);
-                      const sub = prod ? Number(prod.average_cost) * Number(ing.quantity) : 0;
-                      return (
-                        <TableRow key={ing.id}>
-                          <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
-                          <TableCell className="text-right">{Number(ing.quantity)} {prod?.unit}</TableCell>
-                          <TableCell className="text-right">${Number(prod?.average_cost ?? 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-semibold">${sub.toFixed(2)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Costo teórico total</span>
-                  <span className="font-heading text-xl font-bold">
-                    ${calcRecipeCost(viewedRecipe.recipe_ingredients ?? []).toFixed(2)}
-                  </span>
+            {viewedRecipe && (() => {
+              const ings = (viewedRecipe.recipe_ingredients ?? []).map((ri) => ({
+                ...ri,
+                unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
+              }));
+              return (
+                <div className="space-y-4">
+                  {viewedRecipe.description && (
+                    <p className="text-sm text-muted-foreground">{viewedRecipe.description}</p>
+                  )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ingrediente</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Costo Unit.</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ings.map((ing) => {
+                        const prod = productMap.get(ing.product_id);
+                        const sub = calcLineCost({ product_id: ing.product_id, quantity: Number(ing.quantity), unit: ing.unit });
+                        return (
+                          <TableRow key={ing.id}>
+                            <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
+                            <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
+                            <TableCell className="text-right">${Number(prod?.average_cost ?? 0).toFixed(2)}/{prod?.unit}</TableCell>
+                            <TableCell className="text-right font-semibold">${sub.toFixed(2)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  <div className="rounded-md bg-muted p-3 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Costo teórico total</span>
+                    <span className="font-heading text-xl font-bold">
+                      ${calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </DialogContent>
         </Dialog>
       </div>
