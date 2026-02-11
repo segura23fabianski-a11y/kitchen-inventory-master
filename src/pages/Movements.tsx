@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2 } from "lucide-react";
+import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -142,10 +143,12 @@ export default function Movements() {
               {hasRole("cocina") ? "Registro de consumos" : "Registro de entradas, salidas y ajustes"}
             </p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Movimiento</Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            {allowedTypes.includes("entrada") && <BulkUploadDialog products={products} />}
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Movimiento</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="font-heading">Registrar Movimiento</DialogTitle>
@@ -198,7 +201,8 @@ export default function Movements() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         <Card>
