@@ -1,0 +1,1 @@
+ALTER TABLE public.products ADD COLUMN average_cost numeric NOT NULL DEFAULT 0;
