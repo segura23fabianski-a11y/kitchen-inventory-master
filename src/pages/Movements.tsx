@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2 } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -117,6 +117,19 @@ export default function Movements() {
     return <Badge variant="secondary">Ajuste</Badge>;
   };
 
+  const deleteMovement = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("inventory_movements").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["movements"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Movimiento eliminado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const isValid = productId && Number(quantity) > 0;
 
   return (
@@ -200,6 +213,7 @@ export default function Movements() {
                   <TableHead>Costo Total</TableHead>
                   <TableHead>Usuario</TableHead>
                   <TableHead>Fecha</TableHead>
+                  {hasRole("admin") && <TableHead className="w-12"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -222,6 +236,13 @@ export default function Movements() {
                       <TableCell className="text-muted-foreground text-sm">
                         {format(new Date(m.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
                       </TableCell>
+                      {hasRole("admin") && (
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteMovement.mutate(m.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
