@@ -3,25 +3,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 export function usePermissions() {
-  const { roles } = useAuth();
+  const { user } = useAuth();
 
   const { data: permissions, isLoading } = useQuery({
-    queryKey: ["role-permissions", roles],
+    queryKey: ["my-permissions", user?.id],
     queryFn: async () => {
-      if (!roles.length) return [];
-      const { data, error } = await supabase
-        .from("role_permissions")
-        .select("function_key, role")
-        .in("role", roles);
+      const { data, error } = await supabase.rpc("get_my_permissions");
       if (error) throw error;
-      return data;
+      return (data as { function_key: string }[]).map((r) => r.function_key);
     },
-    enabled: roles.length > 0,
+    enabled: !!user,
   });
 
   const hasPermission = (functionKey: string) => {
     if (!permissions) return false;
-    return permissions.some((p) => p.function_key === functionKey);
+    return permissions.includes(functionKey);
   };
 
   return { permissions, hasPermission, isLoading };

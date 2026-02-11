@@ -302,6 +302,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_permissions: {
+        Args: never
+        Returns: {
+          function_key: string
+        }[]
+      }
+      has_permission: {
+        Args: { _function_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
