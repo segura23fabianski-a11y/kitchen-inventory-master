@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChefHat, DollarSign, Eye } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Pencil } from "lucide-react";
 
 interface IngredientLine {
   product_id: string;
@@ -24,6 +24,8 @@ interface IngredientLine {
 export default function Recipes() {
   const [open, setOpen] = useState(false);
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
+  const [editYieldId, setEditYieldId] = useState<string | null>(null);
+  const [editYieldValue, setEditYieldValue] = useState(0.25);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [yieldPerPortion, setYieldPerPortion] = useState(0.25);
@@ -115,6 +117,19 @@ export default function Recipes() {
       qc.invalidateQueries({ queryKey: ["recipes"] });
       setViewRecipeId(null);
       toast({ title: "Receta eliminada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateYield = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("recipes").update({ yield_per_portion: editYieldValue }).eq("id", editYieldId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recipes"] });
+      setEditYieldId(null);
+      toast({ title: "Rendimiento actualizado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -267,7 +282,17 @@ export default function Recipes() {
                       <span className="text-muted-foreground">{ingCount} ingrediente{ingCount !== 1 ? "s" : ""}</span>
                       <span className="font-heading font-bold text-lg">${cost.toFixed(2)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">Rinde: {Number((recipe as any).yield_per_portion ?? 0.25)} kg/porción</p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Rinde: {Number((recipe as any).yield_per_portion ?? 0.25)} kg/porción</span>
+                      {canManage && (
+                        <button
+                          className="text-primary hover:underline flex items-center gap-0.5"
+                          onClick={() => { setEditYieldId(recipe.id); setEditYieldValue(Number((recipe as any).yield_per_portion ?? 0.25)); }}
+                        >
+                          <Pencil className="h-3 w-3" /> Editar
+                        </button>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
@@ -336,6 +361,25 @@ export default function Recipes() {
                 </div>
               );
             })()}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit yield dialog */}
+        <Dialog open={!!editYieldId} onOpenChange={(o) => { if (!o) setEditYieldId(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Editar rendimiento</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); updateYield.mutate(); }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Rendimiento por porción (kg)</Label>
+                <Input type="number" value={editYieldValue || ""} onChange={(e) => setEditYieldValue(Number(e.target.value))} min="0.001" step="0.001" />
+                <p className="text-xs text-muted-foreground">Ej: 0.250 = 250g por porción</p>
+              </div>
+              <Button type="submit" className="w-full" disabled={updateYield.isPending || editYieldValue <= 0}>
+                {updateYield.isPending ? "Guardando..." : "Guardar"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
