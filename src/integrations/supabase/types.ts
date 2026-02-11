@@ -100,6 +100,7 @@ export type Database = {
           name: string
           unit: string
           updated_at: string
+          warehouse_id: string | null
         }
         Insert: {
           average_cost?: number
@@ -111,6 +112,7 @@ export type Database = {
           name: string
           unit?: string
           updated_at?: string
+          warehouse_id?: string | null
         }
         Update: {
           average_cost?: number
@@ -122,6 +124,7 @@ export type Database = {
           name?: string
           unit?: string
           updated_at?: string
+          warehouse_id?: string | null
         }
         Relationships: [
           {
@@ -129,6 +132,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -297,6 +307,27 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      warehouses: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
