@@ -216,6 +216,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          yield_per_portion: number
         }
         Insert: {
           created_at?: string
@@ -223,6 +224,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
+          yield_per_portion?: number
         }
         Update: {
           created_at?: string
@@ -230,6 +232,7 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+          yield_per_portion?: number
         }
         Relationships: []
       }
@@ -353,15 +356,25 @@ export type Database = {
         }
         Returns: boolean
       }
-      register_recipe_consumption: {
-        Args: {
-          _notes: string
-          _portions: number
-          _recipe_id: string
-          _user_id: string
-        }
-        Returns: undefined
-      }
+      register_recipe_consumption:
+        | {
+            Args: {
+              _notes: string
+              _portions: number
+              _recipe_id: string
+              _user_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _notes: string
+              _portions: number
+              _recipe_id: string
+              _user_id: string
+            }
+            Returns: undefined
+          }
     }
     Enums: {
       app_role: "admin" | "cocina" | "bodega"
