@@ -12,6 +12,7 @@ import Categories from "./pages/Categories";
 import Users from "./pages/Users";
 import Recipes from "./pages/Recipes";
 import KitchenKiosk from "./pages/KitchenKiosk";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const AppRoutes = () => (
     <Route path="/users" element={<ProtectedRoute roles={["admin"]}><Users /></ProtectedRoute>} />
     <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
     <Route path="/kitchen" element={<ProtectedRoute><KitchenKiosk /></ProtectedRoute>} />
+    <Route path="/reports" element={<ProtectedRoute roles={["admin"]}><Reports /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
