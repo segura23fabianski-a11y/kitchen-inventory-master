@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { to: "/movements", icon: ArrowRightLeft, label: "Movimientos" },
   { to: "/categories", icon: Tag, label: "Categorías", roles: ["admin"] },
   { to: "/recipes", icon: ChefHat, label: "Recetas" },
+  { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina" },
 ];
 
 const adminItems = [

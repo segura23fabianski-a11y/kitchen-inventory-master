@@ -42,6 +42,7 @@ export type Database = {
           notes: string | null
           product_id: string
           quantity: number
+          recipe_id: string | null
           total_cost: number
           type: string
           unit_cost: number
@@ -53,6 +54,7 @@ export type Database = {
           notes?: string | null
           product_id: string
           quantity: number
+          recipe_id?: string | null
           total_cost?: number
           type: string
           unit_cost?: number
@@ -64,6 +66,7 @@ export type Database = {
           notes?: string | null
           product_id?: string
           quantity?: number
+          recipe_id?: string | null
           total_cost?: number
           type?: string
           unit_cost?: number
@@ -75,6 +78,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
         ]
