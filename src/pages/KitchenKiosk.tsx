@@ -61,17 +61,12 @@ export default function KitchenKiosk() {
   const confirmConsumption = useMutation({
     mutationFn: async () => {
       const recipeName = recipes?.find((r) => r.id === recipeId)?.name ?? "";
-      const inserts = lines.map((l) => ({
-        product_id: l.product.id,
-        recipe_id: recipeId,
-        user_id: user!.id,
-        type: "salida" as const,
-        quantity: l.productQty,
-        unit_cost: l.unitCost,
-        total_cost: l.totalCost,
-        notes: `Consumo: ${recipeName} x${portions}`,
-      }));
-      const { error } = await supabase.from("inventory_movements").insert(inserts);
+      const { error } = await supabase.rpc("register_recipe_consumption", {
+        _recipe_id: recipeId,
+        _user_id: user!.id,
+        _portions: portions,
+        _notes: `Consumo: ${recipeName} x${portions}`,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
