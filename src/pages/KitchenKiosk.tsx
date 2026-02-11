@@ -29,17 +29,11 @@ export default function KitchenKiosk() {
   const { data: recipes } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, yield_per_portion").order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name").order("name");
       if (error) throw error;
       return data;
     },
   });
-
-  const selectedRecipe = recipes?.find((r) => r.id === recipeId);
-  const yieldPerPortion = Number(selectedRecipe?.yield_per_portion ?? 0.25);
-
-  // Calculate effective portions based on mode
-  const effectivePortions = mode === "portions" ? portions : yieldPerPortion > 0 ? weightKg / yieldPerPortion : 0;
 
   const { data: ingredients } = useQuery({
     queryKey: ["recipe-ingredients", recipeId],
@@ -53,6 +47,16 @@ export default function KitchenKiosk() {
     },
     enabled: !!recipeId,
   });
+
+  // Total yield per portion = sum of yield_per_portion of all ingredients
+  const totalYieldPerPortion = (ingredients ?? []).reduce(
+    (sum, ing) => sum + Number((ing as any).yield_per_portion ?? 0), 0
+  );
+
+  // Calculate effective portions based on mode
+  const effectivePortions = mode === "portions"
+    ? portions
+    : totalYieldPerPortion > 0 ? weightKg / totalYieldPerPortion : 0;
 
   const lines = (ingredients ?? []).map((ing) => {
     const product = (ing as any).products;
@@ -68,6 +72,8 @@ export default function KitchenKiosk() {
   const hasInsufficient = lines.some((l) => l.insufficient);
   const grandTotal = lines.reduce((s, l) => s + l.totalCost, 0);
   const isValid = recipeId && ingredients && ingredients.length > 0 && effectivePortions > 0 && !hasInsufficient;
+
+  const selectedRecipe = recipes?.find((r) => r.id === recipeId);
 
   const confirmConsumption = useMutation({
     mutationFn: async () => {
@@ -155,9 +161,11 @@ export default function KitchenKiosk() {
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Produce: {(portions * yieldPerPortion).toFixed(3)} kg
-                    </p>
+                    {totalYieldPerPortion > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Produce: {(portions * totalYieldPerPortion).toFixed(3)} kg
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -170,9 +178,15 @@ export default function KitchenKiosk() {
                       step="0.001"
                       className="w-32 text-lg font-bold"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Equivale a: {effectivePortions.toFixed(2)} porciones (rinde {yieldPerPortion} kg/porción)
-                    </p>
+                    {totalYieldPerPortion > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Equivale a: {effectivePortions.toFixed(2)} porciones (rinde {totalYieldPerPortion.toFixed(3)} kg/porción)
+                      </p>
+                    ) : (
+                      <p className="text-xs text-destructive">
+                        Los ingredientes no tienen rendimiento configurado. Configúralo en Recetas.
+                      </p>
+                    )}
                   </div>
                 )}
               </>

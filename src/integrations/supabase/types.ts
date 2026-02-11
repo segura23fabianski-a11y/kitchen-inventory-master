@@ -175,6 +175,7 @@ export type Database = {
           quantity: number
           recipe_id: string
           unit: string
+          yield_per_portion: number
         }
         Insert: {
           created_at?: string
@@ -183,6 +184,7 @@ export type Database = {
           quantity?: number
           recipe_id: string
           unit?: string
+          yield_per_portion?: number
         }
         Update: {
           created_at?: string
@@ -191,6 +193,7 @@ export type Database = {
           quantity?: number
           recipe_id?: string
           unit?: string
+          yield_per_portion?: number
         }
         Relationships: [
           {
@@ -216,7 +219,6 @@ export type Database = {
           id: string
           name: string
           updated_at: string
-          yield_per_portion: number
         }
         Insert: {
           created_at?: string
@@ -224,7 +226,6 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
-          yield_per_portion?: number
         }
         Update: {
           created_at?: string
@@ -232,7 +233,6 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
-          yield_per_portion?: number
         }
         Relationships: []
       }

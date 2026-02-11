@@ -13,22 +13,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Pencil } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye } from "lucide-react";
 
 interface IngredientLine {
   product_id: string;
   quantity: number;
   unit: string;
+  yield_per_portion: number;
 }
 
 export default function Recipes() {
   const [open, setOpen] = useState(false);
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
-  const [editYieldId, setEditYieldId] = useState<string | null>(null);
-  const [editYieldValue, setEditYieldValue] = useState(0.25);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [yieldPerPortion, setYieldPerPortion] = useState(0.25);
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
   const { hasRole } = useAuth();
   const { toast } = useToast();
@@ -68,14 +66,14 @@ export default function Recipes() {
   const calcRecipeCost = (items: { product_id: string; quantity: number; unit: string }[]) =>
     items.reduce((sum, item) => sum + calcLineCost(item), 0);
 
-  const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g" }]);
+  const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
   const removeIngredientLine = (i: number) => setIngredients((prev) => prev.filter((_, idx) => idx !== i));
 
   const updateIngredient = (i: number, field: keyof IngredientLine, value: string) =>
     setIngredients((prev) =>
       prev.map((item, idx) => {
         if (idx !== i) return item;
-        if (field === "quantity") return { ...item, quantity: Number(value) };
+        if (field === "quantity" || field === "yield_per_portion") return { ...item, [field]: Number(value) };
         if (field === "product_id") {
           const prod = productMap.get(value);
           const defaultUnit = prod ? getDefaultRecipeUnit(prod.unit) : "unidad";
@@ -85,16 +83,16 @@ export default function Recipes() {
       })
     );
 
-  const resetForm = () => { setName(""); setDescription(""); setYieldPerPortion(0.25); setIngredients([]); };
+  const resetForm = () => { setName(""); setDescription(""); setIngredients([]); };
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, yield_per_portion: yieldPerPortion }).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description }).select("id").single();
       if (error) throw error;
       const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
       if (validIngredients.length > 0) {
         const { error: ingError } = await supabase.from("recipe_ingredients").insert(
-          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit }))
+          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion }))
         );
         if (ingError) throw ingError;
       }
@@ -121,14 +119,13 @@ export default function Recipes() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const updateYield = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("recipes").update({ yield_per_portion: editYieldValue }).eq("id", editYieldId!);
+  const updateIngredientYield = useMutation({
+    mutationFn: async ({ id, yield_per_portion }: { id: string; yield_per_portion: number }) => {
+      const { error } = await supabase.from("recipe_ingredients").update({ yield_per_portion }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
-      setEditYieldId(null);
       toast({ title: "Rendimiento actualizado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -164,11 +161,6 @@ export default function Recipes() {
                   <div className="space-y-2">
                     <Label>Descripción (opcional)</Label>
                     <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Instrucciones o notas..." maxLength={500} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Rendimiento por porción (kg) *</Label>
-                    <Input type="number" value={yieldPerPortion || ""} onChange={(e) => setYieldPerPortion(Number(e.target.value))} min="0.001" step="0.001" placeholder="Ej: 0.250" />
-                    <p className="text-xs text-muted-foreground">Peso en kg que produce una porción de esta receta</p>
                   </div>
 
                   <div className="space-y-3">
@@ -219,6 +211,10 @@ export default function Recipes() {
                               <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
                             )}
                           </div>
+                          <div className="w-20 space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
+                            <Input type="number" value={ing.yield_per_portion || ""} onChange={(e) => updateIngredient(i, "yield_per_portion", e.target.value)} min="0" step="0.001" placeholder="0.000" />
+                          </div>
                           <div className="w-24 text-right space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
                             <p className="h-10 flex items-center justify-end text-sm font-medium">${lineCost.toFixed(2)}</p>
@@ -261,8 +257,10 @@ export default function Recipes() {
                 product_id: ri.product_id,
                 quantity: Number(ri.quantity),
                 unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
+                yield_per_portion: Number((ri as any).yield_per_portion ?? 0),
               }));
               const cost = calcRecipeCost(ings);
+              const totalYield = ings.reduce((s, i) => s + i.yield_per_portion, 0);
               const ingCount = ings.length;
               return (
                 <Card key={recipe.id} className="group hover:shadow-md transition-shadow">
@@ -282,17 +280,9 @@ export default function Recipes() {
                       <span className="text-muted-foreground">{ingCount} ingrediente{ingCount !== 1 ? "s" : ""}</span>
                       <span className="font-heading font-bold text-lg">${cost.toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Rinde: {Number((recipe as any).yield_per_portion ?? 0.25)} kg/porción</span>
-                      {canManage && (
-                        <button
-                          className="text-primary hover:underline flex items-center gap-0.5"
-                          onClick={() => { setEditYieldId(recipe.id); setEditYieldValue(Number((recipe as any).yield_per_portion ?? 0.25)); }}
-                        >
-                          <Pencil className="h-3 w-3" /> Editar
-                        </button>
-                      )}
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Rinde: {totalYield.toFixed(3)} kg/porción
+                    </p>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
@@ -333,6 +323,7 @@ export default function Recipes() {
                       <TableRow>
                         <TableHead>Ingrediente</TableHead>
                         <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Rinde (kg)</TableHead>
                         <TableHead className="text-right">Costo Unit.</TableHead>
                         <TableHead className="text-right">Subtotal</TableHead>
                       </TableRow>
@@ -345,6 +336,20 @@ export default function Recipes() {
                           <TableRow key={ing.id}>
                             <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
                             <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
+                            <TableCell className="text-right">
+                              {canManage ? (
+                                <Input
+                                  type="number"
+                                  className="w-20 h-8 text-right inline-block"
+                                  value={Number((ing as any).yield_per_portion) || ""}
+                                  onChange={(e) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(e.target.value) })}
+                                  min="0"
+                                  step="0.001"
+                                />
+                              ) : (
+                                <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-right">${Number(prod?.average_cost ?? 0).toFixed(2)}/{prod?.unit}</TableCell>
                             <TableCell className="text-right font-semibold">${sub.toFixed(2)}</TableCell>
                           </TableRow>
@@ -364,24 +369,6 @@ export default function Recipes() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit yield dialog */}
-        <Dialog open={!!editYieldId} onOpenChange={(o) => { if (!o) setEditYieldId(null); }}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="font-heading">Editar rendimiento</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={(e) => { e.preventDefault(); updateYield.mutate(); }} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Rendimiento por porción (kg)</Label>
-                <Input type="number" value={editYieldValue || ""} onChange={(e) => setEditYieldValue(Number(e.target.value))} min="0.001" step="0.001" />
-                <p className="text-xs text-muted-foreground">Ej: 0.250 = 250g por porción</p>
-              </div>
-              <Button type="submit" className="w-full" disabled={updateYield.isPending || editYieldValue <= 0}>
-                {updateYield.isPending ? "Guardando..." : "Guardar"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );
