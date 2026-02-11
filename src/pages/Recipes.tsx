@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import { convertToProductUnit, getRecipeUnits, getDefaultRecipeUnit } from "@/lib/unit-conversion";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,13 @@ export default function Recipes() {
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
   const { hasRole } = useAuth();
+  const { hasPermission } = usePermissions();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const canManage = hasRole("admin") || hasRole("bodega");
+  const canCreate = hasPermission("recipes_create");
+  const canUpdate = hasPermission("recipes_update");
+  const canDelete = hasPermission("recipes_delete");
+  const canManage = canCreate || canUpdate;
 
   const { data: products } = useQuery({
     queryKey: ["products"],
@@ -144,7 +149,7 @@ export default function Recipes() {
             <h1 className="font-heading text-3xl font-bold">Recetas</h1>
             <p className="text-muted-foreground">Preparaciones con ingredientes y costo teórico</p>
           </div>
-          {canManage && (
+          {canCreate && (
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nueva Receta</Button>
@@ -287,7 +292,7 @@ export default function Recipes() {
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
                       </Button>
-                      {canManage && (
+                      {canDelete && (
                         <Button variant="ghost" size="sm" onClick={() => deleteRecipe.mutate(recipe.id)} disabled={deleteRecipe.isPending}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>

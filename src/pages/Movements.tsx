@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,9 @@ export default function Movements() {
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const { user, hasRole } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission("movements_create");
+  const canDelete = hasPermission("movements_delete");
 
   const allowedTypes = hasRole("admin")
     ? ["entrada", "salida", "ajuste"]
@@ -143,6 +147,7 @@ export default function Movements() {
               {hasRole("cocina") ? "Registro de consumos" : "Registro de entradas, salidas y ajustes"}
             </p>
           </div>
+          {canCreate && (
           <div className="flex items-center gap-2">
             {allowedTypes.includes("entrada") && <BulkUploadDialog products={products} />}
             <Dialog open={open} onOpenChange={setOpen}>
@@ -203,6 +208,7 @@ export default function Movements() {
             </DialogContent>
             </Dialog>
           </div>
+          )}
         </div>
 
         <Card>
@@ -217,7 +223,7 @@ export default function Movements() {
                   <TableHead>Costo Total</TableHead>
                   <TableHead>Usuario</TableHead>
                   <TableHead>Fecha</TableHead>
-                  {hasRole("admin") && <TableHead className="w-12"></TableHead>}
+                  {canDelete && <TableHead className="w-12"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -240,7 +246,7 @@ export default function Movements() {
                       <TableCell className="text-muted-foreground text-sm">
                         {format(new Date(m.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
                       </TableCell>
-                      {hasRole("admin") && (
+                      {canDelete && (
                         <TableCell>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteMovement.mutate(m.id)}>
                             <Trash2 className="h-4 w-4" />

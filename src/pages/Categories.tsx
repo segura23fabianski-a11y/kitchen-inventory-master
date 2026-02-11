@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/use-permissions";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,10 @@ export default function Categories() {
   const [description, setDescription] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission("categories_create");
+  const canUpdate = hasPermission("categories_update");
+  const canDelete = hasPermission("categories_delete");
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ["categories"],
@@ -82,9 +87,9 @@ export default function Categories() {
             <p className="text-muted-foreground">Organiza los productos por categoría</p>
           </div>
           <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); else setOpen(true); }}>
-            <DialogTrigger asChild>
+            {canCreate && <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" /> Nueva Categoría</Button>
-            </DialogTrigger>
+            </DialogTrigger>}
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="font-heading">{editingId ? "Editar" : "Agregar"} Categoría</DialogTitle>
@@ -113,7 +118,7 @@ export default function Categories() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Descripción</TableHead>
-                  <TableHead className="w-24 text-right">Acciones</TableHead>
+                  {(canUpdate || canDelete) && <TableHead className="w-24 text-right">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -126,11 +131,13 @@ export default function Categories() {
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell className="text-muted-foreground">{c.description || "—"}</TableCell>
+                      {(canUpdate || canDelete) && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
+                          {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
                             <Pencil className="h-4 w-4" />
-                          </Button>
+                          </Button>}
+                          {canDelete && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
@@ -152,8 +159,10 @@ export default function Categories() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          )}
                         </div>
                       </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
