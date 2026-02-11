@@ -26,6 +26,7 @@ export default function Recipes() {
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [yieldPerPortion, setYieldPerPortion] = useState(0.25);
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
   const { hasRole } = useAuth();
   const { toast } = useToast();
@@ -82,11 +83,11 @@ export default function Recipes() {
       })
     );
 
-  const resetForm = () => { setName(""); setDescription(""); setIngredients([]); };
+  const resetForm = () => { setName(""); setDescription(""); setYieldPerPortion(0.25); setIngredients([]); };
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description }).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, yield_per_portion: yieldPerPortion }).select("id").single();
       if (error) throw error;
       const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
       if (validIngredients.length > 0) {
@@ -148,6 +149,11 @@ export default function Recipes() {
                   <div className="space-y-2">
                     <Label>Descripción (opcional)</Label>
                     <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Instrucciones o notas..." maxLength={500} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rendimiento por porción (kg) *</Label>
+                    <Input type="number" value={yieldPerPortion || ""} onChange={(e) => setYieldPerPortion(Number(e.target.value))} min="0.001" step="0.001" placeholder="Ej: 0.250" />
+                    <p className="text-xs text-muted-foreground">Peso en kg que produce una porción de esta receta</p>
                   </div>
 
                   <div className="space-y-3">
@@ -261,6 +267,7 @@ export default function Recipes() {
                       <span className="text-muted-foreground">{ingCount} ingrediente{ingCount !== 1 ? "s" : ""}</span>
                       <span className="font-heading font-bold text-lg">${cost.toFixed(2)}</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">Rinde: {Number((recipe as any).yield_per_portion ?? 0.25)} kg/porción</p>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle

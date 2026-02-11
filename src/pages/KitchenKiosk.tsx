@@ -10,13 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { ChefHat, CheckCircle2, AlertTriangle, Minus, Plus } from "lucide-react";
+import { ChefHat, CheckCircle2, AlertTriangle, Minus, Plus, Scale, Hash } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
+
+type Mode = "portions" | "weight";
 
 export default function KitchenKiosk() {
   const [recipeId, setRecipeId] = useState("");
+  const [mode, setMode] = useState<Mode>("portions");
   const [portions, setPortions] = useState(1);
+  const [weightKg, setWeightKg] = useState(1);
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -24,11 +29,17 @@ export default function KitchenKiosk() {
   const { data: recipes } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name").order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name, yield_per_portion").order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  const selectedRecipe = recipes?.find((r) => r.id === recipeId);
+  const yieldPerPortion = Number(selectedRecipe?.yield_per_portion ?? 0.25);
+
+  // Calculate effective portions based on mode
+  const effectivePortions = mode === "portions" ? portions : yieldPerPortion > 0 ? weightKg / yieldPerPortion : 0;
 
   const { data: ingredients } = useQuery({
     queryKey: ["recipe-ingredients", recipeId],
@@ -45,7 +56,7 @@ export default function KitchenKiosk() {
 
   const lines = (ingredients ?? []).map((ing) => {
     const product = (ing as any).products;
-    const recipeQty = Number(ing.quantity) * portions;
+    const recipeQty = Number(ing.quantity) * effectivePortions;
     const productQty = convertToProductUnit(recipeQty, ing.unit, product?.unit ?? ing.unit);
     const stock = Number(product?.current_stock ?? 0);
     const unitCost = Number(product?.average_cost ?? 0);
@@ -56,16 +67,17 @@ export default function KitchenKiosk() {
 
   const hasInsufficient = lines.some((l) => l.insufficient);
   const grandTotal = lines.reduce((s, l) => s + l.totalCost, 0);
-  const isValid = recipeId && ingredients && ingredients.length > 0 && portions >= 1 && !hasInsufficient;
+  const isValid = recipeId && ingredients && ingredients.length > 0 && effectivePortions > 0 && !hasInsufficient;
 
   const confirmConsumption = useMutation({
     mutationFn: async () => {
-      const recipeName = recipes?.find((r) => r.id === recipeId)?.name ?? "";
+      const recipeName = selectedRecipe?.name ?? "";
+      const label = mode === "portions" ? `x${portions} porciones` : `${weightKg} kg (≈${effectivePortions.toFixed(2)} porciones)`;
       const { error } = await supabase.rpc("register_recipe_consumption", {
         _recipe_id: recipeId,
         _user_id: user!.id,
-        _portions: portions,
-        _notes: `Consumo: ${recipeName} x${portions}`,
+        _portions: effectivePortions,
+        _notes: `Consumo: ${recipeName} ${label}`,
       });
       if (error) throw error;
     },
@@ -73,8 +85,10 @@ export default function KitchenKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["recipe-ingredients", recipeId] });
-      toast({ title: "Consumo registrado", description: `${lines.length} ingredientes descontados (x${portions})` });
+      const label = mode === "portions" ? `${portions} porciones` : `${weightKg} kg`;
+      toast({ title: "Consumo registrado", description: `${lines.length} ingredientes descontados (${label})` });
       setPortions(1);
+      setWeightKg(1);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -94,7 +108,7 @@ export default function KitchenKiosk() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select value={recipeId} onValueChange={(v) => { setRecipeId(v); setPortions(1); }}>
+            <Select value={recipeId} onValueChange={(v) => { setRecipeId(v); setPortions(1); setWeightKg(1); setMode("portions"); }}>
               <SelectTrigger><SelectValue placeholder="Elegir receta..." /></SelectTrigger>
               <SelectContent>
                 {recipes?.map((r) => (
@@ -104,24 +118,64 @@ export default function KitchenKiosk() {
             </Select>
 
             {recipeId && (
-              <div className="space-y-2">
-                <Label>Cantidad de porciones / lotes</Label>
-                <div className="flex items-center gap-3">
-                  <Button type="button" variant="outline" size="icon" onClick={() => setPortions(Math.max(1, portions - 1))} disabled={portions <= 1}>
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    value={portions}
-                    onChange={(e) => setPortions(Math.max(1, Math.round(Number(e.target.value) || 1)))}
-                    min="1"
-                    className="w-20 text-center text-lg font-bold"
-                  />
-                  <Button type="button" variant="outline" size="icon" onClick={() => setPortions(portions + 1)}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+              <>
+                <div className="space-y-3">
+                  <Label>Modo de producción</Label>
+                  <RadioGroup value={mode} onValueChange={(v) => setMode(v as Mode)} className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="portions" id="mode-portions" />
+                      <Label htmlFor="mode-portions" className="flex items-center gap-1 cursor-pointer">
+                        <Hash className="h-4 w-4" /> Porciones
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="weight" id="mode-weight" />
+                      <Label htmlFor="mode-weight" className="flex items-center gap-1 cursor-pointer">
+                        <Scale className="h-4 w-4" /> Peso total (kg)
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-              </div>
+
+                {mode === "portions" ? (
+                  <div className="space-y-2">
+                    <Label>Cantidad de porciones</Label>
+                    <div className="flex items-center gap-3">
+                      <Button type="button" variant="outline" size="icon" onClick={() => setPortions(Math.max(1, portions - 1))} disabled={portions <= 1}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={portions}
+                        onChange={(e) => setPortions(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+                        min="1"
+                        className="w-20 text-center text-lg font-bold"
+                      />
+                      <Button type="button" variant="outline" size="icon" onClick={() => setPortions(portions + 1)}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Produce: {(portions * yieldPerPortion).toFixed(3)} kg
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Peso total deseado (kg)</Label>
+                    <Input
+                      type="number"
+                      value={weightKg || ""}
+                      onChange={(e) => setWeightKg(Math.max(0.001, Number(e.target.value) || 0))}
+                      min="0.001"
+                      step="0.001"
+                      className="w-32 text-lg font-bold"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Equivale a: {effectivePortions.toFixed(2)} porciones (rinde {yieldPerPortion} kg/porción)
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -147,7 +201,7 @@ export default function KitchenKiosk() {
                     <TableRow key={l.ing.id}>
                       <TableCell className="font-medium">{l.product?.name}</TableCell>
                       <TableCell className="text-right">
-                        {l.recipeQty} {l.ing.unit}
+                        {l.recipeQty.toFixed(2)} {l.ing.unit}
                         {l.ing.unit !== l.product?.unit && (
                           <span className="text-muted-foreground text-xs ml-1">({l.productQty.toFixed(2)} {l.product?.unit})</span>
                         )}
