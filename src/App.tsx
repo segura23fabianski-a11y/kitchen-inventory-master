@@ -21,9 +21,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-type AppRole = "admin" | "cocina" | "bodega";
-
-function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: AppRole[] }) {
+function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { session, loading, hasRole, profileStatus } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
   if (!session) return <Navigate to="/auth" replace />;

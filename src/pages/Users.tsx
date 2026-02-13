@@ -14,20 +14,19 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
+import { useRoles } from "@/hooks/use-roles";
 import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock } from "lucide-react";
 
-const ROLES = ["admin", "cocina", "bodega"] as const;
-type AppRole = (typeof ROLES)[number];
-
 export default function Users() {
+  const { roleNames, getRoleLabel } = useRoles();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<AppRole>("bodega");
+  const [role, setRole] = useState("");
   const [addRoleUserId, setAddRoleUserId] = useState<string | null>(null);
-  const [newRole, setNewRole] = useState<AppRole>("bodega");
-  const [approveRole, setApproveRole] = useState<AppRole>("bodega");
+  const [newRole, setNewRole] = useState("");
+  const [approveRole, setApproveRole] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
   const restaurantId = useRestaurantId();
@@ -92,7 +91,7 @@ export default function Users() {
   });
 
   const approveUser = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       // 1. Update profile: set active, assign restaurant_id, approved_at
       const { error: profileError } = await supabase
         .from("profiles")
@@ -134,7 +133,7 @@ export default function Users() {
   });
 
   const addRole = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
       if (error) throw error;
     },
@@ -195,7 +194,7 @@ export default function Users() {
           activeProfiles.map((p) => {
             const userRoles = getRoles(p.user_id);
             const assignedRoleNames = userRoles.map((r) => r.role);
-            const availableRoles = ROLES.filter((r) => !assignedRoleNames.includes(r));
+            const availableRoles = roleNames.filter((r) => !assignedRoleNames.includes(r));
             return (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.full_name || "Sin nombre"}</TableCell>
@@ -228,13 +227,13 @@ export default function Users() {
                     {availableRoles.length > 0 && (
                       addRoleUserId === p.user_id ? (
                         <div className="flex items-center gap-2">
-                          <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
+                          <Select value={newRole} onValueChange={(v) => setNewRole(v)}>
                             <SelectTrigger className="w-32 h-8">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               {availableRoles.map((r) => (
-                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                                <SelectItem key={r} value={r}>{getRoleLabel(r)}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -304,13 +303,13 @@ export default function Users() {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center gap-2 justify-end">
-                  <Select value={approveRole} onValueChange={(v) => setApproveRole(v as AppRole)}>
+                  <Select value={approveRole} onValueChange={(v) => setApproveRole(v)}>
                     <SelectTrigger className="w-32 h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {ROLES.map((r) => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      {roleNames.map((r) => (
+                        <SelectItem key={r} value={r}>{getRoleLabel(r)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -390,12 +389,12 @@ export default function Users() {
                 </div>
                 <div className="space-y-2">
                   <Label>Rol inicial *</Label>
-                  <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select value={role} onValueChange={(v) => setRole(v)}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="bodega">Bodega</SelectItem>
-                      <SelectItem value="cocina">Cocina</SelectItem>
+                      {roleNames.map((r) => (
+                        <SelectItem key={r} value={r}>{getRoleLabel(r)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -2,17 +2,16 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "cocina" | "bodega";
 type ProfileStatus = "pending" | "active" | "blocked";
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  roles: AppRole[];
+  roles: string[];
   profileStatus: ProfileStatus | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  hasRole: (role: AppRole) => boolean;
+  hasRole: (role: string) => boolean;
   refetchProfile: () => Promise<void>;
 }
 
@@ -21,7 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
   const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("role")
       .eq("user_id", userId);
     if (data) {
-      setRoles(data.map((r) => r.role as AppRole));
+      setRoles(data.map((r) => r.role));
     }
   };
 
@@ -88,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const hasRole = (role: AppRole) => roles.includes(role);
+  const hasRole = (role: string) => roles.includes(role);
 
   return (
     <AuthContext.Provider value={{ session, user, roles, profileStatus, loading, signOut, hasRole, refetchProfile }}>
