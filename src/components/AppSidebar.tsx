@@ -25,7 +25,7 @@ const allNavItems: NavItem[] = [
   { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
 ];
 
-export default function AppSidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { signOut, user } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -34,7 +34,7 @@ export default function AppSidebar() {
   const adminItems = visibleItems.filter((i) => ["users", "roles"].includes(i.permKey));
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
+    <>
       <div className="flex h-16 items-center gap-3 px-6 border-b border-sidebar-border">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
           <Package className="h-5 w-5 text-sidebar-primary-foreground" />
@@ -44,12 +44,13 @@ export default function AppSidebar() {
         </span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {mainItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === "/"}
+            onClick={onNavigate}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -74,6 +75,7 @@ export default function AppSidebar() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -110,6 +112,27 @@ export default function AppSidebar() {
           </button>
         </div>
       </div>
+    </>
+  );
+}
+
+export function DesktopSidebar() {
+  return (
+    <aside className="fixed inset-y-0 left-0 z-30 hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
+      <SidebarContent />
     </aside>
   );
+}
+
+export function MobileSidebarContent({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex h-full flex-col bg-sidebar">
+      <SidebarContent onNavigate={onClose} />
+    </div>
+  );
+}
+
+// Default export for backward compat (not used anymore but safe)
+export default function AppSidebar() {
+  return <DesktopSidebar />;
 }
