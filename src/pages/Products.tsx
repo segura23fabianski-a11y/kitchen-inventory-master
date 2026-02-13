@@ -25,9 +25,10 @@ interface ProductForm {
   minStock: string;
   categoryId: string;
   warehouseId: string;
+  barcode: string;
 }
 
-const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "" };
+const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "" };
 
 export default function Products() {
   const { hasRole } = useAuth();
@@ -87,6 +88,7 @@ export default function Products() {
         min_stock: Number(form.minStock),
         category_id: form.categoryId || null,
         warehouse_id: form.warehouseId || null,
+        barcode: form.barcode.trim() || null,
       };
       if (editId) {
         const { error } = await supabase.from("products").update(payload).eq("id", editId);
@@ -154,6 +156,7 @@ export default function Products() {
       minStock: String(p.min_stock),
       categoryId: p.category_id ?? "",
       warehouseId: p.warehouse_id ?? "",
+      barcode: p.barcode ?? "",
     });
     setOpen(true);
   };
@@ -195,9 +198,10 @@ export default function Products() {
     XLSX.writeFile(wb, "plantilla_productos.xlsx");
   };
 
-  const filtered = products?.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products?.filter((p) => {
+    const q = search.toLowerCase();
+    return p.name.toLowerCase().includes(q) || (p.barcode && p.barcode.toLowerCase().includes(q));
+  });
 
   const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0;
 
@@ -254,6 +258,10 @@ export default function Products() {
                     <div className="space-y-2">
                       <Label>Stock Mínimo</Label>
                       <Input type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} min="0" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Código de barras</Label>
+                      <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Escanear o ingresar código..." maxLength={50} />
                     </div>
                     <div className="space-y-2">
                       <Label>Almacén</Label>
@@ -377,7 +385,7 @@ export default function Products() {
           <CardHeader>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-10" placeholder="Buscar productos..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-10" placeholder="Buscar por nombre o código de barras..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -385,6 +393,7 @@ export default function Products() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Código</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Almacén</TableHead>
                   <TableHead>Stock</TableHead>
@@ -396,13 +405,14 @@ export default function Products() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={canManage ? 8 : 7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : !filtered?.length ? (
-                  <TableRow><TableCell colSpan={canManage ? 8 : 7} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
                 ) : (
                   filtered.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs font-mono">{p.barcode ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{(p as any).categories?.name ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
                       <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
