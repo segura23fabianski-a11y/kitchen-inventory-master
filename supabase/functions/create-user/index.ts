@@ -37,19 +37,22 @@ serve(async (req) => {
     if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres");
     if (!["admin", "cocina", "bodega"].includes(role)) throw new Error("Rol inválido");
 
-    // Create user
+    // Create user (trigger will create profile with status='pending' and restaurant_id=NULL)
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name || "", restaurant_id: restaurant_id || "00000000-0000-0000-0000-000000000001" },
+      user_metadata: { full_name: full_name || "" },
     });
     if (createError) throw createError;
 
-    // Update profile name
-    if (full_name) {
-      await adminClient.from("profiles").update({ full_name }).eq("user_id", newUser.user.id);
-    }
+    // Set profile as active with restaurant_id (admin-created users are pre-approved)
+    await adminClient.from("profiles").update({
+      full_name: full_name || "",
+      restaurant_id: restaurant_id,
+      status: "active",
+      approved_at: new Date().toISOString(),
+    }).eq("user_id", newUser.user.id);
 
     // Assign role
     const { error: roleError } = await adminClient.from("user_roles").insert({
