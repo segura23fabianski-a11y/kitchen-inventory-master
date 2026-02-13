@@ -5,8 +5,14 @@ import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Layers } from "lucide-react";
+import { Shield, Layers, Plus, Pencil, Trash2 } from "lucide-react";
 
 const ROLES = ["admin", "cocina", "bodega"] as const;
 type AppRole = (typeof ROLES)[number];
@@ -23,9 +29,30 @@ const roleBadgeColor: Record<AppRole, string> = {
   bodega: "bg-success text-success-foreground",
 };
 
+const CATEGORIES = ["Inventario", "Catálogo", "Administración", "Reportes", "General"];
+
+type SystemFunction = {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  category: string;
+  sort_order: number;
+  created_at: string;
+};
+
 export default function Roles() {
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Dialog state for create/edit
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<SystemFunction | null>(null);
+  const [formKey, setFormKey] = useState("");
+  const [formLabel, setFormLabel] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formCategory, setFormCategory] = useState("General");
+  const [formSortOrder, setFormSortOrder] = useState(0);
 
   const { data: functions, isLoading: loadingFunctions } = useQuery({
     queryKey: ["system-functions"],
@@ -68,6 +95,105 @@ export default function Roles() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const createFunction = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("system_functions").insert({
+        key: formKey,
+        label: formLabel,
+        description: formDescription || null,
+        category: formCategory,
+        sort_order: formSortOrder,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["system-functions"] });
+      resetForm();
+      toast({ title: "Función creada exitosamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateFunction = useMutation({
+    mutationFn: async () => {
+      if (!editing) return;
+      const { error } = await supabase.from("system_functions").update({
+        key: formKey,
+        label: formLabel,
+        description: formDescription || null,
+        category: formCategory,
+        sort_order: formSortOrder,
+      }).eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["system-functions"] });
+      qc.invalidateQueries({ queryKey: ["all-role-permissions"] });
+      resetForm();
+      toast({ title: "Función actualizada exitosamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteFunction = useMutation({
+    mutationFn: async (id: string) => {
+      // Delete associated permissions first
+      const fn = functions?.find((f) => f.id === id);
+      if (fn) {
+        await supabase.from("role_permissions").delete().eq("function_key", fn.key);
+      }
+      const { error } = await supabase.from("system_functions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["system-functions"] });
+      qc.invalidateQueries({ queryKey: ["all-role-permissions"] });
+      toast({ title: "Función eliminada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const resetForm = () => {
+    setDialogOpen(false);
+    setEditing(null);
+    setFormKey("");
+    setFormLabel("");
+    setFormDescription("");
+    setFormCategory("General");
+    setFormSortOrder(0);
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormKey("");
+    setFormLabel("");
+    setFormDescription("");
+    setFormCategory("General");
+    setFormSortOrder((functions?.length ?? 0) + 1);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (fn: SystemFunction) => {
+    setEditing(fn);
+    setFormKey(fn.key);
+    setFormLabel(fn.label);
+    setFormDescription(fn.description || "");
+    setFormCategory(fn.category);
+    setFormSortOrder(fn.sort_order);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editing) {
+      updateFunction.mutate();
+    } else {
+      createFunction.mutate();
+    }
+  };
+
+  const isFormValid = formKey.trim().length > 0 && formLabel.trim().length > 0;
+
   // Group functions by category
   const grouped = (functions ?? []).reduce<Record<string, typeof functions>>((acc, fn) => {
     const cat = fn.category || "General";
@@ -81,9 +207,11 @@ export default function Roles() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-heading text-3xl font-bold">Roles y Permisos</h1>
-          <p className="text-muted-foreground">Configura qué funciones puede acceder cada rol</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-3xl font-bold">Roles y Permisos</h1>
+            <p className="text-muted-foreground">Configura qué funciones puede acceder cada rol</p>
+          </div>
         </div>
 
         {isLoading ? (
@@ -148,17 +276,99 @@ export default function Roles() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" /> Funciones del sistema registradas
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" /> Funciones del sistema
+              </CardTitle>
+              <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else openCreate(); }}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="mr-1 h-4 w-4" /> Nueva función</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="font-heading">{editing ? "Editar función" : "Crear función"}</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Clave (key) *</Label>
+                      <Input value={formKey} onChange={(e) => setFormKey(e.target.value)} placeholder="ej: products_create" disabled={!!editing} />
+                      {!!editing && <p className="text-xs text-muted-foreground">La clave no se puede cambiar</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nombre *</Label>
+                      <Input value={formLabel} onChange={(e) => setFormLabel(e.target.value)} placeholder="ej: Crear productos" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Descripción</Label>
+                      <Input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Descripción opcional" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Categoría</Label>
+                        <Select value={formCategory} onValueChange={setFormCategory}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Orden</Label>
+                        <Input type="number" value={formSortOrder} onChange={(e) => setFormSortOrder(Number(e.target.value))} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit" disabled={!isFormValid || createFunction.isPending || updateFunction.isPending}>
+                        {editing ? "Guardar cambios" : "Crear función"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {(functions ?? []).map((fn) => (
-                <div key={fn.key} className="rounded-lg border p-3">
-                  <p className="font-medium text-sm">{fn.label}</p>
-                  <p className="text-xs text-muted-foreground">{fn.description}</p>
-                  <Badge variant="secondary" className="mt-1 text-xs">{fn.category}</Badge>
+                <div key={fn.key} className="rounded-lg border p-3 group">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{fn.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{fn.description}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Badge variant="secondary" className="text-xs">{fn.category}</Badge>
+                        <span className="text-xs text-muted-foreground">({fn.key})</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(fn)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar función?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Se eliminará <strong>{fn.label}</strong> y todos los permisos asociados. No se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteFunction.mutate(fn.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
