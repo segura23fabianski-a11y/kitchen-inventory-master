@@ -15,7 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useRoles } from "@/hooks/use-roles";
-import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock } from "lucide-react";
+import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound } from "lucide-react";
+
+type EditingUser = { user_id: string; full_name: string };
 
 export default function Users() {
   const { roleNames, getRoleLabel } = useRoles();
@@ -27,6 +29,18 @@ export default function Users() {
   const [addRoleUserId, setAddRoleUserId] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
   const [approveRole, setApproveRole] = useState("");
+
+  // Edit user state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+
+  // Reset password state
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetUserName, setResetUserName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
   const restaurantId = useRestaurantId();
@@ -174,6 +188,56 @@ export default function Users() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateUser = useMutation({
+    mutationFn: async ({ user_id, full_name, email }: { user_id: string; full_name?: string; email?: string }) => {
+      const { data, error } = await supabase.functions.invoke("update-user", {
+        body: { user_id, full_name, email },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+      setEditDialogOpen(false);
+      setEditingUser(null);
+      toast({ title: "Usuario actualizado exitosamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const resetPassword = useMutation({
+    mutationFn: async ({ user_id, password }: { user_id: string; password: string }) => {
+      const { data, error } = await supabase.functions.invoke("update-user", {
+        body: { user_id, password },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      setResetDialogOpen(false);
+      setResetUserId(null);
+      setNewPassword("");
+      toast({ title: "Contraseña restablecida exitosamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openEditUser = (p: { user_id: string; full_name: string }) => {
+    setEditingUser(p);
+    setEditFullName(p.full_name || "");
+    setEditEmail("");
+    setEditDialogOpen(true);
+  };
+
+  const openResetPassword = (userId: string, name: string) => {
+    setResetUserId(userId);
+    setResetUserName(name);
+    setNewPassword("");
+    setResetDialogOpen(true);
+  };
+
   const isCreateValid = email.includes("@") && password.length >= 6 && role;
 
   const renderActiveTable = () => (
@@ -248,6 +312,12 @@ export default function Users() {
                         </Button>
                       )
                     )}
+                    <Button size="sm" variant="ghost" onClick={() => openEditUser(p)} title="Editar datos">
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => openResetPassword(p.user_id, p.full_name || "este usuario")} title="Restablecer contraseña">
+                      <KeyRound className="h-3 w-3" />
+                    </Button>
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => blockUser.mutate(p.user_id)}>
                       <Ban className="h-3 w-3" />
                     </Button>
@@ -499,6 +569,66 @@ export default function Users() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Edit User Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setEditingUser(null); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-heading">Editar Usuario</DialogTitle>
+              <DialogDescription>Actualiza el nombre o correo electrónico del usuario</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (editingUser) {
+                updateUser.mutate({
+                  user_id: editingUser.user_id,
+                  full_name: editFullName,
+                  ...(editEmail ? { email: editEmail } : {}),
+                });
+              }
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre completo</Label>
+                <Input value={editFullName} onChange={(e) => setEditFullName(e.target.value)} placeholder="Nombre completo" />
+              </div>
+              <div className="space-y-2">
+                <Label>Nuevo correo electrónico (opcional)</Label>
+                <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Dejar vacío para no cambiar" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={updateUser.isPending}>
+                  {updateUser.isPending ? "Guardando..." : "Guardar cambios"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reset Password Dialog */}
+        <Dialog open={resetDialogOpen} onOpenChange={(open) => { if (!open) { setResetDialogOpen(false); setResetUserId(null); setNewPassword(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-heading">Restablecer Contraseña</DialogTitle>
+              <DialogDescription>Nueva contraseña para <strong>{resetUserName}</strong></DialogDescription>
+            </DialogHeader>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (resetUserId && newPassword.length >= 6) {
+                resetPassword.mutate({ user_id: resetUserId, password: newPassword });
+              }
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nueva contraseña * (mín. 6 caracteres)</Label>
+                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} required />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={resetPassword.isPending || newPassword.length < 6}>
+                  {resetPassword.isPending ? "Restableciendo..." : "Restablecer contraseña"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
