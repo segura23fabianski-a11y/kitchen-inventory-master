@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -157,6 +158,23 @@ export default function Users() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const deleteUser = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: userId },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+      qc.invalidateQueries({ queryKey: ["all-roles"] });
+      toast({ title: "Usuario eliminado exitosamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const isCreateValid = email.includes("@") && password.length >= 6 && role;
 
   const renderActiveTable = () => (
@@ -234,6 +252,27 @@ export default function Users() {
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => blockUser.mutate(p.user_id)}>
                       <Ban className="h-3 w-3" />
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción eliminará permanentemente a <strong>{p.full_name || "este usuario"}</strong> y todos sus datos asociados. No se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteUser.mutate(p.user_id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>
@@ -290,6 +329,27 @@ export default function Users() {
                   >
                     <Ban className="mr-1 h-3 w-3" /> Bloquear
                   </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                        <Trash2 className="mr-1 h-3 w-3" /> Eliminar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción eliminará permanentemente a <strong>{p.full_name || "este usuario"}</strong>. No se puede deshacer.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteUser.mutate(p.user_id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </TableCell>
             </TableRow>
@@ -400,13 +460,36 @@ export default function Users() {
                             {new Date(p.created_at).toLocaleDateString("es")}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => approveUser.mutate({ userId: p.user_id, role: approveRole })}
-                            >
-                              <UserCheck className="mr-1 h-3 w-3" /> Reactivar
-                            </Button>
+                            <div className="flex items-center gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => approveUser.mutate({ userId: p.user_id, role: approveRole })}
+                              >
+                                <UserCheck className="mr-1 h-3 w-3" /> Reactivar
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta acción eliminará permanentemente a <strong>{p.full_name || "este usuario"}</strong>. No se puede deshacer.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteUser.mutate(p.user_id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
