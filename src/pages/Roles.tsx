@@ -12,42 +12,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Layers, Plus, Pencil, Trash2 } from "lucide-react";
-
-const ROLES = ["admin", "cocina", "bodega"] as const;
-type AppRole = (typeof ROLES)[number];
-
-const roleLabels: Record<AppRole, string> = {
-  admin: "Administrador",
-  cocina: "Cocina",
-  bodega: "Bodega",
-};
-
-const roleBadgeColor: Record<AppRole, string> = {
-  admin: "bg-primary text-primary-foreground",
-  cocina: "bg-warning text-warning-foreground",
-  bodega: "bg-success text-success-foreground",
-};
+import { useRoles, type Role } from "@/hooks/use-roles";
+import { Shield, Layers, Plus, Pencil, Trash2, Users } from "lucide-react";
 
 const CATEGORIES = ["Inventario", "Catálogo", "Administración", "Reportes", "General"];
-
-type SystemFunction = {
-  id: string;
-  key: string;
-  label: string;
-  description: string | null;
-  category: string;
-  sort_order: number;
-  created_at: string;
-};
 
 export default function Roles() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { roles, roleNames, isLoading: loadingRoles } = useRoles();
 
-  // Dialog state for create/edit
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<SystemFunction | null>(null);
+  // Role CRUD dialog state
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [roleName, setRoleName] = useState("");
+  const [roleLabel, setRoleLabel] = useState("");
+  const [roleDescription, setRoleDescription] = useState("");
+
+  // Function CRUD dialog state
+  const [fnDialogOpen, setFnDialogOpen] = useState(false);
+  const [editingFn, setEditingFn] = useState<any>(null);
   const [formKey, setFormKey] = useState("");
   const [formLabel, setFormLabel] = useState("");
   const [formDescription, setFormDescription] = useState("");
@@ -75,11 +59,11 @@ export default function Roles() {
     },
   });
 
-  const hasPermission = (role: AppRole, functionKey: string) =>
+  const hasPermission = (role: string, functionKey: string) =>
     permissions?.some((p) => p.role === role && p.function_key === functionKey) ?? false;
 
   const togglePermission = useMutation({
-    mutationFn: async ({ role, functionKey, enabled }: { role: AppRole; functionKey: string; enabled: boolean }) => {
+    mutationFn: async ({ role, functionKey, enabled }: { role: string; functionKey: string; enabled: boolean }) => {
       if (enabled) {
         const { error } = await supabase.from("role_permissions").insert({ role, function_key: functionKey });
         if (error) throw error;
@@ -95,20 +79,100 @@ export default function Roles() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // --- Role CRUD mutations ---
+  const createRole = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("roles").insert({
+        name: roleName.toLowerCase().replace(/\s+/g, "_"),
+        label: roleLabel,
+        description: roleDescription || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      resetRoleForm();
+      toast({ title: "Rol creado exitosamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateRole = useMutation({
+    mutationFn: async () => {
+      if (!editingRole) return;
+      const { error } = await supabase.from("roles").update({
+        label: roleLabel,
+        description: roleDescription || null,
+      }).eq("id", editingRole.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      resetRoleForm();
+      toast({ title: "Rol actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteRole = useMutation({
+    mutationFn: async (role: Role) => {
+      // Delete associated permissions and user_roles
+      await supabase.from("role_permissions").delete().eq("role", role.name);
+      await supabase.from("user_roles").delete().eq("role", role.name);
+      const { error } = await supabase.from("roles").delete().eq("id", role.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      qc.invalidateQueries({ queryKey: ["all-role-permissions"] });
+      qc.invalidateQueries({ queryKey: ["all-roles"] });
+      toast({ title: "Rol eliminado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const resetRoleForm = () => {
+    setRoleDialogOpen(false);
+    setEditingRole(null);
+    setRoleName("");
+    setRoleLabel("");
+    setRoleDescription("");
+  };
+
+  const openCreateRole = () => {
+    setEditingRole(null);
+    setRoleName("");
+    setRoleLabel("");
+    setRoleDescription("");
+    setRoleDialogOpen(true);
+  };
+
+  const openEditRole = (role: Role) => {
+    setEditingRole(role);
+    setRoleName(role.name);
+    setRoleLabel(role.label);
+    setRoleDescription(role.description || "");
+    setRoleDialogOpen(true);
+  };
+
+  const handleRoleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingRole) updateRole.mutate();
+    else createRole.mutate();
+  };
+
+  // --- Function CRUD mutations ---
   const createFunction = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("system_functions").insert({
-        key: formKey,
-        label: formLabel,
-        description: formDescription || null,
-        category: formCategory,
-        sort_order: formSortOrder,
+        key: formKey, label: formLabel, description: formDescription || null,
+        category: formCategory, sort_order: formSortOrder,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["system-functions"] });
-      resetForm();
+      resetFnForm();
       toast({ title: "Función creada exitosamente" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -116,32 +180,26 @@ export default function Roles() {
 
   const updateFunction = useMutation({
     mutationFn: async () => {
-      if (!editing) return;
+      if (!editingFn) return;
       const { error } = await supabase.from("system_functions").update({
-        key: formKey,
-        label: formLabel,
-        description: formDescription || null,
-        category: formCategory,
-        sort_order: formSortOrder,
-      }).eq("id", editing.id);
+        key: formKey, label: formLabel, description: formDescription || null,
+        category: formCategory, sort_order: formSortOrder,
+      }).eq("id", editingFn.id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["system-functions"] });
       qc.invalidateQueries({ queryKey: ["all-role-permissions"] });
-      resetForm();
-      toast({ title: "Función actualizada exitosamente" });
+      resetFnForm();
+      toast({ title: "Función actualizada" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const deleteFunction = useMutation({
     mutationFn: async (id: string) => {
-      // Delete associated permissions first
       const fn = functions?.find((f) => f.id === id);
-      if (fn) {
-        await supabase.from("role_permissions").delete().eq("function_key", fn.key);
-      }
+      if (fn) await supabase.from("role_permissions").delete().eq("function_key", fn.key);
       const { error } = await supabase.from("system_functions").delete().eq("id", id);
       if (error) throw error;
     },
@@ -153,48 +211,39 @@ export default function Roles() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const resetForm = () => {
-    setDialogOpen(false);
-    setEditing(null);
-    setFormKey("");
-    setFormLabel("");
-    setFormDescription("");
-    setFormCategory("General");
-    setFormSortOrder(0);
+  const resetFnForm = () => {
+    setFnDialogOpen(false);
+    setEditingFn(null);
+    setFormKey(""); setFormLabel(""); setFormDescription(""); setFormCategory("General"); setFormSortOrder(0);
   };
 
-  const openCreate = () => {
-    setEditing(null);
-    setFormKey("");
-    setFormLabel("");
-    setFormDescription("");
-    setFormCategory("General");
+  const openCreateFn = () => {
+    setEditingFn(null);
+    setFormKey(""); setFormLabel(""); setFormDescription(""); setFormCategory("General");
     setFormSortOrder((functions?.length ?? 0) + 1);
-    setDialogOpen(true);
+    setFnDialogOpen(true);
   };
 
-  const openEdit = (fn: SystemFunction) => {
-    setEditing(fn);
-    setFormKey(fn.key);
-    setFormLabel(fn.label);
-    setFormDescription(fn.description || "");
-    setFormCategory(fn.category);
-    setFormSortOrder(fn.sort_order);
-    setDialogOpen(true);
+  const openEditFn = (fn: any) => {
+    setEditingFn(fn);
+    setFormKey(fn.key); setFormLabel(fn.label); setFormDescription(fn.description || "");
+    setFormCategory(fn.category); setFormSortOrder(fn.sort_order);
+    setFnDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFnSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) {
-      updateFunction.mutate();
-    } else {
-      createFunction.mutate();
-    }
+    if (editingFn) updateFunction.mutate();
+    else createFunction.mutate();
   };
 
-  const isFormValid = formKey.trim().length > 0 && formLabel.trim().length > 0;
+  const roleBadgeColor = (name: string) => {
+    if (name === "admin") return "bg-primary text-primary-foreground";
+    if (name === "cocina") return "bg-warning text-warning-foreground";
+    if (name === "bodega") return "bg-success text-success-foreground";
+    return "bg-accent text-accent-foreground";
+  };
 
-  // Group functions by category
   const grouped = (functions ?? []).reduce<Record<string, typeof functions>>((acc, fn) => {
     const cat = fn.category || "General";
     if (!acc[cat]) acc[cat] = [];
@@ -202,39 +251,138 @@ export default function Roles() {
     return acc;
   }, {});
 
-  const isLoading = loadingFunctions || loadingPerms;
+  const isLoading = loadingFunctions || loadingPerms || loadingRoles;
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-heading text-3xl font-bold">Roles y Permisos</h1>
-            <p className="text-muted-foreground">Configura qué funciones puede acceder cada rol</p>
-          </div>
+        <div>
+          <h1 className="font-heading text-3xl font-bold">Roles y Permisos</h1>
+          <p className="text-muted-foreground">Gestiona roles, funciones y su matriz de permisos</p>
         </div>
 
+        {/* ===== ROLES MANAGEMENT ===== */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" /> Roles
+              </CardTitle>
+              <Button size="sm" onClick={openCreateRole}>
+                <Plus className="mr-1 h-4 w-4" /> Nuevo rol
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {roles.map((role) => (
+                <div key={role.id} className="rounded-lg border p-3 group">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge className={roleBadgeColor(role.name)}>{role.label}</Badge>
+                        {role.is_system && <Badge variant="outline" className="text-xs">Sistema</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{role.description}</p>
+                      <span className="text-xs text-muted-foreground">({role.name})</span>
+                    </div>
+                    {!role.is_system && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditRole(role)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar rol "{role.label}"?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se eliminarán todos los permisos y asignaciones de usuario de este rol. No se puede deshacer.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteRole.mutate(role)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Role Dialog */}
+        <Dialog open={roleDialogOpen} onOpenChange={(open) => { if (!open) resetRoleForm(); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-heading">{editingRole ? "Editar rol" : "Crear rol"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleRoleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre (clave) *</Label>
+                <Input
+                  value={editingRole ? roleName : roleName}
+                  onChange={(e) => setRoleName(e.target.value)}
+                  placeholder="ej: contable"
+                  disabled={!!editingRole}
+                />
+                {!editingRole && <p className="text-xs text-muted-foreground">Se usará como identificador interno (sin espacios)</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Etiqueta *</Label>
+                <Input value={roleLabel} onChange={(e) => setRoleLabel(e.target.value)} placeholder="ej: Contable" />
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Input value={roleDescription} onChange={(e) => setRoleDescription(e.target.value)} placeholder="Descripción del rol" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={!roleName.trim() || !roleLabel.trim() || createRole.isPending || updateRole.isPending}>
+                  {editingRole ? "Guardar cambios" : "Crear rol"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* ===== PERMISSIONS MATRIX ===== */}
         {isLoading ? (
           <p className="text-center py-12 text-muted-foreground">Cargando...</p>
         ) : (
           <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Matriz de Permisos</CardTitle>
+            </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-4 font-medium text-sm text-muted-foreground w-[300px]">Función</th>
-                    {ROLES.map((role) => (
-                      <th key={role} className="p-4 text-center min-w-[120px]">
-                        <Badge className={roleBadgeColor[role]}>{roleLabels[role]}</Badge>
-                      </th>
-                    ))}
+                    {roleNames.map((name) => {
+                      const role = roles.find((r) => r.name === name);
+                      return (
+                        <th key={name} className="p-4 text-center min-w-[120px]">
+                          <Badge className={roleBadgeColor(name)}>{role?.label ?? name}</Badge>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(grouped).map(([category, fns]) => (
                     <>
                       <tr key={`cat-${category}`} className="bg-muted/50">
-                        <td colSpan={ROLES.length + 1} className="px-4 py-2">
+                        <td colSpan={roleNames.length + 1} className="px-4 py-2">
                           <div className="flex items-center gap-2 text-sm font-semibold">
                             <Layers className="h-4 w-4 text-muted-foreground" />
                             {category}
@@ -244,21 +392,19 @@ export default function Roles() {
                       {fns!.map((fn) => (
                         <tr key={fn.key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="p-4">
-                            <div>
-                              <p className="font-medium text-sm">{fn.label}</p>
-                              <p className="text-xs text-muted-foreground">{fn.description}</p>
-                            </div>
+                            <p className="font-medium text-sm">{fn.label}</p>
+                            <p className="text-xs text-muted-foreground">{fn.description}</p>
                           </td>
-                          {ROLES.map((role) => {
-                            const enabled = hasPermission(role, fn.key);
-                            const isAdminCore = role === "admin" && ["roles", "users"].includes(fn.key);
+                          {roleNames.map((roleName) => {
+                            const enabled = hasPermission(roleName, fn.key);
+                            const isAdminCore = roleName === "admin" && ["roles", "users"].includes(fn.key);
                             return (
-                              <td key={role} className="p-4 text-center">
+                              <td key={roleName} className="p-4 text-center">
                                 <Switch
                                   checked={enabled}
                                   disabled={isAdminCore || togglePermission.isPending}
                                   onCheckedChange={(checked) =>
-                                    togglePermission.mutate({ role, functionKey: fn.key, enabled: checked })
+                                    togglePermission.mutate({ role: roleName, functionKey: fn.key, enabled: checked })
                                   }
                                 />
                               </td>
@@ -274,59 +420,16 @@ export default function Roles() {
           </Card>
         )}
 
+        {/* ===== SYSTEM FUNCTIONS ===== */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" /> Funciones del sistema
               </CardTitle>
-              <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else openCreate(); }}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="mr-1 h-4 w-4" /> Nueva función</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="font-heading">{editing ? "Editar función" : "Crear función"}</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Clave (key) *</Label>
-                      <Input value={formKey} onChange={(e) => setFormKey(e.target.value)} placeholder="ej: products_create" disabled={!!editing} />
-                      {!!editing && <p className="text-xs text-muted-foreground">La clave no se puede cambiar</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Nombre *</Label>
-                      <Input value={formLabel} onChange={(e) => setFormLabel(e.target.value)} placeholder="ej: Crear productos" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Descripción</Label>
-                      <Input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Descripción opcional" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Categoría</Label>
-                        <Select value={formCategory} onValueChange={setFormCategory}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {CATEGORIES.map((c) => (
-                              <SelectItem key={c} value={c}>{c}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Orden</Label>
-                        <Input type="number" value={formSortOrder} onChange={(e) => setFormSortOrder(Number(e.target.value))} />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit" disabled={!isFormValid || createFunction.isPending || updateFunction.isPending}>
-                        {editing ? "Guardar cambios" : "Crear función"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <Button size="sm" onClick={openCreateFn}>
+                <Plus className="mr-1 h-4 w-4" /> Nueva función
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -343,7 +446,7 @@ export default function Roles() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(fn)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditFn(fn)}>
                         <Pencil className="h-3 w-3" />
                       </Button>
                       <AlertDialog>
@@ -374,6 +477,51 @@ export default function Roles() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Function Dialog */}
+        <Dialog open={fnDialogOpen} onOpenChange={(open) => { if (!open) resetFnForm(); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-heading">{editingFn ? "Editar función" : "Crear función"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleFnSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Clave (key) *</Label>
+                <Input value={formKey} onChange={(e) => setFormKey(e.target.value)} placeholder="ej: products_create" disabled={!!editingFn} />
+              </div>
+              <div className="space-y-2">
+                <Label>Nombre *</Label>
+                <Input value={formLabel} onChange={(e) => setFormLabel(e.target.value)} placeholder="ej: Crear productos" />
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Descripción opcional" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Categoría</Label>
+                  <Select value={formCategory} onValueChange={setFormCategory}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Orden</Label>
+                  <Input type="number" value={formSortOrder} onChange={(e) => setFormSortOrder(Number(e.target.value))} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={!formKey.trim() || !formLabel.trim() || createFunction.isPending || updateFunction.isPending}>
+                  {editingFn ? "Guardar cambios" : "Crear función"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

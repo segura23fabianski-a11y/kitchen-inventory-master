@@ -328,19 +328,19 @@ export type Database = {
           created_at: string
           function_key: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
         }
         Insert: {
           created_at?: string
           function_key: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
         }
         Update: {
           created_at?: string
           function_key?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string
         }
         Relationships: [
           {
@@ -351,6 +351,33 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          label: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          label: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          label?: string
+          name?: string
+        }
+        Relationships: []
       }
       system_functions: {
         Row: {
@@ -385,17 +412,17 @@ export type Database = {
       user_roles: {
         Row: {
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
           user_id: string
         }
         Insert: {
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
           user_id: string
         }
         Update: {
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string
           user_id?: string
         }
         Relationships: []
@@ -444,17 +471,12 @@ export type Database = {
         }[]
       }
       get_my_restaurant_id: { Args: never; Returns: string }
+      has_any_role: { Args: { _user_id: string }; Returns: boolean }
       has_permission: {
         Args: { _function_key: string; _user_id: string }
         Returns: boolean
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       register_recipe_consumption:
         | {
             Args: {
@@ -476,7 +498,7 @@ export type Database = {
           }
     }
     Enums: {
-      app_role: "admin" | "cocina" | "bodega"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -603,8 +625,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "cocina", "bodega"],
-    },
+    Enums: {},
   },
 } as const
