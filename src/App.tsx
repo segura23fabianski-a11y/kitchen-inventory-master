@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import Auth from "./pages/Auth";
+import PendingApproval from "./pages/PendingApproval";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Movements from "./pages/Movements";
@@ -23,9 +24,10 @@ const queryClient = new QueryClient();
 type AppRole = "admin" | "cocina" | "bodega";
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: AppRole[] }) {
-  const { session, loading, hasRole } = useAuth();
+  const { session, loading, hasRole, profileStatus } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
   if (!session) return <Navigate to="/auth" replace />;
+  if (profileStatus !== "active") return <Navigate to="/pending" replace />;
   if (roles && !roles.some((r) => hasRole(r))) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -37,9 +39,18 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PendingRoute() {
+  const { session, loading, profileStatus } = useAuth();
+  if (loading) return null;
+  if (!session) return <Navigate to="/auth" replace />;
+  if (profileStatus === "active") return <Navigate to="/" replace />;
+  return <PendingApproval />;
+}
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+    <Route path="/pending" element={<PendingRoute />} />
     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="/products" element={<ProtectedRoute roles={["admin", "bodega"]}><Products /></ProtectedRoute>} />
     <Route path="/movements" element={<ProtectedRoute><Movements /></ProtectedRoute>} />
