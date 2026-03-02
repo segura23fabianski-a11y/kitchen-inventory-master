@@ -110,6 +110,48 @@ export type Database = {
           },
         ]
       }
+      product_codes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          product_id: string
+          restaurant_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          product_id: string
+          restaurant_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          product_id?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_codes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_codes_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           average_cost: number
@@ -118,6 +160,7 @@ export type Database = {
           created_at: string
           current_stock: number
           id: string
+          image_url: string | null
           min_stock: number
           name: string
           restaurant_id: string
@@ -132,6 +175,7 @@ export type Database = {
           created_at?: string
           current_stock?: number
           id?: string
+          image_url?: string | null
           min_stock?: number
           name: string
           restaurant_id: string
@@ -146,6 +190,7 @@ export type Database = {
           created_at?: string
           current_stock?: number
           id?: string
+          image_url?: string | null
           min_stock?: number
           name?: string
           restaurant_id?: string

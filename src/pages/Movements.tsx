@@ -73,7 +73,16 @@ export default function Movements() {
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost").order("name");
+      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost, barcode").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: productCodes } = useQuery({
+    queryKey: ["product-codes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_codes").select("*");
       if (error) throw error;
       return data;
     },
@@ -178,16 +187,30 @@ export default function Movements() {
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                       <Command>
-                        <CommandInput placeholder="Buscar producto..." />
+                        <CommandInput placeholder="Buscar por nombre o código..." onValueChange={(val) => {
+                          // Auto-resolve by barcode or product_code
+                          const q = val.trim().toLowerCase();
+                          if (q) {
+                            const byBarcode = products?.find((p) => p.barcode?.toLowerCase() === q);
+                            if (byBarcode) { handleProductChange(byBarcode.id); return; }
+                            const byCode = productCodes?.find((c) => c.code.toLowerCase() === q);
+                            if (byCode) { handleProductChange(byCode.product_id); return; }
+                          }
+                        }} />
                         <CommandList>
                           <CommandEmpty>No se encontró producto.</CommandEmpty>
                           <CommandGroup>
-                            {products?.map((p) => (
-                              <CommandItem key={p.id} value={p.name} onSelect={() => handleProductChange(p.id)}>
-                                <Check className={cn("mr-2 h-4 w-4", productId === p.id ? "opacity-100" : "opacity-0")} />
-                                {p.name} ({p.unit})
-                              </CommandItem>
-                            ))}
+                            {products?.map((p) => {
+                              const pCodes = productCodes?.filter((c) => c.product_id === p.id);
+                              const codesStr = pCodes?.map((c) => c.code).join(", ");
+                              return (
+                                <CommandItem key={p.id} value={`${p.name} ${p.barcode ?? ""} ${codesStr ?? ""}`} onSelect={() => handleProductChange(p.id)}>
+                                  <Check className={cn("mr-2 h-4 w-4", productId === p.id ? "opacity-100" : "opacity-0")} />
+                                  {p.name} ({p.unit})
+                                  {codesStr && <span className="ml-2 text-xs text-muted-foreground">[{codesStr}]</span>}
+                                </CommandItem>
+                              );
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>
