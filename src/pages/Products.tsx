@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -26,6 +26,12 @@ interface ProductForm {
   categoryId: string;
   warehouseId: string;
   barcode: string;
+}
+
+interface CodeEntry {
+  id?: string;
+  code: string;
+  description: string;
 }
 
 const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "" };
@@ -47,6 +53,11 @@ export default function Products() {
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const [codes, setCodes] = useState<CodeEntry[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -54,6 +65,15 @@ export default function Products() {
     queryKey: ["products"],
     queryFn: async () => {
       const { data, error } = await supabase.from("products").select("*, categories(name), warehouses(name)").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allCodes } = useQuery({
+    queryKey: ["product-codes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_codes").select("*");
       if (error) throw error;
       return data;
     },
@@ -80,6 +100,35 @@ export default function Products() {
   const categoryMap = new Map(categories?.map((c) => [c.name.toLowerCase(), c.id]) ?? []);
   const warehouseMap = new Map(warehouses?.map((w) => [w.name.toLowerCase(), w.id]) ?? []);
 
+  const uploadImage = async (productId: string): Promise<string | null> => {
+    if (!imageFile || !restaurantId) return existingImageUrl;
+    const ext = imageFile.name.split(".").pop();
+    const path = `${restaurantId}/${productId}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, imageFile, { upsert: true });
+    if (error) throw error;
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const saveCodes = async (productId: string) => {
+    if (!restaurantId) return;
+    // Delete existing codes for this product
+    await supabase.from("product_codes").delete().eq("product_id", productId);
+    // Insert new codes
+    const validCodes = codes.filter((c) => c.code.trim());
+    if (validCodes.length > 0) {
+      const { error } = await supabase.from("product_codes").insert(
+        validCodes.map((c) => ({
+          product_id: productId,
+          code: c.code.trim(),
+          description: c.description.trim() || null,
+          restaurant_id: restaurantId,
+        }))
+      );
+      if (error) throw error;
+    }
+  };
+
   const upsertProduct = useMutation({
     mutationFn: async () => {
       const payload: any = {
@@ -90,16 +139,30 @@ export default function Products() {
         warehouse_id: form.warehouseId || null,
         barcode: form.barcode.trim() || null,
       };
+
+      let productId = editId;
+
       if (editId) {
         const { error } = await supabase.from("products").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("products").insert({ ...payload, restaurant_id: restaurantId! });
+        const { data, error } = await supabase.from("products").insert({ ...payload, restaurant_id: restaurantId! }).select("id").single();
         if (error) throw error;
+        productId = data.id;
       }
+
+      // Upload image
+      const imageUrl = await uploadImage(productId!);
+      if (imageUrl !== undefined) {
+        await supabase.from("products").update({ image_url: imageUrl }).eq("id", productId!);
+      }
+
+      // Save codes
+      await saveCodes(productId!);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-codes"] });
       closeDialog();
       toast({ title: editId ? "Producto actualizado" : "Producto creado" });
     },
@@ -113,6 +176,7 @@ export default function Products() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-codes"] });
       setDeleteId(null);
       toast({ title: "Producto eliminado" });
     },
@@ -146,6 +210,10 @@ export default function Products() {
     setOpen(false);
     setEditId(null);
     setForm(emptyForm);
+    setCodes([]);
+    setImageFile(null);
+    setImagePreview(null);
+    setExistingImageUrl(null);
   };
 
   const openEdit = (p: any) => {
@@ -158,6 +226,11 @@ export default function Products() {
       warehouseId: p.warehouse_id ?? "",
       barcode: p.barcode ?? "",
     });
+    setExistingImageUrl(p.image_url ?? null);
+    setImagePreview(p.image_url ?? null);
+    // Load existing codes
+    const productCodes = allCodes?.filter((c) => c.product_id === p.id) ?? [];
+    setCodes(productCodes.map((c) => ({ id: c.id, code: c.code, description: c.description ?? "" })));
     setOpen(true);
   };
 
@@ -188,6 +261,15 @@ export default function Products() {
     e.target.value = "";
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (evt) => setImagePreview(evt.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const downloadTemplate = () => {
     const template = [
       { nombre: "Ejemplo Producto", unidad: "kg", stock_minimo: 5, costo_promedio: 10.50, categoria: "Carnes", almacen: "Bodega principal" },
@@ -198,12 +280,40 @@ export default function Products() {
     XLSX.writeFile(wb, "plantilla_productos.xlsx");
   };
 
+  // Build a map of product_id -> codes for search
+  const codesByProduct = new Map<string, string[]>();
+  allCodes?.forEach((c) => {
+    const arr = codesByProduct.get(c.product_id) || [];
+    arr.push(c.code.toLowerCase());
+    codesByProduct.set(c.product_id, arr);
+  });
+
   const filtered = products?.filter((p) => {
     const q = search.toLowerCase();
-    return p.name.toLowerCase().includes(q) || (p.barcode && p.barcode.toLowerCase().includes(q));
+    if (!q) return true;
+    if (p.name.toLowerCase().includes(q)) return true;
+    if (p.barcode && p.barcode.toLowerCase().includes(q)) return true;
+    const pCodes = codesByProduct.get(p.id);
+    if (pCodes?.some((c) => c.includes(q))) return true;
+    return false;
   });
 
   const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0;
+
+  const addCode = () => setCodes([...codes, { code: "", description: "" }]);
+  const removeCode = (idx: number) => setCodes(codes.filter((_, i) => i !== idx));
+  const updateCode = (idx: number, field: keyof CodeEntry, value: string) => {
+    const next = [...codes];
+    next[idx] = { ...next[idx], [field]: value };
+    setCodes(next);
+  };
+
+  // Get codes display for a product
+  const getProductCodesDisplay = (productId: string) => {
+    const pCodes = allCodes?.filter((c) => c.product_id === productId);
+    if (!pCodes?.length) return null;
+    return pCodes;
+  };
 
   return (
     <AppLayout>
@@ -226,11 +336,41 @@ export default function Products() {
                   <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Producto</Button>
                 </DialogTrigger>
                 )}
-                <DialogContent>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="font-heading">{editId ? "Editar Producto" : "Agregar Producto"}</DialogTitle>
                   </DialogHeader>
                   <form onSubmit={(e) => { e.preventDefault(); if (isValid) upsertProduct.mutate(); }} className="space-y-4">
+                    {/* Image upload */}
+                    <div className="space-y-2">
+                      <Label>Imagen del producto</Label>
+                      <div className="flex items-center gap-4">
+                        {imagePreview ? (
+                          <div className="relative h-20 w-20 rounded-md border overflow-hidden">
+                            <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => { setImageFile(null); setImagePreview(null); setExistingImageUrl(null); }}
+                              className="absolute top-0.5 right-0.5 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => imageRef.current?.click()}
+                            className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-md border border-dashed text-muted-foreground hover:bg-muted/50"
+                          >
+                            <ImageIcon className="h-6 w-6" />
+                          </div>
+                        )}
+                        <Button type="button" variant="outline" size="sm" onClick={() => imageRef.current?.click()}>
+                          {imagePreview ? "Cambiar" : "Subir imagen"}
+                        </Button>
+                        <input ref={imageRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageChange} />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <Label>Nombre *</Label>
                       <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required maxLength={100} />
@@ -255,13 +395,15 @@ export default function Products() {
                         </Select>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Stock Mínimo</Label>
-                      <Input type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} min="0" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Código de barras</Label>
-                      <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Escanear o ingresar código..." maxLength={50} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Stock Mínimo</Label>
+                        <Input type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} min="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Código de barras principal</Label>
+                        <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Escanear o ingresar..." maxLength={50} />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Almacén</Label>
@@ -272,6 +414,44 @@ export default function Products() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Códigos adicionales */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Códigos adicionales</Label>
+                        <Button type="button" variant="outline" size="sm" onClick={addCode}>
+                          <Plus className="mr-1 h-3 w-3" /> Agregar código
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Agrega variaciones del producto (ej: sabores, presentaciones) con códigos únicos.
+                      </p>
+                      {codes.length > 0 && (
+                        <div className="space-y-2 rounded-md border p-3">
+                          {codes.map((c, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Input
+                                placeholder="Código"
+                                value={c.code}
+                                onChange={(e) => updateCode(idx, "code", e.target.value)}
+                                className="flex-1"
+                                maxLength={50}
+                              />
+                              <Input
+                                placeholder="Descripción (opcional)"
+                                value={c.description}
+                                onChange={(e) => updateCode(idx, "description", e.target.value)}
+                                className="flex-1"
+                              />
+                              <Button type="button" variant="ghost" size="icon" onClick={() => removeCode(idx)}>
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <Button type="submit" className="w-full" disabled={upsertProduct.isPending || !isValid}>
                       {upsertProduct.isPending ? "Guardando..." : "Guardar"}
                     </Button>
@@ -385,15 +565,16 @@ export default function Products() {
           <CardHeader>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-10" placeholder="Buscar por nombre o código de barras..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-10" placeholder="Buscar por nombre, código de barras o código adicional..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12"></TableHead>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Código</TableHead>
+                  <TableHead>Códigos</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Almacén</TableHead>
                   <TableHead>Stock</TableHead>
@@ -405,36 +586,58 @@ export default function Products() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 10 : 9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : !filtered?.length ? (
-                  <TableRow><TableCell colSpan={canManage ? 9 : 8} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 10 : 9} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
                 ) : (
-                  filtered.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs font-mono">{p.barcode ?? "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{(p as any).categories?.name ?? "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
-                      <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
-                      <TableCell className="text-muted-foreground">{p.unit}</TableCell>
-                      <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
-                      <TableCell>
-                        {Number(p.current_stock) <= Number(p.min_stock) ? (
-                          <Badge variant="destructive">Bajo</Badge>
-                        ) : (
-                          <Badge className="bg-success text-success-foreground">OK</Badge>
-                        )}
-                      </TableCell>
-                      {(canUpdate || canDelete) && (
+                  filtered.map((p) => {
+                    const pCodes = getProductCodesDisplay(p.id);
+                    return (
+                      <TableRow key={p.id}>
                         <TableCell>
-                          <div className="flex gap-1">
-                            {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
-                            {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                          {(p as any).image_url ? (
+                            <img src={(p as any).image_url} alt={p.name} className="h-8 w-8 rounded object-cover" />
+                          ) : (
+                            <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {p.barcode && <Badge variant="outline" className="text-xs font-mono">{p.barcode}</Badge>}
+                            {pCodes?.map((c) => (
+                              <Badge key={c.id} variant="secondary" className="text-xs font-mono" title={c.description ?? undefined}>
+                                {c.code}
+                              </Badge>
+                            ))}
+                            {!p.barcode && !pCodes?.length && <span className="text-muted-foreground text-xs">—</span>}
                           </div>
                         </TableCell>
-                      )}
-                    </TableRow>
-                  ))
+                        <TableCell className="text-muted-foreground">{(p as any).categories?.name ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
+                        <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
+                        <TableCell className="text-muted-foreground">{p.unit}</TableCell>
+                        <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
+                        <TableCell>
+                          {Number(p.current_stock) <= Number(p.min_stock) ? (
+                            <Badge variant="destructive">Bajo</Badge>
+                          ) : (
+                            <Badge className="bg-success text-success-foreground">OK</Badge>
+                          )}
+                        </TableCell>
+                        {(canUpdate || canDelete) && (
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
+                              {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

@@ -42,10 +42,20 @@ export default function KitchenKiosk() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, unit, current_stock, average_cost, barcode")
+        .select("id, name, unit, current_stock, average_cost, barcode, image_url")
         .order("name");
       if (error) throw error;
-      return data as SelectedProduct[];
+      return data as (SelectedProduct & { image_url: string | null })[];
+    },
+  });
+
+  // Product codes for search
+  const { data: productCodes } = useQuery({
+    queryKey: ["product-codes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_codes").select("*");
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -151,15 +161,30 @@ export default function KitchenKiosk() {
     return products.filter((p) => selectedProductIds.has(p.id));
   }, [products, selectedProductIds]);
 
-  // Filter products by name or barcode
+  // Build code lookup
+  const codesByProduct = useMemo(() => {
+    const map = new Map<string, string[]>();
+    productCodes?.forEach((c) => {
+      const arr = map.get(c.product_id) || [];
+      arr.push(c.code.toLowerCase());
+      map.set(c.product_id, arr);
+    });
+    return map;
+  }, [productCodes]);
+
+  // Filter products by name, barcode, or product codes
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     const q = productSearch.toLowerCase().trim();
     if (!q) return products;
-    return products.filter(
-      (p) => p.name.toLowerCase().includes(q) || (p.barcode && p.barcode.toLowerCase().includes(q))
-    );
-  }, [products, productSearch]);
+    return products.filter((p) => {
+      if (p.name.toLowerCase().includes(q)) return true;
+      if (p.barcode && p.barcode.toLowerCase().includes(q)) return true;
+      const pCodes = codesByProduct.get(p.id);
+      if (pCodes?.some((c) => c.includes(q))) return true;
+      return false;
+    });
+  }, [products, productSearch, codesByProduct]);
 
   // Build lines for the quantities step
   const lines = useMemo(() => {
@@ -258,7 +283,7 @@ export default function KitchenKiosk() {
     setProductSearch("");
   };
 
-  const renderProductButton = (p: SelectedProduct) => {
+  const renderProductButton = (p: SelectedProduct & { image_url?: string | null }) => {
     const selected = selectedProductIds.has(p.id);
     return (
       <button
@@ -271,6 +296,9 @@ export default function KitchenKiosk() {
             : "border-border hover:bg-muted/50"
         }`}
       >
+        {p.image_url && (
+          <img src={p.image_url} alt={p.name} className="h-10 w-full rounded object-cover mb-1" />
+        )}
         <p className="font-medium text-sm truncate">{p.name}</p>
         <p className="text-xs text-muted-foreground mt-1">
           Stock: {p.current_stock} {p.unit}
