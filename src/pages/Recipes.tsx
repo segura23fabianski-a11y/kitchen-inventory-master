@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, ChefHat, DollarSign, Eye, Search } from "lucide-react";
+import { NumericInput } from "@/components/ui/numeric-input";
 
 interface IngredientLine {
   product_id: string;
@@ -207,7 +208,7 @@ export default function Recipes() {
                           </div>
                           <div className="w-24 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                            <Input type="number" value={ing.quantity || ""} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} min="0.01" step="0.01" />
+                            <NumericInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.01" />
                           </div>
                           <div className="w-20 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
@@ -226,7 +227,7 @@ export default function Recipes() {
                           </div>
                           <div className="w-20 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
-                            <Input type="number" value={ing.yield_per_portion || ""} onChange={(e) => updateIngredient(i, "yield_per_portion", e.target.value)} min="0" step="0.001" placeholder="0.000" />
+                            <NumericInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" />
                           </div>
                           <div className="w-24 text-right space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
@@ -357,13 +358,12 @@ export default function Recipes() {
                             <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
                             <TableCell className="text-right">
                               {canManage ? (
-                                <Input
-                                  type="number"
+                                <NumericInput
+                                  mode="decimal"
                                   className="w-20 h-8 text-right inline-block"
                                   value={Number((ing as any).yield_per_portion) || ""}
-                                  onChange={(e) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(e.target.value) })}
+                                  onChange={(v) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(v) })}
                                   min="0"
-                                  step="0.001"
                                 />
                               ) : (
                                 <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
