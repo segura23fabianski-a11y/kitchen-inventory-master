@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
-import { NumericInput } from "@/components/ui/numeric-input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 
 type Step = "products" | "recipe" | "quantities";
 
@@ -457,7 +457,7 @@ export default function KitchenKiosk() {
                       <TableRow key={l.product.id}>
                         <TableCell className="font-medium">{l.product.name}</TableCell>
                         <TableCell className="text-right">
-                          <NumericInput
+                          <NumericKeypadInput
                             mode="decimal"
                             value={l.qty || ""}
                             onChange={(v) =>
@@ -468,6 +468,8 @@ export default function KitchenKiosk() {
                             }
                             min="0"
                             className="w-24 text-right ml-auto"
+                            keypadLabel={l.product.name}
+                            forceKeypad
                           />
                           <span className="text-xs text-muted-foreground">{l.product.unit}</span>
                         </TableCell>

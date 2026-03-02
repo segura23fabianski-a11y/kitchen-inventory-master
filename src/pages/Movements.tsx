@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
-import { NumericInput } from "@/components/ui/numeric-input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -244,11 +244,11 @@ export default function Movements() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad *</Label>
-                    <NumericInput mode="decimal" value={quantity} onChange={setQuantity} min="0.01" required />
+                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.01" required keypadLabel="Cantidad" />
                   </div>
                   <div className="space-y-2">
                     <Label>Costo Unitario</Label>
-                    <NumericInput mode="decimal" value={unitCost} onChange={setUnitCost} min="0" />
+                    <NumericKeypadInput mode="decimal" value={unitCost} onChange={setUnitCost} min="0" keypadLabel="Costo unitario" quickButtons={[1, 5, 10]} />
                   </div>
                 </div>
                 {computedTotal > 0 && (
