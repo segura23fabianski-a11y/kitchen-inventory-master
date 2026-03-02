@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { convertToProductUnit, getRecipeUnits, getDefaultRecipeUnit } from "@/lib/unit-conversion";
 import AppLayout from "@/components/AppLayout";
@@ -31,6 +32,7 @@ export default function Recipes() {
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
   const { hasRole } = useAuth();
+  const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -104,6 +106,7 @@ export default function Recipes() {
         );
         if (ingError) throw ingError;
       }
+      await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, ingredients: validIngredients }, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
@@ -116,8 +119,10 @@ export default function Recipes() {
 
   const deleteRecipe = useMutation({
     mutationFn: async (id: string) => {
+      const { data: prev } = await supabase.from("recipes").select("*").eq("id", id).single();
       const { error } = await supabase.from("recipes").delete().eq("id", id);
       if (error) throw error;
+      await logAudit({ entityType: "recipe", entityId: id, action: "DELETE", before: prev, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });

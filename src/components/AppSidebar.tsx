@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink } from "react-router-dom";
@@ -23,6 +23,7 @@ const allNavItems: NavItem[] = [
   { to: "/executive", icon: PieChart, label: "Dashboard Ejecutivo", permKey: "reports" },
   { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
   { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
+  { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -31,7 +32,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const visibleItems = allNavItems.filter((item) => hasPermission(item.permKey));
   const mainItems = visibleItems.filter((i) => !["users", "roles"].includes(i.permKey));
-  const adminItems = visibleItems.filter((i) => ["users", "roles"].includes(i.permKey));
+  const adminItems = visibleItems.filter((i) => ["users", "roles", "audit"].includes(i.permKey));
 
   return (
     <>

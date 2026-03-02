@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useAudit } from "@/hooks/use-audit";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ export default function Categories() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { hasPermission } = usePermissions();
+  const { logAudit } = useAudit();
   const canCreate = hasPermission("categories_create");
   const canUpdate = hasPermission("categories_update");
   const canDelete = hasPermission("categories_delete");
@@ -47,11 +49,15 @@ export default function Categories() {
   const saveCategory = useMutation({
     mutationFn: async () => {
       if (editingId) {
+        const { data: prev } = await supabase.from("categories").select("*").eq("id", editingId).single();
         const { error } = await supabase.from("categories").update({ name, description }).eq("id", editingId);
         if (error) throw error;
+        const { data: after } = await supabase.from("categories").select("*").eq("id", editingId).single();
+        await logAudit({ entityType: "category", entityId: editingId, action: "UPDATE", before: prev, after, canRollback: true });
       } else {
-        const { error } = await supabase.from("categories").insert({ name, description, restaurant_id: restaurantId! });
+        const { data, error } = await supabase.from("categories").insert({ name, description, restaurant_id: restaurantId! }).select("id").single();
         if (error) throw error;
+        await logAudit({ entityType: "category", entityId: data.id, action: "CREATE", after: { name, description }, canRollback: false });
       }
     },
     onSuccess: () => {
@@ -64,8 +70,10 @@ export default function Categories() {
 
   const deleteCategory = useMutation({
     mutationFn: async (id: string) => {
+      const { data: prev } = await supabase.from("categories").select("*").eq("id", id).single();
       const { error } = await supabase.from("categories").delete().eq("id", id);
       if (error) throw error;
+      await logAudit({ entityType: "category", entityId: id, action: "DELETE", before: prev, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["categories"] });

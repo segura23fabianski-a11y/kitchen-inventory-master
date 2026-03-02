@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export default function Movements() {
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
   const { user, hasRole } = useAuth();
+  const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
   const restaurantId = useRestaurantId();
   const canCreate = hasPermission("movements_create");
@@ -94,7 +96,7 @@ export default function Movements() {
     mutationFn: async () => {
       const uc = Number(unitCost) || 0;
       const qty = Number(quantity);
-      const { error } = await supabase.from("inventory_movements").insert({
+      const { data: mov, error } = await supabase.from("inventory_movements").insert({
         product_id: productId,
         user_id: user!.id,
         type,
@@ -103,8 +105,18 @@ export default function Movements() {
         total_cost: qty * uc,
         notes,
         restaurant_id: restaurantId!,
-      });
+      }).select("id").single();
       if (error) throw error;
+      // Only audit adjustments
+      if (type === "ajuste") {
+        await logAudit({
+          entityType: "inventory_movement",
+          entityId: mov.id,
+          action: "CREATE",
+          after: { product_id: productId, type, quantity: qty, unit_cost: uc, notes },
+          canRollback: true,
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["movements"] });
