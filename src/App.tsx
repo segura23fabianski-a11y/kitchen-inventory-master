@@ -18,6 +18,7 @@ import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import Roles from "./pages/Roles";
 import Warehouses from "./pages/Warehouses";
 import AuditLog from "./pages/AuditLog";
+import ResetInventory from "./pages/ResetInventory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const AppRoutes = () => (
     <Route path="/roles" element={<ProtectedRoute roles={["admin"]}><Roles /></ProtectedRoute>} />
     <Route path="/warehouses" element={<ProtectedRoute roles={["admin", "bodega"]}><Warehouses /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
+    <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

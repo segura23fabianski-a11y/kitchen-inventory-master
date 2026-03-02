@@ -2,3 +2,6 @@ project_id = "zawnsqdzmtrvkqgsglfk"
 
 [functions.rollback-audit-event]
 verify_jwt = false
+
+[functions.reset-inventory]
+verify_jwt = false
