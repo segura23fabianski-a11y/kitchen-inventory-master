@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_events: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          can_rollback: boolean
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          performed_by: string
+          restaurant_id: string
+          rollback_applied: boolean
+          rollback_of_event_id: string | null
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          can_rollback?: boolean
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          performed_by: string
+          restaurant_id: string
+          rollback_applied?: boolean
+          rollback_of_event_id?: string | null
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          can_rollback?: boolean
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string
+          restaurant_id?: string
+          rollback_applied?: boolean
+          rollback_of_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_rollback_of_event_id_fkey"
+            columns: ["rollback_of_event_id"]
+            isOneToOne: false
+            referencedRelation: "audit_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string

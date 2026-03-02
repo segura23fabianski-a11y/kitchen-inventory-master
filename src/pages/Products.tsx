@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import * as XLSX from "xlsx";
@@ -38,6 +39,7 @@ const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", catego
 
 export default function Products() {
   const { hasRole } = useAuth();
+  const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission("products_create");
   const canUpdate = hasPermission("products_update");
@@ -141,8 +143,12 @@ export default function Products() {
       };
 
       let productId = editId;
+      let beforeData: any = null;
 
       if (editId) {
+        // Fetch before state for audit
+        const { data: prev } = await supabase.from("products").select("*").eq("id", editId).single();
+        beforeData = prev;
         const { error } = await supabase.from("products").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
@@ -159,6 +165,19 @@ export default function Products() {
 
       // Save codes
       await saveCodes(productId!);
+
+      // Fetch after state for audit
+      const { data: afterData } = await supabase.from("products").select("*").eq("id", productId!).single();
+
+      // Log audit
+      await logAudit({
+        entityType: "product",
+        entityId: productId!,
+        action: editId ? "UPDATE" : "CREATE",
+        before: beforeData,
+        after: afterData,
+        canRollback: !!editId,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -171,8 +190,10 @@ export default function Products() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
+      const { data: prev } = await supabase.from("products").select("*").eq("id", id).single();
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
+      await logAudit({ entityType: "product", entityId: id, action: "DELETE", before: prev, after: null, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
