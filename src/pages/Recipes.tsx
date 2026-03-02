@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, ChefHat, DollarSign, Eye, Search } from "lucide-react";
-import { NumericInput } from "@/components/ui/numeric-input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 
 interface IngredientLine {
   product_id: string;
@@ -208,7 +208,7 @@ export default function Recipes() {
                           </div>
                           <div className="w-24 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                            <NumericInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.01" />
+                            <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.01" keypadLabel="Cantidad ingrediente" />
                           </div>
                           <div className="w-20 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
@@ -227,7 +227,7 @@ export default function Recipes() {
                           </div>
                           <div className="w-20 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
-                            <NumericInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" />
+                            <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
                           </div>
                           <div className="w-24 text-right space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
@@ -358,12 +358,13 @@ export default function Recipes() {
                             <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
                             <TableCell className="text-right">
                               {canManage ? (
-                                <NumericInput
+                              <NumericKeypadInput
                                   mode="decimal"
                                   className="w-20 h-8 text-right inline-block"
                                   value={Number((ing as any).yield_per_portion) || ""}
                                   onChange={(v) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(v) })}
                                   min="0"
+                                  keypadLabel="Rendimiento (kg)"
                                 />
                               ) : (
                                 <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
