@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon } from "lucide-react";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -419,7 +420,7 @@ export default function Products() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Stock Mínimo</Label>
-                        <Input type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} min="0" />
+                        <NumericInput mode="decimal" value={form.minStock} onChange={(v) => setForm({ ...form, minStock: v })} min="0" />
                       </div>
                       <div className="space-y-2">
                         <Label>Código de barras principal</Label>
