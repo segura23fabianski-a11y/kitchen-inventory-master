@@ -44,7 +44,7 @@ export default function Movements() {
   const allowedTypes = hasRole("admin")
     ? ["entrada", "salida", "ajuste"]
     : hasRole("bodega")
-    ? ["entrada", "ajuste"]
+    ? ["entrada", "salida", "ajuste"]
     : ["salida"];
 
   const [type, setType] = useState<string>(allowedTypes[0]);
