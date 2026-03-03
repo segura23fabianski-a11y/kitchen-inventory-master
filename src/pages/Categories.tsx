@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 export default function Categories() {
   const [open, setOpen] = useState(false);
@@ -108,11 +109,11 @@ export default function Categories() {
               <form onSubmit={(e) => { e.preventDefault(); saveCategory.mutate(); }} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Nombre</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} required />
+                  <KioskTextInput value={name} onChange={setName} keyboardLabel="Nombre de categoría" />
                 </div>
                 <div className="space-y-2">
                   <Label>Descripción (opcional)</Label>
-                  <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+                  <KioskTextInput value={description} onChange={setDescription} keyboardLabel="Descripción" />
                 </div>
                 <Button type="submit" className="w-full" disabled={saveCategory.isPending}>
                   {saveCategory.isPending ? "Guardando..." : "Guardar"}
@@ -127,7 +128,7 @@ export default function Categories() {
             <div className="p-4 pb-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-10" placeholder="Buscar categoría..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                <KioskTextInput className="pl-10" placeholder="Buscar categoría..." value={search} onChange={setSearch} keyboardLabel="Buscar categoría" inputType="search" />
               </div>
             </div>
             <Table>

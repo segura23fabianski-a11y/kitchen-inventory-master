@@ -17,6 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import * as XLSX from "xlsx";
 
 const UNITS = ["unidad", "kg", "g", "litro", "ml", "caja", "bolsa", "paquete"];
@@ -395,7 +396,7 @@ export default function Products() {
 
                     <div className="space-y-2">
                       <Label>Nombre *</Label>
-                      <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required maxLength={100} />
+                      <KioskTextInput value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Nombre del producto" keyboardLabel="Nombre del producto" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -423,8 +424,8 @@ export default function Products() {
                         <NumericKeypadInput mode="decimal" value={form.minStock} onChange={(v) => setForm({ ...form, minStock: v })} min="0" keypadLabel="Stock mínimo" quickButtons={[1, 5, 10]} />
                       </div>
                       <div className="space-y-2">
-                        <Label>Código de barras principal</Label>
-                        <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Escanear o ingresar..." maxLength={50} />
+                      <Label>Código de barras principal</Label>
+                        <KioskTextInput value={form.barcode} onChange={(v) => setForm({ ...form, barcode: v })} placeholder="Escanear o ingresar..." keyboardLabel="Código de barras" />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -452,18 +453,19 @@ export default function Products() {
                         <div className="space-y-2 rounded-md border p-3">
                           {codes.map((c, idx) => (
                             <div key={idx} className="flex items-center gap-2">
-                              <Input
+                              <KioskTextInput
                                 placeholder="Código"
                                 value={c.code}
-                                onChange={(e) => updateCode(idx, "code", e.target.value)}
+                                onChange={(v) => updateCode(idx, "code", v)}
                                 className="flex-1"
-                                maxLength={50}
+                                keyboardLabel="Código adicional"
                               />
-                              <Input
+                              <KioskTextInput
                                 placeholder="Descripción (opcional)"
                                 value={c.description}
-                                onChange={(e) => updateCode(idx, "description", e.target.value)}
+                                onChange={(v) => updateCode(idx, "description", v)}
                                 className="flex-1"
+                                keyboardLabel="Descripción del código"
                               />
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeCode(idx)}>
                                 <X className="h-4 w-4 text-destructive" />
@@ -587,7 +589,7 @@ export default function Products() {
           <CardHeader>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-10" placeholder="Buscar por nombre, código de barras o código adicional..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <KioskTextInput className="pl-10" placeholder="Buscar por nombre, código de barras o código adicional..." value={search} onChange={setSearch} keyboardLabel="Buscar producto" inputType="search" />
             </div>
           </CardHeader>
           <CardContent className="p-0">
