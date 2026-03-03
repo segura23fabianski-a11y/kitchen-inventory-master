@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useRoles } from "@/hooks/use-roles";
-import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound } from "lucide-react";
+import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound, CalendarClock } from "lucide-react";
 
 type EditingUser = { user_id: string; full_name: string };
 
@@ -224,6 +226,96 @@ export default function Users() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const toggleBackdate = useMutation({
+    mutationFn: async ({ userId, value }: { userId: string; value: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ can_backdate_inventory: value } as any)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+      toast({ title: "Permiso actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // Initialization mode settings
+  const { data: initModeSetting } = useQuery({
+    queryKey: ["init-mode-setting", restaurantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("restaurant_id", restaurantId!)
+        .eq("key", "inventory_initialization_mode")
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  const { data: maxDaysSetting } = useQuery({
+    queryKey: ["backdate-max-days-setting", restaurantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("restaurant_id", restaurantId!)
+        .eq("key", "backdate_max_days")
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  const toggleInitMode = useMutation({
+    mutationFn: async (value: boolean) => {
+      if (initModeSetting) {
+        const { error } = await supabase
+          .from("app_settings")
+          .update({ value: value as any })
+          .eq("id", initModeSetting.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("app_settings")
+          .insert({ restaurant_id: restaurantId!, key: "inventory_initialization_mode", value: value as any });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["init-mode-setting"] });
+      qc.invalidateQueries({ queryKey: ["init-mode"] });
+      toast({ title: "Modo inicialización actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMaxDays = useMutation({
+    mutationFn: async (days: number) => {
+      if (maxDaysSetting) {
+        const { error } = await supabase
+          .from("app_settings")
+          .update({ value: days as any })
+          .eq("id", maxDaysSetting.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("app_settings")
+          .insert({ restaurant_id: restaurantId!, key: "backdate_max_days", value: days as any });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["backdate-max-days-setting"] });
+      qc.invalidateQueries({ queryKey: ["backdate-max-days"] });
+      toast({ title: "Días máximos actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const openEditUser = (p: { user_id: string; full_name: string }) => {
     setEditingUser(p);
     setEditFullName(p.full_name || "");
@@ -239,6 +331,9 @@ export default function Users() {
   };
 
   const isCreateValid = email.includes("@") && password.length >= 6 && role;
+
+  const initModeActive = initModeSetting?.value === true;
+  const currentMaxDays = typeof maxDaysSetting?.value === "number" ? maxDaysSetting.value : 45;
 
   const renderActiveTable = () => (
     <Table>
@@ -317,6 +412,15 @@ export default function Users() {
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => openResetPassword(p.user_id, p.full_name || "este usuario")} title="Restablecer contraseña">
                       <KeyRound className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={(p as any).can_backdate_inventory ? "default" : "ghost"}
+                      className={cn((p as any).can_backdate_inventory && "bg-warning text-warning-foreground hover:bg-warning/90")}
+                      onClick={() => toggleBackdate.mutate({ userId: p.user_id, value: !(p as any).can_backdate_inventory })}
+                      title={`Backdating: ${(p as any).can_backdate_inventory ? "Activado" : "Desactivado"}`}
+                    >
+                      <CalendarClock className="h-3 w-3" />
                     </Button>
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => blockUser.mutate(p.user_id)}>
                       <Ban className="h-3 w-3" />
@@ -570,7 +674,54 @@ export default function Users() {
           </TabsContent>
         </Tabs>
 
-        {/* Edit User Dialog */}
+        {/* Initialization Mode Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              Modo Inicialización de Inventario
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Modo inicialización</p>
+                <p className="text-sm text-muted-foreground">Permite registrar movimientos con fecha anterior a usuarios autorizados</p>
+              </div>
+              <Switch
+                checked={initModeActive}
+                onCheckedChange={(v) => toggleInitMode.mutate(v)}
+                disabled={toggleInitMode.isPending}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Días máximos de retroactividad</p>
+                <p className="text-sm text-muted-foreground">Límite de días hacia atrás para registrar movimientos</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  className="w-20"
+                  value={currentMaxDays}
+                  min={1}
+                  max={365}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (v > 0) updateMaxDays.mutate(v);
+                  }}
+                />
+                <span className="text-sm text-muted-foreground">días</span>
+              </div>
+            </div>
+            {initModeActive && (
+              <div className="rounded-md bg-warning/10 border border-warning/30 p-3 text-sm text-warning">
+                ⚠️ Modo inicialización activo. Los usuarios con el permiso <CalendarClock className="inline h-3 w-3" /> pueden registrar movimientos con fecha anterior.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setEditingUser(null); } }}>
           <DialogContent>
             <DialogHeader>

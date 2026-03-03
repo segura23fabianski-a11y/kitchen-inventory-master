@@ -145,6 +145,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          movement_date: string
           notes: string | null
           product_id: string
           quantity: number
@@ -158,6 +159,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          movement_date?: string
           notes?: string | null
           product_id: string
           quantity: number
@@ -171,6 +173,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          movement_date?: string
           notes?: string | null
           product_id?: string
           quantity?: number
@@ -320,6 +323,7 @@ export type Database = {
       profiles: {
         Row: {
           approved_at: string | null
+          can_backdate_inventory: boolean
           created_at: string
           full_name: string
           id: string
@@ -330,6 +334,7 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          can_backdate_inventory?: boolean
           created_at?: string
           full_name?: string
           id?: string
@@ -340,6 +345,7 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          can_backdate_inventory?: boolean
           created_at?: string
           full_name?: string
           id?: string

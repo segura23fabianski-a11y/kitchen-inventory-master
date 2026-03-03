@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useBackdate } from "@/hooks/use-backdate";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -17,15 +17,16 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
 
 export default function Movements() {
   const [open, setOpen] = useState(false);
@@ -34,9 +35,13 @@ export default function Movements() {
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
+  const [movementDate, setMovementDate] = useState<Date | undefined>(undefined);
+  const [movementTime, setMovementTime] = useState("12:00");
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { user, hasRole } = useAuth();
   const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
+  const { backdatingAllowed, maxDays } = useBackdate();
   const restaurantId = useRestaurantId();
   const canCreate = hasPermission("movements_create");
   const canDelete = hasPermission("movements_delete");
@@ -66,7 +71,6 @@ export default function Movements() {
   const { data: profiles } = useQuery({
     queryKey: ["all-profiles"],
     queryFn: async () => {
-      // Admins can see all profiles via RLS; others won't — graceful fallback
       const { data } = await supabase.from("profiles").select("user_id, full_name");
       return data ?? [];
     },
@@ -94,11 +98,28 @@ export default function Movements() {
 
   const computedTotal = (Number(quantity) || 0) * (Number(unitCost) || 0);
 
+  const isBackdating = backdatingAllowed && movementDate != null;
+
+  const buildMovementDate = (): string | undefined => {
+    if (!movementDate) return undefined;
+    const [h, m] = movementTime.split(":").map(Number);
+    const d = new Date(movementDate);
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d.toISOString();
+  };
+
   const addMovement = useMutation({
     mutationFn: async () => {
       const uc = Number(unitCost) || 0;
       const qty = Number(quantity);
-      const { data: mov, error } = await supabase.from("inventory_movements").insert({
+      const mDate = buildMovementDate();
+
+      // Validate backdating notes
+      if (mDate && (!notes || notes.trim() === "")) {
+        throw new Error("Se requiere un motivo obligatorio al registrar con fecha anterior");
+      }
+
+      const insertData: any = {
         product_id: productId,
         user_id: user!.id,
         type,
@@ -107,16 +128,25 @@ export default function Movements() {
         total_cost: qty * uc,
         notes,
         restaurant_id: restaurantId!,
-      }).select("id").single();
+      };
+      if (mDate) insertData.movement_date = mDate;
+
+      const { data: mov, error } = await supabase
+        .from("inventory_movements")
+        .insert(insertData)
+        .select("id")
+        .single();
       if (error) throw error;
-      // Only audit adjustments
-      if (type === "ajuste") {
+
+      // Audit backdated movements and adjustments
+      if (mDate || type === "ajuste") {
         await logAudit({
           entityType: "inventory_movement",
           entityId: mov.id,
-          action: "CREATE",
-          after: { product_id: productId, type, quantity: qty, unit_cost: uc, notes },
-          canRollback: true,
+          action: mDate ? "BACKDATED_MOVEMENT" : "CREATE",
+          after: { product_id: productId, type, quantity: qty, unit_cost: uc, notes, movement_date: mDate },
+          canRollback: type === "ajuste",
+          metadata: mDate ? { movement_date: mDate, created_at: new Date().toISOString(), motivo: notes } : undefined,
         });
       }
     },
@@ -124,17 +154,22 @@ export default function Movements() {
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       setOpen(false);
-      setProductId("");
-      setType(allowedTypes[0]);
-      setQuantity("");
-      setUnitCost("");
-      setNotes("");
+      resetForm();
       toast({ title: "Movimiento registrado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Pre-fill unit cost from product's average_cost when product changes
+  const resetForm = () => {
+    setProductId("");
+    setType(allowedTypes[0]);
+    setQuantity("");
+    setUnitCost("");
+    setNotes("");
+    setMovementDate(undefined);
+    setMovementTime("12:00");
+  };
+
   const handleProductChange = (id: string) => {
     setProductId(id);
     const prod = products?.find((p) => p.id === id);
@@ -166,7 +201,10 @@ export default function Movements() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const isValid = productId && Number(quantity) > 0;
+  const isValid = productId && Number(quantity) > 0 && (!isBackdating || (notes && notes.trim().length > 0));
+
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() - maxDays);
 
   return (
     <AppLayout>
@@ -181,7 +219,7 @@ export default function Movements() {
           {canCreate && (
           <div className="flex items-center gap-2">
             {allowedTypes.includes("entrada") && <BulkUploadDialog products={products} />}
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Movimiento</Button>
               </DialogTrigger>
@@ -202,7 +240,6 @@ export default function Movements() {
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                       <Command>
                         <CommandInput placeholder="Buscar por nombre o código..." onValueChange={(val) => {
-                          // Auto-resolve by barcode or product_code
                           const q = val.trim().toLowerCase();
                           if (q) {
                             const byBarcode = products?.find((p) => p.barcode?.toLowerCase() === q);
@@ -258,12 +295,67 @@ export default function Movements() {
                     <span className="font-semibold">${computedTotal.toFixed(2)}</span>
                   </div>
                 )}
+
+                {/* Backdating date picker - only shown when allowed */}
+                {backdatingAllowed && (
+                  <div className="space-y-2 rounded-md border border-dashed border-warning p-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-warning">
+                      <CalendarIcon className="h-4 w-4" />
+                      Fecha del movimiento (modo inicialización)
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {movementDate ? format(movementDate, "dd/MM/yyyy", { locale: es }) : "Hoy (actual)"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={movementDate}
+                            onSelect={(d) => { setMovementDate(d); setDatePickerOpen(false); }}
+                            disabled={(date) => date > new Date() || date < minDate}
+                            initialFocus
+                          />
+                          {movementDate && (
+                            <div className="border-t p-2">
+                              <Button variant="ghost" size="sm" className="w-full" onClick={() => { setMovementDate(undefined); setDatePickerOpen(false); }}>
+                                Usar fecha actual
+                              </Button>
+                            </div>
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={movementTime}
+                        onChange={(e) => setMovementTime(e.target.value)}
+                        disabled={!movementDate}
+                      />
+                    </div>
+                    {movementDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Se registrará con fecha efectiva: {format(movementDate, "dd MMM yyyy", { locale: es })} {movementTime}h.
+                        El motivo es obligatorio.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label>Notas (opcional)</Label>
-                  <KioskTextInput value={notes} onChange={setNotes} placeholder="Observaciones..." keyboardLabel="Notas del movimiento" />
+                  <Label>{isBackdating ? "Motivo / Notas *" : "Notas (opcional)"}</Label>
+                  <KioskTextInput
+                    value={notes}
+                    onChange={setNotes}
+                    placeholder={isBackdating ? "Motivo obligatorio para registro con fecha anterior..." : "Observaciones..."}
+                    keyboardLabel="Notas del movimiento"
+                    required={isBackdating}
+                  />
                 </div>
                 <Button type="submit" className="w-full" disabled={addMovement.isPending || !isValid}>
-                  {addMovement.isPending ? "Registrando..." : "Registrar"}
+                  {addMovement.isPending ? "Registrando..." : isBackdating ? "Registrar con fecha anterior" : "Registrar"}
                 </Button>
               </form>
             </DialogContent>
@@ -289,41 +381,52 @@ export default function Movements() {
                   <TableHead>Costo Unit.</TableHead>
                   <TableHead>Costo Total</TableHead>
                   <TableHead>Usuario</TableHead>
-                  <TableHead>Fecha</TableHead>
+                  <TableHead>Fecha Efectiva</TableHead>
+                  <TableHead>Registrado</TableHead>
                   {canDelete && <TableHead className="w-12"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : !movements?.length ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
                 ) : (
                   movements
                     .filter((m) => (m as any).products?.name?.toLowerCase().includes(search.toLowerCase()))
-                    .map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell className="font-medium flex items-center gap-2">
-                        {typeIcon(m.type)}
-                        {(m as any).products?.name}
-                      </TableCell>
-                      <TableCell>{typeBadge(m.type)}</TableCell>
-                      <TableCell className="font-semibold">{Number(m.quantity)}</TableCell>
-                      <TableCell>${Number(m.unit_cost).toFixed(2)}</TableCell>
-                      <TableCell className="font-semibold">${Number(m.total_cost).toFixed(2)}</TableCell>
-                      <TableCell className="text-muted-foreground">{profileMap.get(m.user_id) || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {format(new Date(m.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
-                      </TableCell>
-                      {canDelete && (
-                        <TableCell>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteMovement.mutate(m.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))
+                    .map((m) => {
+                      const mDate = (m as any).movement_date;
+                      const isBackdated = mDate && Math.abs(new Date(mDate).getTime() - new Date(m.created_at).getTime()) > 60000;
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell className="font-medium flex items-center gap-2">
+                            {typeIcon(m.type)}
+                            {(m as any).products?.name}
+                          </TableCell>
+                          <TableCell>{typeBadge(m.type)}</TableCell>
+                          <TableCell className="font-semibold">{Number(m.quantity)}</TableCell>
+                          <TableCell>${Number(m.unit_cost).toFixed(2)}</TableCell>
+                          <TableCell className="font-semibold">${Number(m.total_cost).toFixed(2)}</TableCell>
+                          <TableCell className="text-muted-foreground">{profileMap.get(m.user_id) || "—"}</TableCell>
+                          <TableCell className="text-sm">
+                            <span className={isBackdated ? "text-warning font-medium" : "text-muted-foreground"}>
+                              {format(new Date(mDate || m.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
+                            </span>
+                            {isBackdated && <Badge variant="outline" className="ml-1 text-xs">Retroactivo</Badge>}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {format(new Date(m.created_at), "dd MMM, HH:mm", { locale: es })}
+                          </TableCell>
+                          {canDelete && (
+                            <TableCell>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteMovement.mutate(m.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>
