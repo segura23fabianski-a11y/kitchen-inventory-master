@@ -23,6 +23,7 @@ import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search } from 
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useRestaurantId } from "@/hooks/use-restaurant";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -259,7 +260,7 @@ export default function Movements() {
                 )}
                 <div className="space-y-2">
                   <Label>Notas (opcional)</Label>
-                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observaciones..." maxLength={500} />
+                  <KioskTextInput value={notes} onChange={setNotes} placeholder="Observaciones..." keyboardLabel="Notas del movimiento" />
                 </div>
                 <Button type="submit" className="w-full" disabled={addMovement.isPending || !isValid}>
                   {addMovement.isPending ? "Registrando..." : "Registrar"}
@@ -276,7 +277,7 @@ export default function Movements() {
             <div className="p-4 pb-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-10" placeholder="Buscar por producto..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                <KioskTextInput className="pl-10" placeholder="Buscar por producto..." value={search} onChange={setSearch} keyboardLabel="Buscar movimiento" inputType="search" />
               </div>
             </div>
             <Table>

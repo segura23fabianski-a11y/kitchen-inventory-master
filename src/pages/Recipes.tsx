@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, ChefHat, DollarSign, Eye, Search } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 interface IngredientLine {
   product_id: string;
@@ -170,11 +171,11 @@ export default function Recipes() {
                 <form onSubmit={(e) => { e.preventDefault(); if (isValid) createRecipe.mutate(); }} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Nombre *</Label>
-                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Carne a la plancha" required />
+                    <KioskTextInput value={name} onChange={setName} placeholder="Ej: Carne a la plancha" keyboardLabel="Nombre de la receta" />
                   </div>
                   <div className="space-y-2">
                     <Label>Descripción (opcional)</Label>
-                    <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Instrucciones o notas..." maxLength={500} />
+                    <KioskTextInput value={description} onChange={setDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción de receta" />
                   </div>
 
                   <div className="space-y-3">
@@ -262,7 +263,7 @@ export default function Recipes() {
         {/* Search + Recipe list */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-10" placeholder="Buscar receta..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <KioskTextInput className="pl-10" placeholder="Buscar receta..." value={search} onChange={setSearch} keyboardLabel="Buscar receta" inputType="search" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (

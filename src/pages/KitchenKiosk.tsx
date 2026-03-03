@@ -14,6 +14,7 @@ import { useRestaurantId } from "@/hooks/use-restaurant";
 import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 type Step = "products" | "recipe" | "quantities";
 
@@ -334,12 +335,14 @@ export default function KitchenKiosk() {
               </CardTitle>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
+                <KioskTextInput
                   className="pl-10"
                   placeholder="Buscar por nombre o código de barras..."
                   value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  autoFocus
+                  onChange={setProductSearch}
+                  forceKeyboard
+                  keyboardLabel="Buscar producto"
+                  inputType="search"
                 />
               </div>
             </CardHeader>

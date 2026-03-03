@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Trash2, Warehouse } from "lucide-react";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 export default function Warehouses() {
   const [open, setOpen] = useState(false);
@@ -75,11 +76,11 @@ export default function Warehouses() {
               <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) addWarehouse.mutate(); }} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Nombre *</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ej: Bodega principal" />
+                  <KioskTextInput value={name} onChange={setName} placeholder="Ej: Bodega principal" keyboardLabel="Nombre del almacén" />
                 </div>
                 <div className="space-y-2">
                   <Label>Descripción (opcional)</Label>
-                  <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ubicación o notas" />
+                  <KioskTextInput value={description} onChange={setDescription} placeholder="Ubicación o notas" keyboardLabel="Descripción" />
                 </div>
                 <Button type="submit" className="w-full" disabled={addWarehouse.isPending || !name.trim()}>
                   {addWarehouse.isPending ? "Guardando..." : "Guardar"}

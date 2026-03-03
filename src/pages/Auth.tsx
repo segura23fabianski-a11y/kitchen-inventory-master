@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Package } from "lucide-react";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -63,36 +64,35 @@ export default function Auth() {
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nombre completo</Label>
-                <Input
+                <KioskTextInput
                   id="fullName"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={setFullName}
                   placeholder="Juan Pérez"
-                  required={!isLogin}
+                  keyboardLabel="Nombre completo"
                 />
               </div>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Correo electrónico</Label>
-              <Input
+              <KioskTextInput
                 id="email"
-                type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={setEmail}
                 placeholder="tu@email.com"
-                required
+                keyboardLabel="Correo electrónico"
+                inputType="email"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input
+              <KioskTextInput
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
                 placeholder="••••••••"
-                required
-                minLength={6}
+                keyboardLabel="Contraseña"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
