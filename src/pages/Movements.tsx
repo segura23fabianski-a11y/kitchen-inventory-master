@@ -35,6 +35,7 @@ export default function Movements() {
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [movementDate, setMovementDate] = useState<Date | undefined>(undefined);
   const [movementTime, setMovementTime] = useState("12:00");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -174,6 +175,12 @@ export default function Movements() {
     setProductId(id);
     const prod = products?.find((p) => p.id === id);
     if (prod) setUnitCost(String(prod.average_cost));
+    setProductPopoverOpen(false);
+    setTimeout(() => {
+      const qtyInput = document.querySelector<HTMLInputElement>('[data-mov-qty-input]');
+      qtyInput?.focus();
+      qtyInput?.click();
+    }, 50);
   };
 
   const typeIcon = (t: string) => {
@@ -230,7 +237,7 @@ export default function Movements() {
               <form onSubmit={(e) => { e.preventDefault(); if (isValid) addMovement.mutate(); }} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Producto *</Label>
-                  <Popover>
+                  <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
                         {productId ? products?.find((p) => p.id === productId)?.name ?? "Seleccionar..." : "Seleccionar producto..."}
@@ -282,7 +289,7 @@ export default function Movements() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad *</Label>
-                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.01" required keypadLabel="Cantidad" />
+                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.01" required keypadLabel="Cantidad" data-mov-qty-input />
                   </div>
                   <div className="space-y-2">
                     <Label>Costo Unitario</Label>
