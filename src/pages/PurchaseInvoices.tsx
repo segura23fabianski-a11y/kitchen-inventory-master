@@ -79,6 +79,7 @@ export default function PurchaseInvoices() {
   const [addProductId, setAddProductId] = useState("");
   const [addQuantity, setAddQuantity] = useState("");
   const [addUnitCost, setAddUnitCost] = useState("");
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false);
 
   const { user } = useAuth();
   const { logAudit } = useAudit();
@@ -392,6 +393,13 @@ export default function PurchaseInvoices() {
     setAddProductId(id);
     const prod = products?.find((p) => p.id === id);
     if (prod) setAddUnitCost(String(prod.average_cost || ""));
+    setProductPopoverOpen(false);
+    // Focus quantity field after a tick
+    setTimeout(() => {
+      const qtyInput = document.querySelector<HTMLInputElement>('[data-product-qty-input]');
+      qtyInput?.focus();
+      qtyInput?.click();
+    }, 50);
   };
 
   return (
@@ -584,7 +592,7 @@ export default function PurchaseInvoices() {
               <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3 sm:flex-row sm:items-end">
                 <div className="flex-1 space-y-1">
                   <Label className="text-xs">Producto</Label>
-                  <Popover>
+                  <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9 text-sm">
                         {addProductId ? products?.find((p) => p.id === addProductId)?.name ?? "..." : "Buscar producto..."}
@@ -611,7 +619,7 @@ export default function PurchaseInvoices() {
                 </div>
                 <div className="w-28 space-y-1">
                   <Label className="text-xs">Cantidad</Label>
-                  <NumericKeypadInput mode="decimal" value={addQuantity} onChange={setAddQuantity} min="0.01" keypadLabel="Cantidad" className="h-9" />
+                  <NumericKeypadInput mode="decimal" value={addQuantity} onChange={setAddQuantity} min="0.01" keypadLabel="Cantidad" className="h-9" data-product-qty-input />
                 </div>
                 <div className="w-32 space-y-1">
                   <Label className="text-xs">Costo Unit. *</Label>
