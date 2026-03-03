@@ -364,6 +364,117 @@ export type Database = {
           },
         ]
       }
+      purchase_invoice_items: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          line_total: number
+          product_id: string
+          quantity: number
+          restaurant_id: string
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          line_total?: number
+          product_id: string
+          quantity: number
+          restaurant_id: string
+          unit_cost: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          line_total?: number
+          product_id?: string
+          quantity?: number
+          restaurant_id?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_invoices: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          posted_at: string | null
+          posted_by: string | null
+          received_date: string
+          restaurant_id: string
+          status: string
+          supplier_name: string | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          posted_at?: string | null
+          posted_by?: string | null
+          received_date?: string
+          restaurant_id: string
+          status?: string
+          supplier_name?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          received_date?: string
+          restaurant_id?: string
+          status?: string
+          supplier_name?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipe_ingredients: {
         Row: {
           created_at: string
