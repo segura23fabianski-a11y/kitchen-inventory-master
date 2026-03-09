@@ -48,14 +48,14 @@ function SuggestedPurchases() {
   const qc = useQueryClient();
 
   const { data: products } = useQuery({
-    queryKey: ["products-low-stock"],
+    queryKey: ["products-for-reorder"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, unit, current_stock, min_stock")
+        .select("id, name, unit, current_stock, min_stock, daily_consumption, target_days_of_stock, reorder_mode")
         .order("name");
       if (error) throw error;
-      return data.filter((p) => p.current_stock <= p.min_stock);
+      return data;
     },
   });
 
