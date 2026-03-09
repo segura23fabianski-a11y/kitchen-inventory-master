@@ -40,7 +40,7 @@ interface CodeEntry {
   description: string;
 }
 
-const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "" };
+const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "", dailyConsumption: "", targetDaysOfStock: "5", reorderMode: "min_stock" };
 
 export default function Products() {
   const { hasRole } = useAuth();
