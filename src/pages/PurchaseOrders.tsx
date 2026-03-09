@@ -212,8 +212,10 @@ function SuggestedPurchases() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
-                  <TableHead className="text-right">Stock Actual</TableHead>
-                  <TableHead className="text-right">Stock Mín.</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead className="text-right">Consumo/día</TableHead>
+                  <TableHead className="text-right">Días cobertura</TableHead>
+                  <TableHead className="text-right">Días objetivo</TableHead>
                   <TableHead className="text-right">Cant. Sugerida</TableHead>
                   <TableHead className="text-right">Últ. Costo</TableHead>
                 </TableRow>
@@ -221,9 +223,22 @@ function SuggestedPurchases() {
               <TableBody>
                 {group.items.map((item) => (
                   <TableRow key={item.product_id}>
-                    <TableCell className="font-medium">{item.product_name} <span className="text-muted-foreground text-xs">({item.unit})</span></TableCell>
-                    <TableCell className="text-right text-destructive font-semibold">{item.current_stock}</TableCell>
-                    <TableCell className="text-right">{item.min_stock}</TableCell>
+                    <TableCell className="font-medium">
+                      {item.product_name} <span className="text-muted-foreground text-xs">({item.unit})</span>
+                      {item.reorder_mode === "coverage" && <Badge variant="outline" className="ml-1 text-xs">cobertura</Badge>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={item.days_coverage != null && item.days_coverage < 3 ? "text-destructive font-semibold" : ""}>{item.current_stock}</span>
+                    </TableCell>
+                    <TableCell className="text-right">{item.daily_consumption ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      {item.days_coverage != null ? (
+                        <span className={item.days_coverage < 3 ? "text-destructive font-semibold" : item.days_coverage < 5 ? "text-amber-600 font-medium" : ""}>
+                          {item.days_coverage.toFixed(1)}
+                        </span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">{item.reorder_mode === "coverage" ? item.target_days : `Min: ${item.min_stock}`}</TableCell>
                     <TableCell className="text-right font-semibold text-primary">{item.suggested_qty}</TableCell>
                     <TableCell className="text-right">{item.last_unit_cost != null ? `$${item.last_unit_cost.toFixed(2)}` : "—"}</TableCell>
                   </TableRow>
