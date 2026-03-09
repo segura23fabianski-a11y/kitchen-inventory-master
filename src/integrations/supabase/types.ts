@@ -318,11 +318,14 @@ export type Database = {
           category_id: string | null
           created_at: string
           current_stock: number
+          daily_consumption: number | null
           id: string
           image_url: string | null
           min_stock: number
           name: string
+          reorder_mode: string
           restaurant_id: string
+          target_days_of_stock: number
           unit: string
           updated_at: string
           warehouse_id: string | null
@@ -333,11 +336,14 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           current_stock?: number
+          daily_consumption?: number | null
           id?: string
           image_url?: string | null
           min_stock?: number
           name: string
+          reorder_mode?: string
           restaurant_id: string
+          target_days_of_stock?: number
           unit?: string
           updated_at?: string
           warehouse_id?: string | null
@@ -348,11 +354,14 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           current_stock?: number
+          daily_consumption?: number | null
           id?: string
           image_url?: string | null
           min_stock?: number
           name?: string
+          reorder_mode?: string
           restaurant_id?: string
+          target_days_of_stock?: number
           unit?: string
           updated_at?: string
           warehouse_id?: string | null
