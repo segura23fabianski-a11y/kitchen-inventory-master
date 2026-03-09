@@ -145,6 +145,9 @@ export default function Products() {
         category_id: form.categoryId || null,
         warehouse_id: form.warehouseId || null,
         barcode: form.barcode.trim() || null,
+        daily_consumption: form.dailyConsumption ? Number(form.dailyConsumption) : null,
+        target_days_of_stock: Number(form.targetDaysOfStock) || 5,
+        reorder_mode: form.reorderMode,
       };
 
       let productId = editId;
