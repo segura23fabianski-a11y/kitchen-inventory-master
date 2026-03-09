@@ -447,6 +447,33 @@ export default function Products() {
                       </Select>
                     </div>
 
+                    {/* Reorder settings */}
+                    <div className="space-y-3 rounded-lg border p-3">
+                      <Label className="text-sm font-semibold">Reposición</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Modo de reposición</Label>
+                          <Select value={form.reorderMode} onValueChange={(v) => setForm({ ...form, reorderMode: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="min_stock">Stock mínimo</SelectItem>
+                              <SelectItem value="coverage">Cobertura (días)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Consumo diario prom.</Label>
+                          <NumericKeypadInput mode="decimal" value={form.dailyConsumption} onChange={(v) => setForm({ ...form, dailyConsumption: v })} min="0" keypadLabel="Consumo diario" />
+                        </div>
+                      </div>
+                      {form.reorderMode === "coverage" && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Días objetivo de inventario</Label>
+                          <NumericKeypadInput mode="integer" value={form.targetDaysOfStock} onChange={(v) => setForm({ ...form, targetDaysOfStock: v })} min="1" keypadLabel="Días objetivo" />
+                        </div>
+                      )}
+                    </div>
+
                     {/* Códigos adicionales */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
