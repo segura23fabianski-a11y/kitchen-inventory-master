@@ -20,6 +20,8 @@ import Warehouses from "./pages/Warehouses";
 import AuditLog from "./pages/AuditLog";
 import ResetInventory from "./pages/ResetInventory";
 import PurchaseInvoices from "./pages/PurchaseInvoices";
+import Suppliers from "./pages/Suppliers";
+import PurchaseOrders from "./pages/PurchaseOrders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,8 @@ const AppRoutes = () => (
     <Route path="/roles" element={<ProtectedRoute roles={["admin"]}><Roles /></ProtectedRoute>} />
     <Route path="/warehouses" element={<ProtectedRoute roles={["admin", "bodega"]}><Warehouses /></ProtectedRoute>} />
     <Route path="/purchases" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseInvoices /></ProtectedRoute>} />
+    <Route path="/suppliers" element={<ProtectedRoute roles={["admin", "bodega"]}><Suppliers /></ProtectedRoute>} />
+    <Route path="/purchase-orders" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseOrders /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
     <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
