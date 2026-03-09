@@ -29,6 +29,9 @@ interface ProductForm {
   categoryId: string;
   warehouseId: string;
   barcode: string;
+  dailyConsumption: string;
+  targetDaysOfStock: string;
+  reorderMode: string;
 }
 
 interface CodeEntry {
