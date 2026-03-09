@@ -178,7 +178,7 @@ function SuggestedPurchases() {
         <CardContent className="p-8 text-center text-muted-foreground">
           <PackageCheck className="mx-auto h-12 w-12 mb-3 text-primary/30" />
           <p className="text-lg font-medium">¡Todo en orden!</p>
-          <p className="text-sm">No hay productos por debajo del stock mínimo.</p>
+          <p className="text-sm">No hay productos que necesiten reposición.</p>
         </CardContent>
       </Card>
     );
