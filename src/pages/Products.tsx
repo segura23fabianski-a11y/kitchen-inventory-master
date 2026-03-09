@@ -254,6 +254,9 @@ export default function Products() {
       categoryId: p.category_id ?? "",
       warehouseId: p.warehouse_id ?? "",
       barcode: p.barcode ?? "",
+      dailyConsumption: p.daily_consumption != null ? String(p.daily_consumption) : "",
+      targetDaysOfStock: String(p.target_days_of_stock ?? 5),
+      reorderMode: p.reorder_mode ?? "min_stock",
     });
     setExistingImageUrl(p.image_url ?? null);
     setImagePreview(p.image_url ?? null);
