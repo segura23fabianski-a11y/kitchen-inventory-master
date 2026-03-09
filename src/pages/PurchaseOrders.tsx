@@ -28,6 +28,10 @@ interface SuggestedItem {
   unit: string;
   current_stock: number;
   min_stock: number;
+  daily_consumption: number | null;
+  target_days: number;
+  reorder_mode: string;
+  days_coverage: number | null;
   suggested_qty: number;
   supplier_id: string | null;
   supplier_name: string | null;
