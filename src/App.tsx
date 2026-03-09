@@ -20,6 +20,8 @@ import Warehouses from "./pages/Warehouses";
 import AuditLog from "./pages/AuditLog";
 import ResetInventory from "./pages/ResetInventory";
 import PurchaseInvoices from "./pages/PurchaseInvoices";
+import Suppliers from "./pages/Suppliers";
+import PurchaseOrders from "./pages/PurchaseOrders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
