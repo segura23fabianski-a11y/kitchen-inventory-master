@@ -28,6 +28,10 @@ interface SuggestedItem {
   unit: string;
   current_stock: number;
   min_stock: number;
+  daily_consumption: number | null;
+  target_days: number;
+  reorder_mode: string;
+  days_coverage: number | null;
   suggested_qty: number;
   supplier_id: string | null;
   supplier_name: string | null;
@@ -44,14 +48,14 @@ function SuggestedPurchases() {
   const qc = useQueryClient();
 
   const { data: products } = useQuery({
-    queryKey: ["products-low-stock"],
+    queryKey: ["products-for-reorder"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, unit, current_stock, min_stock")
+        .select("id, name, unit, current_stock, min_stock, daily_consumption, target_days_of_stock, reorder_mode")
         .order("name");
       if (error) throw error;
-      return data.filter((p) => p.current_stock <= p.min_stock);
+      return data;
     },
   });
 
@@ -68,22 +72,48 @@ function SuggestedPurchases() {
 
   const suggestions: SuggestedItem[] = useMemo(() => {
     if (!products) return [];
-    return products.map((p) => {
+    return products.map((p: any) => {
       const ps = productSuppliers?.find((r: any) => r.product_id === p.id && r.is_primary);
       const fallback = !ps ? productSuppliers?.find((r: any) => r.product_id === p.id) : null;
       const supplier = ps || fallback;
+
+      const stock = Number(p.current_stock);
+      const minStock = Number(p.min_stock);
+      const daily = p.daily_consumption != null ? Number(p.daily_consumption) : null;
+      const targetDays = Number(p.target_days_of_stock ?? 5);
+      const mode = p.reorder_mode ?? "min_stock";
+
+      let suggested_qty: number;
+      let days_coverage: number | null = null;
+
+      if (mode === "coverage" && daily && daily > 0) {
+        days_coverage = daily > 0 ? stock / daily : null;
+        const stock_target = daily * targetDays;
+        suggested_qty = Math.max(stock_target - stock, 0);
+      } else {
+        // min_stock mode or no daily_consumption
+        if (daily && daily > 0) {
+          days_coverage = stock / daily;
+        }
+        suggested_qty = Math.max(minStock - stock, 0);
+      }
+
       return {
         product_id: p.id,
         product_name: p.name,
         unit: p.unit,
-        current_stock: Number(p.current_stock),
-        min_stock: Number(p.min_stock),
-        suggested_qty: Math.max(Number(p.min_stock) - Number(p.current_stock), 0),
+        current_stock: stock,
+        min_stock: minStock,
+        daily_consumption: daily,
+        target_days: targetDays,
+        reorder_mode: mode,
+        days_coverage,
+        suggested_qty: Math.round(suggested_qty * 100) / 100,
         supplier_id: supplier?.supplier_id || null,
         supplier_name: supplier ? (supplier as any).suppliers?.name : null,
         last_unit_cost: supplier?.last_unit_cost ? Number(supplier.last_unit_cost) : null,
       };
-    });
+    }).filter((s) => s.suggested_qty > 0);
   }, [products, productSuppliers]);
 
   const grouped = useMemo(() => {
@@ -148,7 +178,7 @@ function SuggestedPurchases() {
         <CardContent className="p-8 text-center text-muted-foreground">
           <PackageCheck className="mx-auto h-12 w-12 mb-3 text-primary/30" />
           <p className="text-lg font-medium">¡Todo en orden!</p>
-          <p className="text-sm">No hay productos por debajo del stock mínimo.</p>
+          <p className="text-sm">No hay productos que necesiten reposición.</p>
         </CardContent>
       </Card>
     );
@@ -182,8 +212,10 @@ function SuggestedPurchases() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
-                  <TableHead className="text-right">Stock Actual</TableHead>
-                  <TableHead className="text-right">Stock Mín.</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead className="text-right">Consumo/día</TableHead>
+                  <TableHead className="text-right">Días cobertura</TableHead>
+                  <TableHead className="text-right">Días objetivo</TableHead>
                   <TableHead className="text-right">Cant. Sugerida</TableHead>
                   <TableHead className="text-right">Últ. Costo</TableHead>
                 </TableRow>
@@ -191,9 +223,22 @@ function SuggestedPurchases() {
               <TableBody>
                 {group.items.map((item) => (
                   <TableRow key={item.product_id}>
-                    <TableCell className="font-medium">{item.product_name} <span className="text-muted-foreground text-xs">({item.unit})</span></TableCell>
-                    <TableCell className="text-right text-destructive font-semibold">{item.current_stock}</TableCell>
-                    <TableCell className="text-right">{item.min_stock}</TableCell>
+                    <TableCell className="font-medium">
+                      {item.product_name} <span className="text-muted-foreground text-xs">({item.unit})</span>
+                      {item.reorder_mode === "coverage" && <Badge variant="outline" className="ml-1 text-xs">cobertura</Badge>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={item.days_coverage != null && item.days_coverage < 3 ? "text-destructive font-semibold" : ""}>{item.current_stock}</span>
+                    </TableCell>
+                    <TableCell className="text-right">{item.daily_consumption ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      {item.days_coverage != null ? (
+                        <span className={item.days_coverage < 3 ? "text-destructive font-semibold" : item.days_coverage < 5 ? "text-amber-600 font-medium" : ""}>
+                          {item.days_coverage.toFixed(1)}
+                        </span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">{item.reorder_mode === "coverage" ? item.target_days : `Min: ${item.min_stock}`}</TableCell>
                     <TableCell className="text-right font-semibold text-primary">{item.suggested_qty}</TableCell>
                     <TableCell className="text-right">{item.last_unit_cost != null ? `$${item.last_unit_cost.toFixed(2)}` : "—"}</TableCell>
                   </TableRow>

@@ -29,6 +29,9 @@ interface ProductForm {
   categoryId: string;
   warehouseId: string;
   barcode: string;
+  dailyConsumption: string;
+  targetDaysOfStock: string;
+  reorderMode: string;
 }
 
 interface CodeEntry {
@@ -37,7 +40,7 @@ interface CodeEntry {
   description: string;
 }
 
-const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "" };
+const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "", dailyConsumption: "", targetDaysOfStock: "5", reorderMode: "min_stock" };
 
 export default function Products() {
   const { hasRole } = useAuth();
@@ -142,6 +145,9 @@ export default function Products() {
         category_id: form.categoryId || null,
         warehouse_id: form.warehouseId || null,
         barcode: form.barcode.trim() || null,
+        daily_consumption: form.dailyConsumption ? Number(form.dailyConsumption) : null,
+        target_days_of_stock: Number(form.targetDaysOfStock) || 5,
+        reorder_mode: form.reorderMode,
       };
 
       let productId = editId;
@@ -248,6 +254,9 @@ export default function Products() {
       categoryId: p.category_id ?? "",
       warehouseId: p.warehouse_id ?? "",
       barcode: p.barcode ?? "",
+      dailyConsumption: p.daily_consumption != null ? String(p.daily_consumption) : "",
+      targetDaysOfStock: String(p.target_days_of_stock ?? 5),
+      reorderMode: p.reorder_mode ?? "min_stock",
     });
     setExistingImageUrl(p.image_url ?? null);
     setImagePreview(p.image_url ?? null);
@@ -436,6 +445,33 @@ export default function Products() {
                           {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Reorder settings */}
+                    <div className="space-y-3 rounded-lg border p-3">
+                      <Label className="text-sm font-semibold">Reposición</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Modo de reposición</Label>
+                          <Select value={form.reorderMode} onValueChange={(v) => setForm({ ...form, reorderMode: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="min_stock">Stock mínimo</SelectItem>
+                              <SelectItem value="coverage">Cobertura (días)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Consumo diario prom.</Label>
+                          <NumericKeypadInput mode="decimal" value={form.dailyConsumption} onChange={(v) => setForm({ ...form, dailyConsumption: v })} min="0" keypadLabel="Consumo diario" />
+                        </div>
+                      </div>
+                      {form.reorderMode === "coverage" && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Días objetivo de inventario</Label>
+                          <NumericKeypadInput mode="integer" value={form.targetDaysOfStock} onChange={(v) => setForm({ ...form, targetDaysOfStock: v })} min="1" keypadLabel="Días objetivo" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Códigos adicionales */}
