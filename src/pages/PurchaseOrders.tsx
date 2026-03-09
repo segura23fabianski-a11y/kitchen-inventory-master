@@ -72,22 +72,48 @@ function SuggestedPurchases() {
 
   const suggestions: SuggestedItem[] = useMemo(() => {
     if (!products) return [];
-    return products.map((p) => {
+    return products.map((p: any) => {
       const ps = productSuppliers?.find((r: any) => r.product_id === p.id && r.is_primary);
       const fallback = !ps ? productSuppliers?.find((r: any) => r.product_id === p.id) : null;
       const supplier = ps || fallback;
+
+      const stock = Number(p.current_stock);
+      const minStock = Number(p.min_stock);
+      const daily = p.daily_consumption != null ? Number(p.daily_consumption) : null;
+      const targetDays = Number(p.target_days_of_stock ?? 5);
+      const mode = p.reorder_mode ?? "min_stock";
+
+      let suggested_qty: number;
+      let days_coverage: number | null = null;
+
+      if (mode === "coverage" && daily && daily > 0) {
+        days_coverage = daily > 0 ? stock / daily : null;
+        const stock_target = daily * targetDays;
+        suggested_qty = Math.max(stock_target - stock, 0);
+      } else {
+        // min_stock mode or no daily_consumption
+        if (daily && daily > 0) {
+          days_coverage = stock / daily;
+        }
+        suggested_qty = Math.max(minStock - stock, 0);
+      }
+
       return {
         product_id: p.id,
         product_name: p.name,
         unit: p.unit,
-        current_stock: Number(p.current_stock),
-        min_stock: Number(p.min_stock),
-        suggested_qty: Math.max(Number(p.min_stock) - Number(p.current_stock), 0),
+        current_stock: stock,
+        min_stock: minStock,
+        daily_consumption: daily,
+        target_days: targetDays,
+        reorder_mode: mode,
+        days_coverage,
+        suggested_qty: Math.round(suggested_qty * 100) / 100,
         supplier_id: supplier?.supplier_id || null,
         supplier_name: supplier ? (supplier as any).suppliers?.name : null,
         last_unit_cost: supplier?.last_unit_cost ? Number(supplier.last_unit_cost) : null,
       };
-    });
+    }).filter((s) => s.suggested_qty > 0);
   }, [products, productSuppliers]);
 
   const grouped = useMemo(() => {
