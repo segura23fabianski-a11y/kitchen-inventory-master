@@ -778,7 +778,7 @@ export default function OperationsKiosk() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Cantidad</span>
-                      <span className="font-medium">{quantity} {selectedProduct.unit}</span>
+                      <span className="font-medium">{quantity} {svcEffectiveUnit}{svcEffectiveUnit !== selectedProduct.unit ? ` (${svcConvertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}</span>
                     </div>
                     <div className="border-t border-border pt-2 flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Costo estimado</span>
