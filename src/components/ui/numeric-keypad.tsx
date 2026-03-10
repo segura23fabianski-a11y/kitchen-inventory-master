@@ -112,7 +112,7 @@ export function NumericKeypad({
         )}
         {/* Display */}
         <div className="rounded-lg border bg-muted/50 px-4 py-3 text-right font-mono text-3xl font-bold tracking-wider text-foreground min-h-[3.5rem] flex items-center justify-end overflow-hidden">
-          {display}
+          {formatForDisplay(display)}
         </div>
 
         {/* Quick buttons */}
