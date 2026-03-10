@@ -210,6 +210,7 @@ export default function PurchaseInvoices() {
         product_id: addProductId,
         product_name: prod.name,
         product_unit: prod.unit,
+        input_unit: addInputUnit || prod.unit,
         quantity: addQuantity,
         unit_cost: addUnitCost,
       },
