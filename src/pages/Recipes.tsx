@@ -95,6 +95,17 @@ export default function Recipes() {
   const calcRecipeCost = (items: { product_id: string; quantity: number; unit: string }[]) =>
     items.reduce((sum, item) => sum + calcLineCost(item), 0);
 
+  const formatCost = (cost: number) => {
+    if (cost === 0) return "$0.00";
+    if (cost < 0.01) return `$${cost.toFixed(4)}`;
+    return `$${cost.toFixed(2)}`;
+  };
+
+  const productHasCost = (productId: string) => {
+    const prod = productMap.get(productId);
+    return prod ? Number(prod.average_cost) > 0 : false;
+  };
+
   const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
   const removeIngredientLine = (i: number) => setIngredients((prev) => prev.filter((_, idx) => idx !== i));
 
@@ -324,49 +335,60 @@ export default function Recipes() {
                       const prod = productMap.get(ing.product_id);
                       const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
                       const lineCost = calcLineCost(ing);
+                      const noCost = ing.product_id && !productHasCost(ing.product_id);
                       return (
-                        <div key={i} className="flex items-end gap-2">
-                          <div className="flex-1 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                            <Select value={ing.product_id} onValueChange={(v) => updateIngredient(i, "product_id", v)}>
-                              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                              <SelectContent>
-                                {products?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="w-24 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                            <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.01" keypadLabel="Cantidad ingrediente" />
-                          </div>
-                          <div className="w-20 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
-                            {availableUnits.length > 1 ? (
-                              <Select value={ing.unit} onValueChange={(v) => updateIngredient(i, "unit", v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
+                        <div key={i} className="space-y-1">
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1 space-y-1">
+                              {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
+                              <Select value={ing.product_id} onValueChange={(v) => updateIngredient(i, "product_id", v)}>
+                                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                 <SelectContent>
-                                  {availableUnits.map((u) => (
-                                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                                  {products?.map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${Number(p.average_cost).toFixed(2)}/{p.unit}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
-                            ) : (
-                              <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
-                            )}
+                            </div>
+                            <div className="w-24 space-y-1">
+                              {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
+                              <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.001" keypadLabel="Cantidad ingrediente" />
+                            </div>
+                            <div className="w-20 space-y-1">
+                              {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
+                              {availableUnits.length > 1 ? (
+                                <Select value={ing.unit} onValueChange={(v) => updateIngredient(i, "unit", v)}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {availableUnits.map((u) => (
+                                      <SelectItem key={u} value={u}>{u}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
+                              )}
+                            </div>
+                            <div className="w-20 space-y-1">
+                              {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
+                              <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
+                            </div>
+                            <div className="w-24 text-right space-y-1">
+                              {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
+                              <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
+                                {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
+                              </p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeIngredientLine(i)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                           </div>
-                          <div className="w-20 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
-                            <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
-                          </div>
-                          <div className="w-24 text-right space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
-                            <p className="h-10 flex items-center justify-end text-sm font-medium">${lineCost.toFixed(2)}</p>
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeIngredientLine(i)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {prod && (
+                            <p className="text-xs text-muted-foreground ml-1">
+                              Costo: ${Number(prod.average_cost).toFixed(4)}/{prod.unit}
+                              {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
@@ -376,7 +398,7 @@ export default function Recipes() {
                         <span className="text-sm text-muted-foreground flex items-center gap-1">
                           <DollarSign className="h-4 w-4" /> Costo teórico total
                         </span>
-                        <span className="font-heading text-lg font-bold">${newCost.toFixed(2)}</span>
+                        <span className="font-heading text-lg font-bold">{formatCost(newCost)}</span>
                       </div>
                     )}
                   </div>
@@ -443,7 +465,7 @@ export default function Recipes() {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
-                      <span className="font-heading font-bold text-lg">${cost.toFixed(2)}</span>
+                      <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
                     </div>
                     {rType === "food" && (
                       <p className="text-xs text-muted-foreground">
@@ -535,47 +557,58 @@ export default function Recipes() {
                     const prod = productMap.get(ing.product_id);
                     const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
                     const lineCost = calcLineCost(ing);
+                    const noCost = ing.product_id && !productHasCost(ing.product_id);
                     return (
-                      <div key={i} className="flex items-end gap-2">
-                        <div className="flex-1 space-y-1">
-                          {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                          <Select value={ing.product_id} onValueChange={(v) => updateEditIngredient(i, "product_id", v)}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                            <SelectContent>
-                              {products?.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="w-24 space-y-1">
-                          {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                          <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateEditIngredient(i, "quantity", v)} min="0.01" keypadLabel="Cantidad" />
-                        </div>
-                        <div className="w-20 space-y-1">
-                          {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
-                          {availableUnits.length > 1 ? (
-                            <Select value={ing.unit} onValueChange={(v) => updateEditIngredient(i, "unit", v)}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
+                      <div key={i} className="space-y-1">
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1 space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
+                            <Select value={ing.product_id} onValueChange={(v) => updateEditIngredient(i, "product_id", v)}>
+                              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                               <SelectContent>
-                                {availableUnits.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                                {products?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${Number(p.average_cost).toFixed(2)}/{p.unit}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
-                          ) : (
-                            <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
-                          )}
+                          </div>
+                          <div className="w-24 space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
+                            <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateEditIngredient(i, "quantity", v)} min="0.001" keypadLabel="Cantidad" />
+                          </div>
+                          <div className="w-20 space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
+                            {availableUnits.length > 1 ? (
+                              <Select value={ing.unit} onValueChange={(v) => updateEditIngredient(i, "unit", v)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {availableUnits.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
+                            )}
+                          </div>
+                          <div className="w-20 space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
+                            <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateEditIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
+                          </div>
+                          <div className="w-24 text-right space-y-1">
+                            {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
+                            <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
+                              {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
+                            </p>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeEditIngredient(i)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
-                        <div className="w-20 space-y-1">
-                          {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
-                          <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateEditIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
-                        </div>
-                        <div className="w-24 text-right space-y-1">
-                          {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
-                          <p className="h-10 flex items-center justify-end text-sm font-medium">${lineCost.toFixed(2)}</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeEditIngredient(i)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {prod && (
+                          <p className="text-xs text-muted-foreground ml-1">
+                            Costo: ${Number(prod.average_cost).toFixed(4)}/{prod.unit}
+                            {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
@@ -583,7 +616,7 @@ export default function Recipes() {
                   {editIngredients.length > 0 && (
                     <div className="rounded-md bg-muted p-3 flex items-center justify-between">
                       <span className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4" /> Costo teórico total</span>
-                      <span className="font-heading text-lg font-bold">${editCost.toFixed(2)}</span>
+                      <span className="font-heading text-lg font-bold">{formatCost(editCost)}</span>
                     </div>
                   )}
                 </div>
@@ -642,8 +675,10 @@ export default function Recipes() {
                                 <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">${Number(prod?.average_cost ?? 0).toFixed(2)}/{prod?.unit}</TableCell>
-                            <TableCell className="text-right font-semibold">${sub.toFixed(2)}</TableCell>
+                            <TableCell className={`text-right ${Number(prod?.average_cost ?? 0) === 0 ? "text-amber-600" : ""}`}>
+                              {Number(prod?.average_cost ?? 0) === 0 ? "⚠️ Sin costo" : `$${Number(prod?.average_cost).toFixed(4)}/${prod?.unit}`}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
                           </TableRow>
                         );
                       })}
@@ -652,7 +687,7 @@ export default function Recipes() {
                   <div className="rounded-md bg-muted p-3 flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Costo teórico total</span>
                     <span className="font-heading text-xl font-bold">
-                      ${calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))).toFixed(2)}
+                      {formatCost(calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))))}
                     </span>
                   </div>
                   {canUpdate && (
