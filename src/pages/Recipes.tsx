@@ -65,7 +65,7 @@ export default function Recipes() {
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost").order("name");
+      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost, last_unit_cost").order("name");
       if (error) throw error;
       return data;
     },
@@ -85,11 +85,22 @@ export default function Recipes() {
     },
   });
 
+  const getProductCost = (productId: string): number => {
+    const prod = productMap.get(productId);
+    if (!prod) return 0;
+    const avg = Number(prod.average_cost ?? 0);
+    if (avg > 0) return avg;
+    const last = Number((prod as any).last_unit_cost ?? 0);
+    if (last > 0) return last;
+    return 0;
+  };
+
   const calcLineCost = (item: { product_id: string; quantity: number; unit: string }) => {
     const prod = productMap.get(item.product_id);
     if (!prod) return 0;
+    const cost = getProductCost(item.product_id);
     const qtyInProductUnit = convertToProductUnit(item.quantity, item.unit, prod.unit);
-    return Number(prod.average_cost) * qtyInProductUnit;
+    return cost * qtyInProductUnit;
   };
 
   const calcRecipeCost = (items: { product_id: string; quantity: number; unit: string }[]) =>
@@ -102,8 +113,7 @@ export default function Recipes() {
   };
 
   const productHasCost = (productId: string) => {
-    const prod = productMap.get(productId);
-    return prod ? Number(prod.average_cost) > 0 : false;
+    return getProductCost(productId) > 0;
   };
 
   const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
@@ -345,7 +355,7 @@ export default function Recipes() {
                                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                 <SelectContent>
                                   {products?.map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${Number(p.average_cost).toFixed(2)}/{p.unit}</SelectItem>
+                                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${getProductCost(p.id).toFixed(2)}/{p.unit}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -385,7 +395,7 @@ export default function Recipes() {
                           </div>
                           {prod && (
                             <p className="text-xs text-muted-foreground ml-1">
-                              Costo: ${Number(prod.average_cost).toFixed(4)}/{prod.unit}
+                              Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
                               {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
                             </p>
                           )}
@@ -567,7 +577,7 @@ export default function Recipes() {
                               <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                               <SelectContent>
                                 {products?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${Number(p.average_cost).toFixed(2)}/{p.unit}</SelectItem>
+                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${getProductCost(p.id).toFixed(2)}/{p.unit}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -605,7 +615,7 @@ export default function Recipes() {
                         </div>
                         {prod && (
                           <p className="text-xs text-muted-foreground ml-1">
-                            Costo: ${Number(prod.average_cost).toFixed(4)}/{prod.unit}
+                            Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
                             {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
                           </p>
                         )}
@@ -675,8 +685,8 @@ export default function Recipes() {
                                 <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
                               )}
                             </TableCell>
-                            <TableCell className={`text-right ${Number(prod?.average_cost ?? 0) === 0 ? "text-amber-600" : ""}`}>
-                              {Number(prod?.average_cost ?? 0) === 0 ? "⚠️ Sin costo" : `$${Number(prod?.average_cost).toFixed(4)}/${prod?.unit}`}
+                            <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
+                              {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ing.product_id).toFixed(4)}/${prod?.unit}`}
                             </TableCell>
                             <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
                           </TableRow>

@@ -639,6 +639,7 @@ export default function Products() {
                   <TableHead>Almacén</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Unidad</TableHead>
+                  <TableHead>Último Costo</TableHead>
                   <TableHead>Costo Prom.</TableHead>
                   <TableHead>Estado</TableHead>
                   {(canUpdate || canDelete) && <TableHead className="w-20" />}
@@ -646,9 +647,9 @@ export default function Products() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={canManage ? 10 : 9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 11 : 10} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : !filtered?.length ? (
-                  <TableRow><TableCell colSpan={canManage ? 10 : 9} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 11 : 10} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
                 ) : (
                   filtered.map((p) => {
                     const pCodes = getProductCodesDisplay(p.id);
@@ -679,6 +680,7 @@ export default function Products() {
                         <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
                         <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
                         <TableCell className="text-muted-foreground">{p.unit}</TableCell>
+                        <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `$${Number((p as any).last_unit_cost).toFixed(2)}` : "—"}</TableCell>
                         <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
                         <TableCell>
                           {Number(p.current_stock) <= Number(p.min_stock) ? (
