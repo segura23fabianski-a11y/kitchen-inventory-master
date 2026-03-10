@@ -40,10 +40,10 @@ export default function OperationsKiosk() {
       const { data, error } = await supabase
         .from("recipes")
         .select("id, name, description, recipe_type, recipe_ingredients(id, product_id, quantity, unit)")
-        .in("recipe_type" as any, ["laundry", "housekeeping"])
         .order("name");
       if (error) throw error;
-      return data as any[];
+      // Filter in JS to avoid TS issues with .in on new column
+      return (data as any[]).filter((r: any) => r.recipe_type === "laundry" || r.recipe_type === "housekeeping");
     },
   });
 
