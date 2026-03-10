@@ -103,6 +103,9 @@ export default function OperationsKiosk() {
   const allHaveStock = recipeIngredients.every((i: any) => i.hasStock);
   const canConfirm = selectedRecipeId && portions > 0 && allHaveStock;
 
+  const portionLabel = serviceType === "laundry" ? "prendas" : serviceType === "housekeeping" ? "habitaciones" : "porciones";
+  const portionSingular = serviceType === "laundry" ? "prenda" : serviceType === "housekeeping" ? "habitación" : "porción";
+
   const confirmMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("register_recipe_consumption", {
