@@ -27,6 +27,7 @@ const allNavItems: NavItem[] = [
   { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
   { to: "/operations", icon: SprayCan, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
   { to: "/reports", icon: BarChart3, label: "Reportes", permKey: "reports" },
+  { to: "/operational-reports", icon: Layers, label: "Reportes Operativos", permKey: "reports" },
   { to: "/executive", icon: PieChart, label: "Dashboard Ejecutivo", permKey: "reports" },
   { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
   { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
