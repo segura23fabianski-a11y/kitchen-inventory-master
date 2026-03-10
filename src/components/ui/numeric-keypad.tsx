@@ -152,7 +152,7 @@ export function NumericKeypad({
             className={btnClass}
             onClick={() => appendDigit(".")}
           >
-            .
+            ,
           </Button>
           <Button
             type="button"
