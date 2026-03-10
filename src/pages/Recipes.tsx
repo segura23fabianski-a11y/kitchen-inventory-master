@@ -685,8 +685,8 @@ export default function Recipes() {
                                 <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
                               )}
                             </TableCell>
-                            <TableCell className={`text-right ${Number(prod?.average_cost ?? 0) === 0 ? "text-amber-600" : ""}`}>
-                              {Number(prod?.average_cost ?? 0) === 0 ? "⚠️ Sin costo" : `$${Number(prod?.average_cost).toFixed(4)}/${prod?.unit}`}
+                            <TableCell className={`text-right ${getProductCost(ri.product_id) === 0 ? "text-amber-600" : ""}`}>
+                              {getProductCost(ri.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ri.product_id).toFixed(4)}/${prod?.unit}`}
                             </TableCell>
                             <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
                           </TableRow>
