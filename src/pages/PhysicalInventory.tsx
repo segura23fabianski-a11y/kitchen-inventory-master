@@ -132,7 +132,7 @@ export default function PhysicalInventory() {
         if (iErr) throw iErr;
       }
 
-      await logAudit("physical_count", count.id, "CREATE_PHYSICAL_COUNT", null, { name: formName, products_count: products?.length ?? 0 });
+      await logAudit({ entityType: "physical_count", entityId: count.id, action: "CREATE", after: { name: formName, products_count: products?.length ?? 0 } });
 
       return count;
     },
