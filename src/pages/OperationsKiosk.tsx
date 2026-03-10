@@ -266,6 +266,35 @@ export default function OperationsKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateServiceMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("operational_services")
+        .update({ name: editServiceName.trim(), description: editServiceDesc.trim() || null })
+        .eq("id", editingServiceId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["operational-services"] });
+      setEditingServiceId(null);
+      toast({ title: "Servicio actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("operational_services").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["operational-services"] });
+      qc.invalidateQueries({ queryKey: ["service-categories"] });
+      setManageCategoriesServiceId(null);
+      toast({ title: "Servicio eliminado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const linkCategoryMutation = useMutation({
     mutationFn: async (categoryId: string) => {
       const { error } = await supabase.from("service_categories").insert({
