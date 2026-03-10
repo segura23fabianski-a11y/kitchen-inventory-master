@@ -277,17 +277,17 @@ export default function OperationsKiosk() {
             <CardContent className="space-y-5">
               {/* Quantity input */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Cantidad ejecutada</label>
+                <label className="text-sm font-medium">Cantidad de {portionLabel}</label>
                 <NumericKeypadInput
                   mode="integer"
                   value={portions}
                   onChange={(v) => setPortions(Math.max(1, Number(v) || 1))}
                   min="1"
-                  keypadLabel="Cantidad"
+                  keypadLabel={`Cantidad de ${portionLabel}`}
                   className="text-center text-2xl font-bold h-14"
                 />
                 <p className="text-xs text-muted-foreground text-center">
-                  Ej: 2 habitaciones, 5 prendas, 8 kg…
+                  Ingresa cuántas {portionLabel} se procesaron
                 </p>
               </div>
 
