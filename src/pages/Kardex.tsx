@@ -24,6 +24,10 @@ const typeLabels: Record<string, string> = {
   salida: "Salida",
   ajuste: "Ajuste",
   operational_consumption: "Consumo Operativo",
+  merma: "Merma",
+  desperdicio: "Desperdicio",
+  vencimiento: "Vencimiento",
+  daño: "Daño",
 };
 
 const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -31,6 +35,10 @@ const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" |
   salida: "destructive",
   ajuste: "secondary",
   operational_consumption: "outline",
+  merma: "secondary",
+  desperdicio: "destructive",
+  vencimiento: "outline",
+  daño: "default",
 };
 
 function getDocumentOrigin(mov: any, recipesMap: Map<string, string>, servicesMap: Map<string, string>): string {
