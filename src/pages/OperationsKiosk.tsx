@@ -202,7 +202,7 @@ export default function OperationsKiosk() {
 
   const svcHasInsufficient = svcLines.some((l) => l.insufficient);
   const svcGrandTotal = svcLines.reduce((s, l) => s + l.totalCost, 0);
-  const svcHasQuantities = svcLines.some((l) => l.qty > 0);
+  const svcHasQuantities = svcLines.some((l) => l.inputQty > 0);
   const canConfirmService = selectedServiceId && selectedProductIds.size > 0 && svcHasQuantities && !svcHasInsufficient;
 
   // ── Mutations ──
