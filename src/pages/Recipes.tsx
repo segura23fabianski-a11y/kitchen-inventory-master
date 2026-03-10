@@ -687,7 +687,7 @@ export default function Recipes() {
                   <div className="rounded-md bg-muted p-3 flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Costo teórico total</span>
                     <span className="font-heading text-xl font-bold">
-                      ${calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))).toFixed(2)}
+                      {formatCost(calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))))}
                     </span>
                   </div>
                   {canUpdate && (
