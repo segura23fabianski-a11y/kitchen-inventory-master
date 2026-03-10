@@ -122,6 +122,7 @@ export default function WasteControl() {
     [reasonCatalog, wasteType]
   );
 
+  const { data: wasteMovements, isLoading } = useQuery({
     queryKey: ["waste-movements"],
     queryFn: async () => {
       const { data, error } = await supabase
