@@ -123,9 +123,9 @@ export default function KitchenKiosk() {
   const { data: recipes } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name").order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name, recipe_type").order("name");
       if (error) throw error;
-      return data;
+      return data as { id: string; name: string; recipe_type: string }[];
     },
   });
 
