@@ -57,6 +57,7 @@ const navGroups: NavGroup[] = [
     icon: Utensils,
     items: [
       { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
+      { to: "/meal-planning", icon: CalendarDays, label: "Planeación Minuta", permKey: "recipes" },
     ],
   },
   {
