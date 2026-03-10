@@ -21,6 +21,7 @@ const allNavItems: NavItem[] = [
   { to: "/suppliers", icon: Truck, label: "Proveedores", permKey: "suppliers" },
   { to: "/purchase-orders", icon: ShoppingCart, label: "Pedidos de Compra", permKey: "purchase_orders" },
   { to: "/kardex", icon: BookOpen, label: "Kardex", permKey: "movements" },
+  { to: "/physical-inventory", icon: ClipboardCheck, label: "Inventario Físico", permKey: "physical_inventory" },
   { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
   { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
   { to: "/operations", icon: SprayCan, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
