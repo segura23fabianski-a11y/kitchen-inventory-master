@@ -744,15 +744,23 @@ export default function OperationsKiosk() {
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="space-y-2">
-                    <Label>Cantidad ({selectedProduct.unit}) *</Label>
-                    <NumericKeypadInput
-                      mode="decimal"
-                      value={quantity || ""}
-                      onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
-                      min="0.001"
-                      keypadLabel={`Cantidad en ${selectedProduct.unit}`}
-                      className="text-center text-2xl font-bold h-14"
-                    />
+                    <Label>Cantidad *</Label>
+                    <div className="flex gap-2">
+                      <NumericKeypadInput
+                        mode="decimal"
+                        value={quantity || ""}
+                        onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
+                        min="0.001"
+                        keypadLabel="Cantidad"
+                        className="text-center text-2xl font-bold h-14 flex-1"
+                      />
+                      <div className="w-24">
+                        <UnitSelector productUnit={selectedProduct.unit} value={svcEffectiveUnit} onChange={setServiceInputUnit} />
+                      </div>
+                    </div>
+                    {svcEffectiveUnit !== selectedProduct.unit && quantity > 0 && (
+                      <p className="text-xs text-muted-foreground text-center">= {svcConvertedQty.toFixed(4)} {selectedProduct.unit}</p>
+                    )}
                     <p className="text-xs text-muted-foreground text-center">Stock: {Number(selectedProduct.current_stock).toFixed(2)} {selectedProduct.unit}</p>
                   </div>
                   <div className="space-y-2">
