@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useBackdate } from "@/hooks/use-backdate";
+import { convertToProductUnit, getCompatibleUnits } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
