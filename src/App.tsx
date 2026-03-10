@@ -23,7 +23,7 @@ import PurchaseInvoices from "./pages/PurchaseInvoices";
 import Suppliers from "./pages/Suppliers";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import OperationsKiosk from "./pages/OperationsKiosk";
-import ManualConsumption from "./pages/ManualConsumption";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,7 +64,7 @@ const AppRoutes = () => (
     <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
     <Route path="/kitchen" element={<ProtectedRoute><KitchenKiosk /></ProtectedRoute>} />
     <Route path="/operations" element={<ProtectedRoute><OperationsKiosk /></ProtectedRoute>} />
-    <Route path="/manual-consumption" element={<ProtectedRoute><ManualConsumption /></ProtectedRoute>} />
+    
     <Route path="/reports" element={<ProtectedRoute roles={["admin"]}><Reports /></ProtectedRoute>} />
     <Route path="/executive" element={<ProtectedRoute roles={["admin"]}><ExecutiveDashboard /></ProtectedRoute>} />
     <Route path="/roles" element={<ProtectedRoute roles={["admin"]}><Roles /></ProtectedRoute>} />
