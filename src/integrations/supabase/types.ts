@@ -295,6 +295,52 @@ export type Database = {
           },
         ]
       }
+      product_operational_services: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          restaurant_id: string
+          service_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          restaurant_id: string
+          service_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          restaurant_id?: string
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_operational_services_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_operational_services_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_operational_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "operational_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_suppliers: {
         Row: {
           created_at: string
