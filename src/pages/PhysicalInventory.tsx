@@ -117,8 +117,8 @@ export default function PhysicalInventory() {
 
       // 2. Load products matching filters
       let query = supabase.from("products").select("id, current_stock");
-      if (formWarehouse) query = query.eq("warehouse_id", formWarehouse);
-      if (formCategory) query = query.eq("category_id", formCategory);
+      if (formWarehouse && formWarehouse !== "all") query = query.eq("warehouse_id", formWarehouse);
+      if (formCategory && formCategory !== "all") query = query.eq("category_id", formCategory);
       const { data: products, error: pErr } = await query.order("name");
       if (pErr) throw pErr;
 
