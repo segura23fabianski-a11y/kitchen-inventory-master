@@ -40,6 +40,11 @@ interface IngredientLine {
 export default function Recipes() {
   const [open, setOpen] = useState(false);
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editRecipeType, setEditRecipeType] = useState<RecipeType>("food");
+  const [editIngredients, setEditIngredients] = useState<(IngredientLine & { id?: string })[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [recipeType, setRecipeType] = useState<RecipeType>("food");
