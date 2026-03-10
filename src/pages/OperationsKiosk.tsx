@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAudit } from "@/hooks/use-audit";
 import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
@@ -51,6 +52,7 @@ export default function OperationsKiosk() {
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [svcQuantities, setSvcQuantities] = useState<Record<string, number>>({});
+  const [svcUnits, setSvcUnits] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [productSearch, setProductSearch] = useState("");
 
@@ -187,18 +189,20 @@ export default function OperationsKiosk() {
     return [...selectedProductIds].map((pid) => {
       const product = productMap.get(pid);
       if (!product) return null;
-      const qty = svcQuantities[pid] ?? 0;
+      const inputQty = svcQuantities[pid] ?? 0;
+      const inputUnit = svcUnits[pid] || product.unit;
+      const convertedQty = convertToProductUnit(inputQty, inputUnit, product.unit);
       const stock = Number(product.current_stock ?? 0);
       const unitCost = Number(product.average_cost ?? 0);
-      const totalCost = qty * unitCost;
-      const insufficient = qty > stock;
-      return { product, qty, stock, unitCost, totalCost, insufficient };
-    }).filter(Boolean) as { product: typeof products[0]; qty: number; stock: number; unitCost: number; totalCost: number; insufficient: boolean }[];
-  }, [selectedProductIds, svcQuantities, products, productMap]);
+      const totalCost = convertedQty * unitCost;
+      const insufficient = convertedQty > stock;
+      return { product, inputQty, inputUnit, convertedQty, stock, unitCost, totalCost, insufficient };
+    }).filter(Boolean) as { product: typeof products[0]; inputQty: number; inputUnit: string; convertedQty: number; stock: number; unitCost: number; totalCost: number; insufficient: boolean }[];
+  }, [selectedProductIds, svcQuantities, svcUnits, products, productMap]);
 
   const svcHasInsufficient = svcLines.some((l) => l.insufficient);
   const svcGrandTotal = svcLines.reduce((s, l) => s + l.totalCost, 0);
-  const svcHasQuantities = svcLines.some((l) => l.qty > 0);
+  const svcHasQuantities = svcLines.some((l) => l.inputQty > 0);
   const canConfirmService = selectedServiceId && selectedProductIds.size > 0 && svcHasQuantities && !svcHasInsufficient;
 
   // ── Mutations ──
@@ -232,26 +236,29 @@ export default function OperationsKiosk() {
   const confirmServiceMutation = useMutation({
     mutationFn: async () => {
       for (const line of svcLines) {
-        if (line.qty <= 0) continue;
+        if (line.inputQty <= 0) continue;
+        const noteText = line.inputUnit !== line.product.unit
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name}`} | ${line.inputQty} ${line.inputUnit} → ${line.convertedQty.toFixed(4)} ${line.product.unit}`
+          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.convertedQty} ${line.product.unit}`;
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: line.product.id,
           user_id: user!.id,
           type: "operational_consumption",
-          quantity: line.qty,
+          quantity: line.convertedQty,
           unit_cost: line.unitCost,
           total_cost: line.totalCost,
           service_id: selectedServiceId!,
-          notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.qty} ${line.product.unit}`,
+          notes: noteText,
           restaurant_id: restaurantId!,
         } as any);
         if (error) throw error;
       }
-      const validLines = svcLines.filter((l) => l.qty > 0);
+      const validLines = svcLines.filter((l) => l.inputQty > 0);
       await logAudit({
         entityType: "operational_consumption",
         entityId: selectedServiceId!,
         action: "CREATE",
-        after: { service: selectedService?.name, products: validLines.map((l) => ({ name: l.product.name, qty: l.qty, unit: l.product.unit, cost: l.totalCost })), total_cost: svcGrandTotal },
+        after: { service: selectedService?.name, products: validLines.map((l) => ({ name: l.product.name, qty: l.convertedQty, inputQty: l.inputQty, inputUnit: l.inputUnit, unit: l.product.unit, cost: l.totalCost })), total_cost: svcGrandTotal },
         canRollback: false,
       });
     },
@@ -259,7 +266,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
-      const count = svcLines.filter((l) => l.qty > 0).length;
+      const count = svcLines.filter((l) => l.inputQty > 0).length;
       toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — $${svcGrandTotal.toFixed(2)}` });
       goHome();
     },
@@ -352,6 +359,7 @@ export default function OperationsKiosk() {
     setSelectedServiceId(null);
     setSelectedProductIds(new Set());
     setSvcQuantities({});
+    setSvcUnits({});
     setNotes("");
     setProductSearch("");
     setShowHistory(false);
@@ -675,7 +683,7 @@ export default function OperationsKiosk() {
                           return (
                             <button
                               key={s.id}
-                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("products"); setProductSearch(""); setSelectedProductIds(new Set()); setSvcQuantities({}); }}
+                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("products"); setProductSearch(""); setSelectedProductIds(new Set()); setSvcQuantities({}); setSvcUnits({}); }}
                               className="rounded-lg border-2 border-border p-5 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                               <p className="font-heading font-bold text-lg">{s.name}</p>
@@ -787,24 +795,36 @@ export default function OperationsKiosk() {
                       <TableBody>
                         {svcLines.map((l) => (
                           <TableRow key={l.product.id}>
-                            <TableCell className="font-medium text-sm">{l.product.name}
+                             <TableCell className="font-medium text-sm">{l.product.name}
                               <span className="block text-xs text-muted-foreground">{l.product.unit}</span>
                             </TableCell>
                             <TableCell className="text-right">
-                              <NumericKeypadInput
-                                mode="decimal"
-                                value={l.qty || ""}
-                                onChange={(v) =>
-                                  setSvcQuantities((prev) => ({
-                                    ...prev,
-                                    [l.product.id]: Math.max(0, Number(v) || 0),
-                                  }))
-                                }
-                                min="0"
-                                className="w-20 text-right ml-auto"
-                                keypadLabel={l.product.name}
-                                forceKeypad
-                              />
+                              <div className="flex items-center gap-1 justify-end">
+                                <NumericKeypadInput
+                                  mode="decimal"
+                                  value={l.inputQty || ""}
+                                  onChange={(v) =>
+                                    setSvcQuantities((prev) => ({
+                                      ...prev,
+                                      [l.product.id]: Math.max(0, Number(v) || 0),
+                                    }))
+                                  }
+                                  min="0"
+                                  className="w-20 text-right"
+                                  keypadLabel={l.product.name}
+                                  forceKeypad
+                                />
+                                <div className="w-16">
+                                  <UnitSelector
+                                    productUnit={l.product.unit}
+                                    value={l.inputUnit}
+                                    onChange={(u) => setSvcUnits((prev) => ({ ...prev, [l.product.id]: u }))}
+                                  />
+                                </div>
+                              </div>
+                              {l.inputUnit !== l.product.unit && l.inputQty > 0 && (
+                                <p className="text-[10px] text-muted-foreground text-right mt-0.5">= {l.convertedQty.toFixed(4)} {l.product.unit}</p>
+                              )}
                             </TableCell>
                             <TableCell className="text-right text-sm">{l.stock.toFixed(2)} {l.product.unit}</TableCell>
                             <TableCell className="text-right font-semibold text-sm">${l.totalCost.toFixed(2)}</TableCell>
@@ -816,6 +836,7 @@ export default function OperationsKiosk() {
                                 onClick={() => {
                                   setSelectedProductIds((prev) => { const next = new Set(prev); next.delete(l.product.id); return next; });
                                   setSvcQuantities((prev) => { const next = { ...prev }; delete next[l.product.id]; return next; });
+                                  setSvcUnits((prev) => { const next = { ...prev }; delete next[l.product.id]; return next; });
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
