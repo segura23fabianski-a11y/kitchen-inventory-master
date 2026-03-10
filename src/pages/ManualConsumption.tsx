@@ -94,13 +94,17 @@ export default function ManualConsumption() {
   const serviceMap = new Map(services?.map((s) => [s.id, s]) ?? []);
   const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
   const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
+  const effectiveUnit = inputUnit || selectedProduct?.unit || "unidad";
+  const convertedQty = selectedProduct
+    ? convertToProductUnit(quantity, effectiveUnit, selectedProduct.unit)
+    : quantity;
 
-  const estimatedCost = selectedProduct && quantity > 0
-    ? quantity * Number(selectedProduct.average_cost)
+  const estimatedCost = selectedProduct && convertedQty > 0
+    ? convertedQty * Number(selectedProduct.average_cost)
     : 0;
 
   const hasStock = selectedProduct
-    ? Number(selectedProduct.current_stock) >= quantity
+    ? Number(selectedProduct.current_stock) >= convertedQty
     : false;
 
   const canConfirm =
