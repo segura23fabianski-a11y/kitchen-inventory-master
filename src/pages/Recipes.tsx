@@ -395,7 +395,10 @@ export default function Recipes() {
                           </div>
                           {prod && (
                             <p className="text-xs text-muted-foreground ml-1">
-                              Costo: ${Number(prod.average_cost).toFixed(4)}/{prod.unit}
+                              Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
+                              {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
+                            </p>
+                          )}
                               {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
                             </p>
                           )}
