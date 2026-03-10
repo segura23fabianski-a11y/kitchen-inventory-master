@@ -227,6 +227,189 @@ export type Database = {
           },
         ]
       }
+      meal_components: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          restaurant_id: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          restaurant_id: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          restaurant_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_components_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plan_service_items: {
+        Row: {
+          component_id: string
+          created_at: string
+          id: string
+          meal_plan_service_id: string
+          recipe_id: string
+          restaurant_id: string
+          sort_order: number
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          id?: string
+          meal_plan_service_id: string
+          recipe_id: string
+          restaurant_id: string
+          sort_order?: number
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          id?: string
+          meal_plan_service_id?: string
+          recipe_id?: string
+          restaurant_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_service_items_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "meal_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_service_items_meal_plan_service_id_fkey"
+            columns: ["meal_plan_service_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_service_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_service_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plan_services: {
+        Row: {
+          created_at: string
+          id: string
+          meal_plan_id: string
+          projected_servings: number
+          restaurant_id: string
+          service_date: string
+          service_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meal_plan_id: string
+          projected_servings?: number
+          restaurant_id: string
+          service_date: string
+          service_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meal_plan_id?: string
+          projected_servings?: number
+          restaurant_id?: string
+          service_date?: string
+          service_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_services_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_services_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plans: {
+        Row: {
+          created_at: string
+          created_by: string
+          end_date: string
+          id: string
+          name: string
+          restaurant_id: string
+          start_date: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          end_date: string
+          id?: string
+          name: string
+          restaurant_id: string
+          start_date: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          id?: string
+          name?: string
+          restaurant_id?: string
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plans_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operational_services: {
         Row: {
           active: boolean

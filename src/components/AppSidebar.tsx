@@ -2,7 +2,7 @@ import {
   Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users,
   ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History,
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
-  AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor
+  AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -57,6 +57,7 @@ const navGroups: NavGroup[] = [
     icon: Utensils,
     items: [
       { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
+      { to: "/meal-planning", icon: CalendarDays, label: "Planeación Minuta", permKey: "recipes" },
     ],
   },
   {
