@@ -129,7 +129,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["operations-history"] });
       toast({
         title: "✅ Servicio registrado",
-        description: `${selectedRecipe?.name} x${portions} — $${totalCost.toFixed(2)}`,
+        description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — $${totalCost.toFixed(2)}`,
       });
       resetAll();
     },
