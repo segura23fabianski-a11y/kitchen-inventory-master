@@ -189,14 +189,16 @@ export default function OperationsKiosk() {
     return [...selectedProductIds].map((pid) => {
       const product = productMap.get(pid);
       if (!product) return null;
-      const qty = svcQuantities[pid] ?? 0;
+      const inputQty = svcQuantities[pid] ?? 0;
+      const inputUnit = svcUnits[pid] || product.unit;
+      const convertedQty = convertToProductUnit(inputQty, inputUnit, product.unit);
       const stock = Number(product.current_stock ?? 0);
       const unitCost = Number(product.average_cost ?? 0);
-      const totalCost = qty * unitCost;
-      const insufficient = qty > stock;
-      return { product, qty, stock, unitCost, totalCost, insufficient };
-    }).filter(Boolean) as { product: typeof products[0]; qty: number; stock: number; unitCost: number; totalCost: number; insufficient: boolean }[];
-  }, [selectedProductIds, svcQuantities, products, productMap]);
+      const totalCost = convertedQty * unitCost;
+      const insufficient = convertedQty > stock;
+      return { product, inputQty, inputUnit, convertedQty, stock, unitCost, totalCost, insufficient };
+    }).filter(Boolean) as { product: typeof products[0]; inputQty: number; inputUnit: string; convertedQty: number; stock: number; unitCost: number; totalCost: number; insufficient: boolean }[];
+  }, [selectedProductIds, svcQuantities, svcUnits, products, productMap]);
 
   const svcHasInsufficient = svcLines.some((l) => l.insufficient);
   const svcGrandTotal = svcLines.reduce((s, l) => s + l.totalCost, 0);
