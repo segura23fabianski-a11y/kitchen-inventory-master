@@ -181,16 +181,27 @@ export default function OperationsKiosk() {
   const allHaveStock = recipeIngredients.every((i: any) => i.hasStock);
   const canConfirmRecipe = selectedRecipeId && portions > 0 && allHaveStock;
 
-  // ── Service helpers ──
-  const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
+  // ── Service helpers (multi-product) ──
   const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
-  const svcEffectiveUnit = serviceInputUnit || selectedProduct?.unit || "unidad";
-  const svcConvertedQty = selectedProduct
-    ? convertToProductUnit(quantity, svcEffectiveUnit, selectedProduct.unit)
-    : quantity;
-  const estimatedCost = selectedProduct && svcConvertedQty > 0 ? svcConvertedQty * Number(selectedProduct.average_cost) : 0;
-  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= svcConvertedQty : false;
-  const canConfirmService = selectedProductId && quantity > 0 && selectedServiceId && hasStock;
+
+  const svcLines = useMemo(() => {
+    if (!products) return [];
+    return [...selectedProductIds].map((pid) => {
+      const product = productMap.get(pid);
+      if (!product) return null;
+      const qty = svcQuantities[pid] ?? 0;
+      const stock = Number(product.current_stock ?? 0);
+      const unitCost = Number(product.average_cost ?? 0);
+      const totalCost = qty * unitCost;
+      const insufficient = qty > stock;
+      return { product, qty, stock, unitCost, totalCost, insufficient };
+    }).filter(Boolean) as { product: typeof products[0]; qty: number; stock: number; unitCost: number; totalCost: number; insufficient: boolean }[];
+  }, [selectedProductIds, svcQuantities, products, productMap]);
+
+  const svcHasInsufficient = svcLines.some((l) => l.insufficient);
+  const svcGrandTotal = svcLines.reduce((s, l) => s + l.totalCost, 0);
+  const svcHasQuantities = svcLines.some((l) => l.qty > 0);
+  const canConfirmService = selectedServiceId && selectedProductIds.size > 0 && svcHasQuantities && !svcHasInsufficient;
 
   // ── Mutations ──
   const confirmRecipeMutation = useMutation({
