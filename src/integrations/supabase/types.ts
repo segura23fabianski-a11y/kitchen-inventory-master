@@ -144,7 +144,9 @@ export type Database = {
       inventory_movements: {
         Row: {
           created_at: string
+          evidence_url: string | null
           id: string
+          loss_value: number | null
           movement_date: string
           notes: string | null
           product_id: string
@@ -156,10 +158,13 @@ export type Database = {
           type: string
           unit_cost: number
           user_id: string
+          waste_reason: string | null
         }
         Insert: {
           created_at?: string
+          evidence_url?: string | null
           id?: string
+          loss_value?: number | null
           movement_date?: string
           notes?: string | null
           product_id: string
@@ -171,10 +176,13 @@ export type Database = {
           type: string
           unit_cost?: number
           user_id: string
+          waste_reason?: string | null
         }
         Update: {
           created_at?: string
+          evidence_url?: string | null
           id?: string
+          loss_value?: number | null
           movement_date?: string
           notes?: string | null
           product_id?: string
@@ -186,6 +194,7 @@ export type Database = {
           type?: string
           unit_cost?: number
           user_id?: string
+          waste_reason?: string | null
         }
         Relationships: [
           {
