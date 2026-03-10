@@ -188,6 +188,12 @@ export default function OrdersList() {
                         <Button size="icon" variant="ghost" onClick={() => setViewOrder(o)} title="Ver detalle">
                           <FileText className="h-4 w-4" />
                         </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handlePdf(o, "download")} title="Descargar PDF">
+                          <Download className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handlePdf(o, "preview")} title="Vista previa PDF">
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                         {o.status === "draft" && canCreate && (
                           <>
                             <Button size="icon" variant="ghost" onClick={() => updateStatus.mutate({ id: o.id, status: "sent" })} title="Marcar enviado">
