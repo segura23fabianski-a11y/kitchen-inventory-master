@@ -339,7 +339,7 @@ export default function Recipes() {
                           </div>
                           <div className="w-24 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                            <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.01" keypadLabel="Cantidad ingrediente" />
+                            <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.001" keypadLabel="Cantidad ingrediente" />
                           </div>
                           <div className="w-20 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
