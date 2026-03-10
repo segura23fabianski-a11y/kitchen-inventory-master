@@ -21,7 +21,7 @@ import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
   Shirt, SprayCan, ChevronLeft, CheckCircle2, History,
   CalendarDays, ClipboardList, Droplets, Search, Package,
-  Plus, Settings, Trash2, Tag,
+  Plus, Settings, Trash2, Tag, Pencil,
 } from "lucide-react";
 
 // ── Types ──
