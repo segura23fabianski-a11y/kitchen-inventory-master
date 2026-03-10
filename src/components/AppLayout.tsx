@@ -4,9 +4,11 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { useBranding } from "@/hooks/use-branding";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const branding = useBranding();
 
   return (
     <div className="min-h-screen bg-background">
@@ -18,7 +20,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
           <Menu className="h-5 w-5" />
         </Button>
-        <span className="font-heading text-lg font-semibold">Inventario</span>
+        <span className="font-heading text-lg font-semibold">{branding.app_name || "Inventario"}</span>
       </header>
 
       {/* Mobile sidebar sheet */}

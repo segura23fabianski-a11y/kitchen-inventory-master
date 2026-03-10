@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { BrandingProvider } from "@/hooks/use-branding";
 import Auth from "./pages/Auth";
 import PendingApproval from "./pages/PendingApproval";
 import Dashboard from "./pages/Dashboard";
@@ -29,6 +30,7 @@ import WasteControl from "./pages/WasteControl";
 import OperationalReports from "./pages/OperationalReports";
 import PriceHistory from "./pages/PriceHistory";
 import MealPlanning from "./pages/MealPlanning";
+import Branding from "./pages/Branding";
 
 import NotFound from "./pages/NotFound";
 
@@ -87,6 +89,7 @@ const AppRoutes = () => (
     <Route path="/meal-planning" element={<ProtectedRoute roles={["admin", "bodega"]}><MealPlanning /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
     <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
+    <Route path="/branding" element={<ProtectedRoute roles={["admin"]}><Branding /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
@@ -98,7 +101,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <BrandingProvider>
+            <AppRoutes />
+          </BrandingProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

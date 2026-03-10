@@ -2,7 +2,7 @@ import {
   Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users,
   ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History,
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
-  AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays
+  AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -10,6 +10,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useCallback } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useBranding } from "@/hooks/use-branding";
 
 interface NavItem {
   to: string;
@@ -86,6 +87,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
       { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
+      { to: "/branding", icon: Paintbrush, label: "Configuración Visual", permKey: "users" },
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "audit" },
     ],
@@ -140,6 +142,7 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { hasPermission } = usePermissions();
   const location = useLocation();
   const { openGroups, toggle } = useOpenGroups(location.pathname, hasPermission);
+  const branding = useBranding();
 
   // Filter groups to only show items user has permission for
   const visibleGroups = navGroups
@@ -153,11 +156,15 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
     <>
       {/* Header */}
       <div className="flex h-14 items-center gap-3 px-5 border-b border-sidebar-border shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-          <Package className="h-4 w-4 text-sidebar-primary-foreground" />
-        </div>
+        {branding.logo_small_url ? (
+          <img src={branding.logo_small_url} alt="Logo" className="h-8 w-8 rounded-lg object-contain" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
+            <Package className="h-4 w-4 text-sidebar-primary-foreground" />
+          </div>
+        )}
         <span className="font-heading text-base font-semibold text-sidebar-foreground">
-          Inventario
+          {branding.app_name || "Inventario"}
         </span>
       </div>
 

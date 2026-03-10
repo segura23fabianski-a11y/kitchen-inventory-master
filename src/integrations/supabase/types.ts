@@ -109,6 +109,59 @@ export type Database = {
           },
         ]
       }
+      branding_settings: {
+        Row: {
+          accent_color: string | null
+          app_name: string | null
+          created_at: string
+          favicon_url: string | null
+          id: string
+          login_background_url: string | null
+          logo_small_url: string | null
+          logo_url: string | null
+          primary_color: string | null
+          restaurant_id: string
+          secondary_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string | null
+          app_name?: string | null
+          created_at?: string
+          favicon_url?: string | null
+          id?: string
+          login_background_url?: string | null
+          logo_small_url?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          restaurant_id: string
+          secondary_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string | null
+          app_name?: string | null
+          created_at?: string
+          favicon_url?: string | null
+          id?: string
+          login_background_url?: string | null
+          logo_small_url?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          restaurant_id?: string
+          secondary_color?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
