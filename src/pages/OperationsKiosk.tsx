@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAudit } from "@/hooks/use-audit";
@@ -20,7 +20,7 @@ import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
   Shirt, SprayCan, ChevronLeft, CheckCircle2, History,
   CalendarDays, ClipboardList, Droplets, Search, Package,
-  Plus, Settings, Trash2,
+  Plus, Settings, Trash2, Tag,
 } from "lucide-react";
 
 // ── Types ──
@@ -57,8 +57,7 @@ export default function OperationsKiosk() {
   // ── Admin manage services ──
   const [newServiceName, setNewServiceName] = useState("");
   const [newServiceDesc, setNewServiceDesc] = useState("");
-  const [manageProductsServiceId, setManageProductsServiceId] = useState<string | null>(null);
-  const [addProductSearch, setAddProductSearch] = useState("");
+  const [manageCategoriesServiceId, setManageCategoriesServiceId] = useState<string | null>(null);
 
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
@@ -85,7 +84,16 @@ export default function OperationsKiosk() {
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, unit, current_stock, average_cost").order("name");
+      const { data, error } = await supabase.from("products").select("id, name, unit, current_stock, average_cost, category_id").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("id, name").order("name");
       if (error) throw error;
       return data;
     },
@@ -100,12 +108,12 @@ export default function OperationsKiosk() {
     },
   });
 
-  const { data: productServiceLinks } = useQuery({
-    queryKey: ["product-operational-services"],
+  const { data: serviceCategoryLinks } = useQuery({
+    queryKey: ["service-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("product_operational_services").select("*");
+      const { data, error } = await supabase.from("service_categories").select("*").eq("active", true);
       if (error) throw error;
-      return data as { id: string; product_id: string; service_id: string; restaurant_id: string }[];
+      return data as { id: string; service_id: string; category_id: string; restaurant_id: string }[];
     },
   });
 
@@ -126,18 +134,20 @@ export default function OperationsKiosk() {
   const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
   const serviceMap = new Map(services?.map((s) => [s.id, s]) ?? []);
   const recipeMap = new Map(recipes?.map((r: any) => [r.id, r]) ?? []);
+  const categoryMap = new Map(categories?.map((c) => [c.id, c]) ?? []);
 
-  // Products linked to a specific service
+  // Products filtered by categories linked to selected service
   const productsForService = useMemo(() => {
-    if (!selectedServiceId || !productServiceLinks || !products) return [];
-    const linkedIds = new Set(
-      productServiceLinks.filter((l) => l.service_id === selectedServiceId).map((l) => l.product_id)
+    if (!selectedServiceId || !serviceCategoryLinks || !products) return [];
+    const linkedCategoryIds = new Set(
+      serviceCategoryLinks.filter((l) => l.service_id === selectedServiceId).map((l) => l.category_id)
     );
-    const linked = products.filter((p) => linkedIds.has(p.id));
-    if (!productSearch.trim()) return linked;
+    if (linkedCategoryIds.size === 0) return [];
+    const filtered = products.filter((p) => p.category_id && linkedCategoryIds.has(p.category_id));
+    if (!productSearch.trim()) return filtered;
     const q = productSearch.toLowerCase();
-    return linked.filter((p) => p.name.toLowerCase().includes(q));
-  }, [selectedServiceId, productServiceLinks, products, productSearch]);
+    return filtered.filter((p) => p.name.toLowerCase().includes(q));
+  }, [selectedServiceId, serviceCategoryLinks, products, productSearch]);
 
   // ── Recipe helpers ──
   const filteredRecipes = useMemo(() => {
@@ -253,30 +263,30 @@ export default function OperationsKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const linkProductMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      const { error } = await supabase.from("product_operational_services").insert({
-        product_id: productId,
-        service_id: manageProductsServiceId!,
+  const linkCategoryMutation = useMutation({
+    mutationFn: async (categoryId: string) => {
+      const { error } = await supabase.from("service_categories").insert({
+        category_id: categoryId,
+        service_id: manageCategoriesServiceId!,
         restaurant_id: restaurantId!,
       } as any);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["product-operational-services"] });
-      toast({ title: "Producto vinculado" });
+      qc.invalidateQueries({ queryKey: ["service-categories"] });
+      toast({ title: "Categoría vinculada" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const unlinkProductMutation = useMutation({
+  const unlinkCategoryMutation = useMutation({
     mutationFn: async (linkId: string) => {
-      const { error } = await supabase.from("product_operational_services").delete().eq("id", linkId);
+      const { error } = await supabase.from("service_categories").delete().eq("id", linkId);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["product-operational-services"] });
-      toast({ title: "Producto desvinculado" });
+      qc.invalidateQueries({ queryKey: ["service-categories"] });
+      toast({ title: "Categoría desvinculada" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -297,24 +307,16 @@ export default function OperationsKiosk() {
     setShowHistory(false);
   };
 
-  // Linked product IDs for manage dialog
-  const linkedProductIds = useMemo(() => {
-    if (!manageProductsServiceId || !productServiceLinks) return new Set<string>();
-    return new Set(productServiceLinks.filter((l) => l.service_id === manageProductsServiceId).map((l) => l.product_id));
-  }, [manageProductsServiceId, productServiceLinks]);
+  // Category IDs linked to service being managed
+  const linkedCategoryIds = useMemo(() => {
+    if (!manageCategoriesServiceId || !serviceCategoryLinks) return new Set<string>();
+    return new Set(serviceCategoryLinks.filter((l) => l.service_id === manageCategoriesServiceId).map((l) => l.category_id));
+  }, [manageCategoriesServiceId, serviceCategoryLinks]);
 
   const linksForManageService = useMemo(() => {
-    if (!manageProductsServiceId || !productServiceLinks) return [];
-    return productServiceLinks.filter((l) => l.service_id === manageProductsServiceId);
-  }, [manageProductsServiceId, productServiceLinks]);
-
-  const unlinkedProducts = useMemo(() => {
-    if (!products) return [];
-    const filtered = products.filter((p) => !linkedProductIds.has(p.id));
-    if (!addProductSearch.trim()) return filtered;
-    const q = addProductSearch.toLowerCase();
-    return filtered.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, linkedProductIds, addProductSearch]);
+    if (!manageCategoriesServiceId || !serviceCategoryLinks) return [];
+    return serviceCategoryLinks.filter((l) => l.service_id === manageCategoriesServiceId);
+  }, [manageCategoriesServiceId, serviceCategoryLinks]);
 
   // ── Deduplicated history for recipes ──
   const historyItems = useMemo(() => {
@@ -327,7 +329,6 @@ export default function OperationsKiosk() {
         if (seen.has(key)) continue;
         seen.add(key);
       }
-      // Only show operational items
       const recipe = h.recipe_id ? recipeMap.get(h.recipe_id) : null;
       const isOpsRecipe = recipe && ((recipe as any).recipe_type === "laundry" || (recipe as any).recipe_type === "housekeeping");
       const isManual = h.type === "operational_consumption";
@@ -336,6 +337,14 @@ export default function OperationsKiosk() {
     }
     return result.slice(0, 50);
   }, [history, recipeMap]);
+
+  // Count products per service (for display)
+  const productCountForService = (serviceId: string) => {
+    if (!serviceCategoryLinks || !products) return 0;
+    const catIds = new Set(serviceCategoryLinks.filter((l) => l.service_id === serviceId).map((l) => l.category_id));
+    if (catIds.size === 0) return 0;
+    return products.filter((p) => p.category_id && catIds.has(p.category_id)).length;
+  };
 
   return (
     <AppLayout>
@@ -350,7 +359,6 @@ export default function OperationsKiosk() {
         {mode === "home" && !showHistory && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Recetas Operativas */}
               <button
                 onClick={() => { setMode("recipes"); setRecipeStep("type"); }}
                 className="rounded-xl border-2 border-border p-8 text-center transition-all hover:shadow-lg hover:border-primary active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary"
@@ -362,8 +370,6 @@ export default function OperationsKiosk() {
                   <span className="text-sm text-muted-foreground">Lavandería · Housekeeping</span>
                 </div>
               </button>
-
-              {/* Registro por Servicio */}
               <button
                 onClick={() => { setMode("services"); setServiceStep("service"); }}
                 className="rounded-xl border-2 border-border p-8 text-center transition-all hover:shadow-lg hover:border-primary active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary"
@@ -446,7 +452,6 @@ export default function OperationsKiosk() {
             ═══════════════════════════════════════════ */}
         {mode === "recipes" && (
           <>
-            {/* Step indicators */}
             <div className="flex items-center justify-center gap-2 text-sm">
               <Badge variant={recipeStep === "type" ? "default" : "secondary"}>1. Tipo</Badge>
               <span className="text-muted-foreground">→</span>
@@ -455,7 +460,6 @@ export default function OperationsKiosk() {
               <Badge variant={recipeStep === "confirm" ? "default" : "secondary"}>3. Confirmar</Badge>
             </div>
 
-            {/* Select type */}
             {recipeStep === "type" && (
               <>
                 <Button variant="ghost" size="sm" onClick={goHome} className="mb-2">
@@ -482,7 +486,6 @@ export default function OperationsKiosk() {
               </>
             )}
 
-            {/* Select recipe */}
             {recipeStep === "recipe" && serviceType && (
               <Card>
                 <CardHeader>
@@ -528,7 +531,6 @@ export default function OperationsKiosk() {
               </Card>
             )}
 
-            {/* Confirm recipe */}
             {recipeStep === "confirm" && selectedRecipe && serviceType && (
               <Card>
                 <CardHeader>
@@ -603,7 +605,6 @@ export default function OperationsKiosk() {
               <Badge variant={serviceStep === "confirm" ? "default" : "secondary"}>3. Confirmar</Badge>
             </div>
 
-            {/* Select service */}
             {serviceStep === "service" && (
               <>
                 <Button variant="ghost" size="sm" onClick={goHome} className="mb-2">
@@ -619,7 +620,8 @@ export default function OperationsKiosk() {
                     ) : (
                       <div className="grid gap-3">
                         {services.map((s) => {
-                          const linkedCount = productServiceLinks?.filter((l) => l.service_id === s.id).length ?? 0;
+                          const pCount = productCountForService(s.id);
+                          const catCount = serviceCategoryLinks?.filter((l) => l.service_id === s.id).length ?? 0;
                           return (
                             <button
                               key={s.id}
@@ -628,7 +630,9 @@ export default function OperationsKiosk() {
                             >
                               <p className="font-heading font-bold text-lg">{s.name}</p>
                               {s.description && <p className="text-sm text-muted-foreground">{s.description}</p>}
-                              <p className="text-xs text-muted-foreground mt-1">{linkedCount} producto{linkedCount !== 1 ? "s" : ""} asociado{linkedCount !== 1 ? "s" : ""}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {catCount} categoría{catCount !== 1 ? "s" : ""} · {pCount} producto{pCount !== 1 ? "s" : ""}
+                              </p>
                             </button>
                           );
                         })}
@@ -639,7 +643,6 @@ export default function OperationsKiosk() {
               </>
             )}
 
-            {/* Select product */}
             {serviceStep === "product" && selectedServiceId && (
               <Card>
                 <CardHeader>
@@ -658,9 +661,9 @@ export default function OperationsKiosk() {
                   <div className="max-h-[50vh] overflow-y-auto space-y-2">
                     {productsForService.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">
-                        {productServiceLinks?.filter((l) => l.service_id === selectedServiceId).length === 0
-                          ? "No hay productos asociados a este servicio. Un administrador debe vincularlos."
-                          : "Sin resultados"}
+                        {(serviceCategoryLinks?.filter((l) => l.service_id === selectedServiceId).length ?? 0) === 0
+                          ? "No hay categorías asociadas a este servicio. Un administrador debe configurarlas."
+                          : "Sin productos en las categorías asociadas."}
                       </p>
                     ) : (
                       productsForService.map((p) => (
@@ -672,7 +675,10 @@ export default function OperationsKiosk() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-heading font-bold">{p.name}</p>
-                              <p className="text-xs text-muted-foreground">Stock: {Number(p.current_stock).toFixed(2)} {p.unit} · ${Number(p.average_cost).toFixed(2)}/{p.unit}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {p.category_id && categoryMap.get(p.category_id)?.name ? <span className="mr-2"><Tag className="inline h-3 w-3 mr-0.5" />{categoryMap.get(p.category_id)!.name}</span> : null}
+                                Stock: {Number(p.current_stock).toFixed(2)} {p.unit} · ${Number(p.average_cost).toFixed(2)}/{p.unit}
+                              </p>
                             </div>
                             <Package className="h-5 w-5 text-muted-foreground" />
                           </div>
@@ -684,7 +690,6 @@ export default function OperationsKiosk() {
               </Card>
             )}
 
-            {/* Confirm service consumption */}
             {serviceStep === "confirm" && selectedProduct && selectedServiceId && (
               <Card>
                 <CardHeader>
@@ -745,7 +750,7 @@ export default function OperationsKiosk() {
       </div>
 
       {/* ═══ Manage Services Dialog (Admin) ═══ */}
-      <Dialog open={manageOpen} onOpenChange={(o) => { setManageOpen(o); if (!o) { setManageProductsServiceId(null); setAddProductSearch(""); } }}>
+      <Dialog open={manageOpen} onOpenChange={(o) => { setManageOpen(o); if (!o) { setManageCategoriesServiceId(null); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Gestionar Servicios Operativos</DialogTitle>
@@ -763,37 +768,43 @@ export default function OperationsKiosk() {
 
             {/* Existing services + product linking */}
             <div className="space-y-3">
-              <Label className="font-semibold">Servicios existentes — Productos asociados</Label>
+              <Label className="font-semibold">Servicios existentes — Categorías asociadas</Label>
               {!services?.length ? (
                 <p className="text-muted-foreground text-sm">Sin servicios</p>
               ) : (
                 <div className="space-y-2">
                   {services.map((s) => {
-                    const isExpanded = manageProductsServiceId === s.id;
-                    const links = productServiceLinks?.filter((l) => l.service_id === s.id) ?? [];
+                    const isExpanded = manageCategoriesServiceId === s.id;
+                    const links = serviceCategoryLinks?.filter((l) => l.service_id === s.id) ?? [];
                     return (
                       <div key={s.id} className="border rounded-lg">
                         <button
                           className="w-full text-left p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                          onClick={() => { setManageProductsServiceId(isExpanded ? null : s.id); setAddProductSearch(""); }}
+                          onClick={() => setManageCategoriesServiceId(isExpanded ? null : s.id)}
                         >
                           <div>
                             <p className="font-medium">{s.name}</p>
-                            <p className="text-xs text-muted-foreground">{links.length} producto{links.length !== 1 ? "s" : ""}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {links.length} categoría{links.length !== 1 ? "s" : ""} · {productCountForService(s.id)} producto{productCountForService(s.id) !== 1 ? "s" : ""}
+                            </p>
                           </div>
                           <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? "-rotate-90" : ""}`} />
                         </button>
                         {isExpanded && (
                           <div className="border-t p-3 space-y-3">
-                            {/* Linked products */}
+                            {/* Linked categories */}
                             {links.length > 0 && (
                               <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Categorías vinculadas:</p>
                                 {links.map((link) => {
-                                  const prod = productMap.get(link.product_id);
+                                  const cat = categoryMap.get(link.category_id);
                                   return (
                                     <div key={link.id} className="flex items-center justify-between rounded px-2 py-1 bg-muted/50">
-                                      <span className="text-sm">{prod?.name ?? "—"}</span>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => unlinkProductMutation.mutate(link.id)}>
+                                      <span className="text-sm flex items-center gap-1.5">
+                                        <Tag className="h-3 w-3 text-primary" />
+                                        {cat?.name ?? "—"}
+                                      </span>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => unlinkCategoryMutation.mutate(link.id)}>
                                         <Trash2 className="h-3 w-3 text-destructive" />
                                       </Button>
                                     </div>
@@ -801,24 +812,28 @@ export default function OperationsKiosk() {
                                 })}
                               </div>
                             )}
-                            {/* Add product */}
-                            <div className="space-y-2">
-                              <div className="relative">
-                                <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                                <KioskTextInput className="pl-7 text-sm h-8" placeholder="Agregar producto..." value={addProductSearch} onChange={setAddProductSearch} keyboardLabel="Buscar producto" inputType="search" />
+                            {/* Add categories */}
+                            {categories && categories.filter((c) => !linkedCategoryIds.has(c.id)).length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-xs font-medium text-muted-foreground">Agregar categoría:</p>
+                                <div className="max-h-40 overflow-y-auto space-y-1">
+                                  {categories.filter((c) => !linkedCategoryIds.has(c.id)).map((c) => (
+                                    <button
+                                      key={c.id}
+                                      onClick={() => linkCategoryMutation.mutate(c.id)}
+                                      className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors flex items-center gap-1.5"
+                                    >
+                                      <Plus className="h-3 w-3 text-primary" />
+                                      <Tag className="h-3 w-3" />
+                                      {c.name}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="max-h-40 overflow-y-auto space-y-1">
-                                {unlinkedProducts.slice(0, 20).map((p) => (
-                                  <button
-                                    key={p.id}
-                                    onClick={() => linkProductMutation.mutate(p.id)}
-                                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors"
-                                  >
-                                    <Plus className="inline h-3 w-3 mr-1 text-primary" />{p.name}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
+                            )}
+                            {categories && categories.filter((c) => !linkedCategoryIds.has(c.id)).length === 0 && links.length > 0 && (
+                              <p className="text-xs text-muted-foreground text-center">Todas las categorías ya están vinculadas</p>
+                            )}
                           </div>
                         )}
                       </div>
