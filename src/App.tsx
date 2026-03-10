@@ -26,6 +26,7 @@ import OperationsKiosk from "./pages/OperationsKiosk";
 import Kardex from "./pages/Kardex";
 import PhysicalInventory from "./pages/PhysicalInventory";
 import WasteControl from "./pages/WasteControl";
+import OperationalReports from "./pages/OperationalReports";
 
 import NotFound from "./pages/NotFound";
 
@@ -70,6 +71,7 @@ const AppRoutes = () => (
     
     <Route path="/reports" element={<ProtectedRoute roles={["admin"]}><Reports /></ProtectedRoute>} />
     <Route path="/executive" element={<ProtectedRoute roles={["admin"]}><ExecutiveDashboard /></ProtectedRoute>} />
+    <Route path="/operational-reports" element={<ProtectedRoute roles={["admin", "bodega"]}><OperationalReports /></ProtectedRoute>} />
     <Route path="/roles" element={<ProtectedRoute roles={["admin"]}><Roles /></ProtectedRoute>} />
     <Route path="/warehouses" element={<ProtectedRoute roles={["admin", "bodega"]}><Warehouses /></ProtectedRoute>} />
     <Route path="/purchases" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseInvoices /></ProtectedRoute>} />
