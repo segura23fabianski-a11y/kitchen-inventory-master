@@ -9,9 +9,10 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -19,7 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Check, ChevronsUpDown, Search, CalendarIcon, FileText, Trash2, Send, Eye, X } from "lucide-react";
+import { Plus, Check, ChevronsUpDown, Search, CalendarIcon, FileText, Trash2, Send, Eye, X, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
@@ -31,6 +32,7 @@ type Invoice = {
   restaurant_id: string;
   invoice_number: string;
   supplier_name: string | null;
+  supplier_id: string | null;
   invoice_date: string;
   received_date: string;
   status: string;
@@ -62,6 +64,201 @@ type DraftItem = {
   unit_cost: string;
 };
 
+type Supplier = {
+  id: string;
+  name: string;
+  nit: string | null;
+  phone: string | null;
+  email: string | null;
+  contact_name: string | null;
+  notes: string | null;
+  active: boolean;
+};
+
+// ─── Supplier Selector Component ───────────────────────────────
+function SupplierSelector({
+  suppliers,
+  selectedId,
+  selectedName,
+  onSelect,
+  restaurantId,
+}: {
+  suppliers: Supplier[];
+  selectedId: string | null;
+  selectedName: string | null;
+  onSelect: (id: string, name: string) => void;
+  restaurantId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  // Create supplier form
+  const [newName, setNewName] = useState("");
+  const [newNit, setNewNit] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+
+  const resetCreate = () => {
+    setNewName("");
+    setNewNit("");
+    setNewPhone("");
+    setNewEmail("");
+    setNewNotes("");
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!newName.trim()) throw new Error("El nombre es requerido");
+      // Check for duplicates by name or NIT
+      if (newNit.trim()) {
+        const existing = suppliers.find(
+          (s) => s.nit?.toLowerCase() === newNit.trim().toLowerCase()
+        );
+        if (existing) throw new Error(`Ya existe un proveedor con NIT ${newNit}: ${existing.name}`);
+      }
+      const existingName = suppliers.find(
+        (s) => s.name.toLowerCase() === newName.trim().toLowerCase()
+      );
+      if (existingName) throw new Error(`Ya existe un proveedor con ese nombre: ${existingName.name}`);
+
+      const { data, error } = await supabase
+        .from("suppliers")
+        .insert({
+          restaurant_id: restaurantId,
+          name: newName.trim(),
+          nit: newNit.trim() || null,
+          phone: newPhone.trim() || null,
+          email: newEmail.trim() || null,
+          notes: newNotes.trim() || null,
+        })
+        .select("id, name")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["suppliers-for-invoices"] });
+      onSelect(data.id, data.name);
+      setCreateOpen(false);
+      resetCreate();
+      toast({ title: "Proveedor creado y seleccionado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const selected = suppliers.find((s) => s.id === selectedId);
+  const displayText = selected?.name || selectedName || "";
+
+  return (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9 text-sm">
+            {displayText ? (
+              <span className="truncate">{displayText}</span>
+            ) : (
+              <span className="text-muted-foreground">Buscar proveedor...</span>
+            )}
+            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar por nombre, NIT, teléfono..." />
+            <CommandList>
+              <CommandEmpty>
+                <div className="py-2 text-center">
+                  <p className="text-sm text-muted-foreground mb-2">No se encontró proveedor</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setOpen(false); setCreateOpen(true); }}
+                  >
+                    <UserPlus className="h-3.5 w-3.5 mr-1" />
+                    Crear nuevo proveedor
+                  </Button>
+                </div>
+              </CommandEmpty>
+              <CommandGroup>
+                {suppliers.filter((s) => s.active).map((s) => (
+                  <CommandItem
+                    key={s.id}
+                    value={`${s.name} ${s.nit || ""} ${s.phone || ""} ${s.email || ""}`}
+                    onSelect={() => {
+                      onSelect(s.id, s.name);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", selectedId === s.id ? "opacity-100" : "opacity-0")} />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{s.name}</span>
+                      {s.nit && <span className="ml-2 text-xs text-muted-foreground">NIT: {s.nit}</span>}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <div className="border-t p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-sm"
+                  onClick={() => { setOpen(false); setCreateOpen(true); }}
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-2" />
+                  Crear nuevo proveedor
+                </Button>
+              </div>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {/* Create Supplier Dialog */}
+      <Dialog open={createOpen} onOpenChange={(v) => { if (!v) { setCreateOpen(false); resetCreate(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Proveedor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <KioskTextInput value={newName} onChange={setNewName} placeholder="Nombre del proveedor" keyboardLabel="Nombre proveedor" />
+            </div>
+            <div className="space-y-2">
+              <Label>NIT / Cédula</Label>
+              <KioskTextInput value={newNit} onChange={setNewNit} placeholder="NIT o cédula" keyboardLabel="NIT" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Teléfono</Label>
+                <KioskTextInput value={newPhone} onChange={setNewPhone} placeholder="Teléfono" keyboardLabel="Teléfono" />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <KioskTextInput value={newEmail} onChange={setNewEmail} placeholder="Email" keyboardLabel="Email" inputType="email" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <KioskTextInput value={newNotes} onChange={setNewNotes} placeholder="Notas opcionales" keyboardLabel="Notas" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCreateOpen(false); resetCreate(); }}>Cancelar</Button>
+            <Button onClick={() => createMutation.mutate()} disabled={!newName.trim() || createMutation.isPending}>
+              {createMutation.isPending ? "Creando..." : "Crear y Seleccionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────
 export default function PurchaseInvoices() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
@@ -73,6 +270,7 @@ export default function PurchaseInvoices() {
 
   // Form state
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [supplierId, setSupplierId] = useState<string | null>(null);
   const [supplierName, setSupplierName] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -119,6 +317,19 @@ export default function PurchaseInvoices() {
     },
   });
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-for-invoices", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, nit, phone, email, contact_name, notes, active")
+        .order("name");
+      if (error) throw error;
+      return data as Supplier[];
+    },
+    enabled: !!restaurantId,
+  });
+
   const { data: viewItems } = useQuery({
     queryKey: ["invoice-items", viewingInvoice?.id],
     queryFn: async () => {
@@ -141,15 +352,23 @@ export default function PurchaseInvoices() {
   });
 
   const profileMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) ?? []);
+  const supplierMap = new Map(suppliers.map((s) => [s.id, s.name]));
+
+  const getSupplierDisplay = (inv: Invoice) => {
+    if (inv.supplier_id && supplierMap.has(inv.supplier_id)) return supplierMap.get(inv.supplier_id);
+    return inv.supplier_name || "—";
+  };
 
   const filtered = invoices?.filter((inv) => {
-    const matchSearch = !search || inv.invoice_number.toLowerCase().includes(search.toLowerCase()) || inv.supplier_name?.toLowerCase().includes(search.toLowerCase());
+    const supplierDisplay = getSupplierDisplay(inv) || "";
+    const matchSearch = !search || inv.invoice_number.toLowerCase().includes(search.toLowerCase()) || supplierDisplay.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || inv.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
   const resetForm = () => {
     setInvoiceNumber("");
+    setSupplierId(null);
     setSupplierName("");
     setInvoiceDate(new Date());
     setItems([]);
@@ -169,15 +388,15 @@ export default function PurchaseInvoices() {
     if (inv.status === "posted") return;
     setEditingInvoice(inv);
     setInvoiceNumber(inv.invoice_number);
+    setSupplierId(inv.supplier_id || null);
     setSupplierName(inv.supplier_name ?? "");
     setInvoiceDate(new Date(inv.invoice_date + "T12:00:00"));
 
-    // Load existing items
     const { data } = await supabase
       .from("purchase_invoice_items" as any)
       .select("*")
       .eq("invoice_id", inv.id);
-    
+
     const existingItems: DraftItem[] = ((data as unknown as InvoiceItem[]) ?? []).map((it) => {
       const prod = products?.find((p) => p.id === it.product_id);
       return {
@@ -202,7 +421,6 @@ export default function PurchaseInvoices() {
     }
     const prod = products?.find((p) => p.id === addProductId);
     if (!prod) return;
-    // Check duplicate product
     if (items.some((i) => i.product_id === addProductId)) {
       toast({ title: "Producto ya agregado", description: "Edita la cantidad en la línea existente.", variant: "destructive" });
       return;
@@ -229,24 +447,28 @@ export default function PurchaseInvoices() {
 
   const formTotal = items.reduce((sum, i) => sum + convertToProductUnit(Number(i.quantity) || 0, i.input_unit, i.product_unit) * (Number(i.unit_cost) || 0), 0);
 
+  const handleSelectSupplier = (id: string, name: string) => {
+    setSupplierId(id);
+    setSupplierName(name);
+  };
+
   const saveInvoice = useMutation({
     mutationFn: async () => {
       if (!invoiceNumber.trim()) throw new Error("Número de factura requerido");
       if (items.length === 0) throw new Error("Agrega al menos un producto");
 
       if (editingInvoice) {
-        // Update header
         const { error: hErr } = await supabase
           .from("purchase_invoices" as any)
           .update({
             invoice_number: invoiceNumber.trim(),
+            supplier_id: supplierId,
             supplier_name: supplierName.trim() || null,
             invoice_date: format(invoiceDate, "yyyy-MM-dd"),
           } as any)
           .eq("id", editingInvoice.id);
         if (hErr) throw hErr;
 
-        // Delete old items, insert new
         await supabase.from("purchase_invoice_items" as any).delete().eq("invoice_id", editingInvoice.id);
         const itemRows = items.map((i) => ({
           invoice_id: editingInvoice.id,
@@ -266,12 +488,12 @@ export default function PurchaseInvoices() {
           metadata: { invoice_number: invoiceNumber, total_amount: formTotal },
         });
       } else {
-        // Create header
         const { data: inv, error: hErr } = await supabase
           .from("purchase_invoices" as any)
           .insert({
             restaurant_id: restaurantId!,
             invoice_number: invoiceNumber.trim(),
+            supplier_id: supplierId,
             supplier_name: supplierName.trim() || null,
             invoice_date: format(invoiceDate, "yyyy-MM-dd"),
             created_by: user!.id,
@@ -311,7 +533,6 @@ export default function PurchaseInvoices() {
 
   const postInvoice = useMutation({
     mutationFn: async (invoiceId: string) => {
-      // 1) Get invoice
       const { data: inv, error: invErr } = await supabase
         .from("purchase_invoices" as any)
         .select("*")
@@ -320,9 +541,7 @@ export default function PurchaseInvoices() {
       if (invErr) throw invErr;
       const invoice = inv as unknown as Invoice;
       if (invoice.status === "posted") throw new Error("Esta factura ya fue posteada");
-      if (invoice.posted_at) throw new Error("Esta factura ya fue posteada");
 
-      // 2) Get items
       const { data: itemsData, error: itemsErr } = await supabase
         .from("purchase_invoice_items" as any)
         .select("*")
@@ -331,7 +550,6 @@ export default function PurchaseInvoices() {
       const invoiceItems = itemsData as unknown as InvoiceItem[];
       if (!invoiceItems.length) throw new Error("La factura no tiene ítems");
 
-      // 3) Snapshot product costs BEFORE movements
       const productIds = [...new Set(invoiceItems.map((i) => i.product_id))];
       const { data: productsBefore } = await supabase
         .from("products")
@@ -339,7 +557,6 @@ export default function PurchaseInvoices() {
         .in("id", productIds);
       const beforeMap = new Map((productsBefore ?? []).map((p) => [p.id, { average_cost: Number(p.average_cost), last_unit_cost: Number((p as any).last_unit_cost ?? 0), current_stock: Number(p.current_stock) }]));
 
-      // 4) Create inventory_movements for each item
       const movements = invoiceItems.map((item) => ({
         product_id: item.product_id,
         user_id: user!.id,
@@ -355,7 +572,6 @@ export default function PurchaseInvoices() {
       const { error: movErr } = await supabase.from("inventory_movements").insert(movements);
       if (movErr) throw movErr;
 
-      // 5) Update invoice status
       const { error: upErr } = await supabase
         .from("purchase_invoices" as any)
         .update({
@@ -366,7 +582,6 @@ export default function PurchaseInvoices() {
         .eq("id", invoiceId);
       if (upErr) throw upErr;
 
-      // 6) Snapshot product costs AFTER and audit cost changes
       const { data: productsAfter } = await supabase
         .from("products")
         .select("id, average_cost, last_unit_cost")
@@ -395,7 +610,6 @@ export default function PurchaseInvoices() {
         }
       }
 
-      // 7) Audit invoice posting
       await logAudit({
         entityType: "purchase_invoice",
         entityId: invoiceId,
@@ -439,7 +653,6 @@ export default function PurchaseInvoices() {
     const prod = products?.find((p) => p.id === id);
     if (prod) setAddUnitCost(String(prod.average_cost || ""));
     setProductPopoverOpen(false);
-    // Focus quantity field after a tick
     setTimeout(() => {
       const qtyInput = document.querySelector<HTMLInputElement>('[data-product-qty-input]');
       qtyInput?.focus();
@@ -506,7 +719,7 @@ export default function PurchaseInvoices() {
                   filtered.map((inv) => (
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.invoice_number}</TableCell>
-                      <TableCell>{inv.supplier_name || "—"}</TableCell>
+                      <TableCell>{getSupplierDisplay(inv)}</TableCell>
                       <TableCell>{format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
                       <TableCell className="text-right font-mono">${Number(inv.total_amount).toFixed(2)}</TableCell>
                       <TableCell>
@@ -557,7 +770,7 @@ export default function PurchaseInvoices() {
           {viewingInvoice && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-muted-foreground">Proveedor:</span> {viewingInvoice.supplier_name || "—"}</div>
+                <div><span className="text-muted-foreground">Proveedor:</span> {getSupplierDisplay(viewingInvoice)}</div>
                 <div><span className="text-muted-foreground">Fecha:</span> {format(new Date(viewingInvoice.invoice_date + "T12:00:00"), "dd/MM/yyyy")}</div>
                 <div><span className="text-muted-foreground">Estado:</span> {viewingInvoice.status === "posted" ? "Posteada" : "Borrador"}</div>
                 <div><span className="text-muted-foreground">Total:</span> <span className="font-mono font-bold">${Number(viewingInvoice.total_amount).toFixed(2)}</span></div>
@@ -617,7 +830,15 @@ export default function PurchaseInvoices() {
               </div>
               <div className="space-y-2">
                 <Label>Proveedor</Label>
-                <KioskTextInput value={supplierName} onChange={setSupplierName} placeholder="Nombre del proveedor" keyboardLabel="Proveedor" />
+                {restaurantId && (
+                  <SupplierSelector
+                    suppliers={suppliers}
+                    selectedId={supplierId}
+                    selectedName={supplierName}
+                    onSelect={handleSelectSupplier}
+                    restaurantId={restaurantId}
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Fecha Factura *</Label>
