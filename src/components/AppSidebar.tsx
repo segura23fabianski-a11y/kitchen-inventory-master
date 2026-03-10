@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History, Trash2, FileText, Truck, ShoppingCart, SprayCan, Droplets, BookOpen, ClipboardCheck } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History, Trash2, FileText, Truck, ShoppingCart, SprayCan, Droplets, BookOpen, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink } from "react-router-dom";
