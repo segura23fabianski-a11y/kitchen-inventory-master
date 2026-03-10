@@ -14,11 +14,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
+
+type RecipeType = "food" | "laundry" | "housekeeping";
+
+const RECIPE_TYPE_CONFIG: Record<RecipeType, { label: string; icon: typeof ChefHat; color: string }> = {
+  food: { label: "Cocina", icon: ChefHat, color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
+  laundry: { label: "Lavandería", icon: Shirt, color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
+  housekeeping: { label: "Aseo", icon: SprayCan, color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
+};
 
 interface IngredientLine {
   product_id: string;
@@ -32,7 +42,9 @@ export default function Recipes() {
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [recipeType, setRecipeType] = useState<RecipeType>("food");
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
+  const [filterType, setFilterType] = useState<RecipeType | "all">("all");
   const { hasRole } = useAuth();
   const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
@@ -95,11 +107,11 @@ export default function Recipes() {
       })
     );
 
-  const resetForm = () => { setName(""); setDescription(""); setIngredients([]); };
+  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setIngredients([]); };
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, restaurant_id: restaurantId! }).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, restaurant_id: restaurantId! } as any).select("id").single();
       if (error) throw error;
       const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
       if (validIngredients.length > 0) {
@@ -108,7 +120,7 @@ export default function Recipes() {
         );
         if (ingError) throw ingError;
       }
-      await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, ingredients: validIngredients }, canRollback: false });
+      await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, recipe_type: recipeType, ingredients: validIngredients }, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
@@ -151,13 +163,17 @@ export default function Recipes() {
 
   const viewedRecipe = recipes?.find((r) => r.id === viewRecipeId);
 
+  const filteredRecipes = recipes
+    ?.filter((r) => filterType === "all" || (r as any).recipe_type === filterType)
+    .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-heading text-3xl font-bold">Recetas</h1>
-            <p className="text-muted-foreground">Preparaciones con ingredientes y costo teórico</p>
+            <p className="text-muted-foreground">Preparaciones de cocina, lavandería y aseo con ingredientes y costo teórico</p>
           </div>
           {canCreate && (
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
@@ -170,8 +186,26 @@ export default function Recipes() {
                 </DialogHeader>
                 <form onSubmit={(e) => { e.preventDefault(); if (isValid) createRecipe.mutate(); }} className="space-y-4">
                   <div className="space-y-2">
+                    <Label>Tipo de receta *</Label>
+                    <Select value={recipeType} onValueChange={(v) => setRecipeType(v as RecipeType)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(RECIPE_TYPE_CONFIG).map(([key, cfg]) => {
+                          const Icon = cfg.icon;
+                          return (
+                            <SelectItem key={key} value={key}>
+                              <span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {cfg.label}</span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label>Nombre *</Label>
-                    <KioskTextInput value={name} onChange={setName} placeholder="Ej: Carne a la plancha" keyboardLabel="Nombre de la receta" />
+                    <KioskTextInput value={name} onChange={setName} placeholder="Ej: Carne a la plancha / Lavado de ropa" keyboardLabel="Nombre de la receta" />
                   </div>
                   <div className="space-y-2">
                     <Label>Descripción (opcional)</Label>
@@ -180,14 +214,18 @@ export default function Recipes() {
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-base font-semibold">Ingredientes</Label>
+                      <Label className="text-base font-semibold">
+                        {recipeType === "food" ? "Ingredientes" : "Insumos"}
+                      </Label>
                       <Button type="button" variant="outline" size="sm" onClick={addIngredientLine}>
                         <Plus className="mr-1 h-3 w-3" /> Agregar
                       </Button>
                     </div>
 
                     {ingredients.length === 0 && (
-                      <p className="text-sm text-muted-foreground py-4 text-center">Agrega ingredientes a la receta</p>
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        {recipeType === "food" ? "Agrega ingredientes a la receta" : "Agrega insumos al servicio"}
+                      </p>
                     )}
 
                     {ingredients.map((ing, i) => {
@@ -260,20 +298,33 @@ export default function Recipes() {
           )}
         </div>
 
-        {/* Search + Recipe list */}
+        {/* Type filter tabs */}
+        <Tabs value={filterType} onValueChange={(v) => setFilterType(v as RecipeType | "all")}>
+          <TabsList>
+            <TabsTrigger value="all">Todas</TabsTrigger>
+            <TabsTrigger value="food" className="gap-1"><ChefHat className="h-3.5 w-3.5" /> Cocina</TabsTrigger>
+            <TabsTrigger value="laundry" className="gap-1"><Shirt className="h-3.5 w-3.5" /> Lavandería</TabsTrigger>
+            <TabsTrigger value="housekeeping" className="gap-1"><SprayCan className="h-3.5 w-3.5" /> Aseo</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <KioskTextInput className="pl-10" placeholder="Buscar receta..." value={search} onChange={setSearch} keyboardLabel="Buscar receta" inputType="search" />
         </div>
+
+        {/* Recipe list */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
             <p className="text-muted-foreground col-span-full text-center py-12">Cargando...</p>
-          ) : !recipes?.length ? (
+          ) : !filteredRecipes?.length ? (
             <p className="text-muted-foreground col-span-full text-center py-12">Sin recetas registradas</p>
           ) : (
-            recipes
-              .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
-              .map((recipe) => {
+            filteredRecipes.map((recipe) => {
+              const rType = ((recipe as any).recipe_type ?? "food") as RecipeType;
+              const cfg = RECIPE_TYPE_CONFIG[rType];
+              const Icon = cfg.icon;
               const ings = (recipe.recipe_ingredients ?? []).map((ri) => ({
                 product_id: ri.product_id,
                 quantity: Number(ri.quantity),
@@ -288,9 +339,10 @@ export default function Recipes() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <ChefHat className="h-5 w-5 text-primary" />
+                        <Icon className="h-5 w-5 text-primary" />
                         <CardTitle className="text-lg">{recipe.name}</CardTitle>
                       </div>
+                      <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
                     </div>
                     {recipe.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2">{recipe.description}</p>
@@ -298,12 +350,14 @@ export default function Recipes() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{ingCount} ingrediente{ingCount !== 1 ? "s" : ""}</span>
+                      <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
                       <span className="font-heading font-bold text-lg">${cost.toFixed(2)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Rinde: {totalYield.toFixed(3)} kg/porción
-                    </p>
+                    {rType === "food" && (
+                      <p className="text-xs text-muted-foreground">
+                        Rinde: {totalYield.toFixed(3)} kg/porción
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
@@ -326,7 +380,17 @@ export default function Recipes() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="font-heading flex items-center gap-2">
-                <ChefHat className="h-5 w-5 text-primary" /> {viewedRecipe?.name}
+                {(() => {
+                  const rType = ((viewedRecipe as any)?.recipe_type ?? "food") as RecipeType;
+                  const Icon = RECIPE_TYPE_CONFIG[rType].icon;
+                  return <Icon className="h-5 w-5 text-primary" />;
+                })()}
+                {viewedRecipe?.name}
+                {viewedRecipe && (
+                  <Badge variant="outline" className={RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].color}>
+                    {RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].label}
+                  </Badge>
+                )}
               </DialogTitle>
             </DialogHeader>
             {viewedRecipe && (() => {
@@ -342,7 +406,7 @@ export default function Recipes() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Ingrediente</TableHead>
+                        <TableHead>{((viewedRecipe as any).recipe_type ?? "food") === "food" ? "Ingrediente" : "Insumo"}</TableHead>
                         <TableHead className="text-right">Cantidad</TableHead>
                         <TableHead className="text-right">Rinde (kg)</TableHead>
                         <TableHead className="text-right">Costo Unit.</TableHead>
