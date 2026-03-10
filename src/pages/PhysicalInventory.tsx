@@ -106,8 +106,8 @@ export default function PhysicalInventory() {
         .insert({
           restaurant_id: restaurantId,
           name: formName.trim(),
-          warehouse_id: formWarehouse || null,
-          category_id: formCategory || null,
+          warehouse_id: formWarehouse && formWarehouse !== "all" ? formWarehouse : null,
+          category_id: formCategory && formCategory !== "all" ? formCategory : null,
           notes: formNotes || null,
           created_by: user.id,
         })
