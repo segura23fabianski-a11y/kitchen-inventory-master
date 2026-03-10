@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star } from "lucide-react";
+import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star, Shirt, SprayCan } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
@@ -123,9 +123,9 @@ export default function KitchenKiosk() {
   const { data: recipes } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name").order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name, recipe_type").order("name");
       if (error) throw error;
-      return data;
+      return data as { id: string; name: string; recipe_type: string }[];
     },
   });
 
@@ -312,9 +312,9 @@ export default function KitchenKiosk() {
   return (
     <AppLayout>
       <div className="mx-auto max-w-2xl space-y-6">
-        <div className="text-center">
-          <h1 className="font-heading text-3xl font-bold">Kiosco Cocina</h1>
-          <p className="text-muted-foreground">Registrar consumo de ingredientes</p>
+         <div className="text-center">
+          <h1 className="font-heading text-3xl font-bold">Kiosco Operativo</h1>
+          <p className="text-muted-foreground">Registrar consumo de ingredientes e insumos</p>
         </div>
 
         {/* Step indicators */}
@@ -412,9 +412,13 @@ export default function KitchenKiosk() {
               <Select value={recipeId} onValueChange={setRecipeId}>
                 <SelectTrigger><SelectValue placeholder="Elegir receta..." /></SelectTrigger>
                 <SelectContent>
-                  {filteredRecipes?.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
+                  {filteredRecipes?.map((r) => {
+                    const rType = (r as any).recipe_type ?? "food";
+                    const icon = rType === "laundry" ? "🧺" : rType === "housekeeping" ? "🧹" : "👨‍🍳";
+                    return (
+                      <SelectItem key={r.id} value={r.id}>{icon} {r.name}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <div className="flex gap-2">
