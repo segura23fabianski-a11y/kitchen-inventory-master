@@ -17,8 +17,6 @@ import { useAudit } from "@/hooks/use-audit";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
-import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
-import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
   Shirt, SprayCan, ChevronLeft, CheckCircle2, History,
   CalendarDays, ClipboardList, Droplets, Search, Package,
