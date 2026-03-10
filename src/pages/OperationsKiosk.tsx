@@ -58,6 +58,9 @@ export default function OperationsKiosk() {
   const [newServiceName, setNewServiceName] = useState("");
   const [newServiceDesc, setNewServiceDesc] = useState("");
   const [manageCategoriesServiceId, setManageCategoriesServiceId] = useState<string | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editServiceName, setEditServiceName] = useState("");
+  const [editServiceDesc, setEditServiceDesc] = useState("");
 
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
