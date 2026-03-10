@@ -1061,10 +1061,85 @@ export type Database = {
           },
         ]
       }
+      purchase_order_pdf_settings: {
+        Row: {
+          approved_by_name: string | null
+          company_address: string | null
+          company_email: string | null
+          company_name: string | null
+          company_nit: string | null
+          company_phone: string | null
+          created_at: string | null
+          document_code: string | null
+          footer_contact_text: string | null
+          format_date: string | null
+          id: string
+          logo_url: string | null
+          observations_default: string | null
+          primary_color: string | null
+          restaurant_id: string
+          show_taxes: boolean | null
+          signature_image_url: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          approved_by_name?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_nit?: string | null
+          company_phone?: string | null
+          created_at?: string | null
+          document_code?: string | null
+          footer_contact_text?: string | null
+          format_date?: string | null
+          id?: string
+          logo_url?: string | null
+          observations_default?: string | null
+          primary_color?: string | null
+          restaurant_id: string
+          show_taxes?: boolean | null
+          signature_image_url?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          approved_by_name?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_nit?: string | null
+          company_phone?: string | null
+          created_at?: string | null
+          document_code?: string | null
+          footer_contact_text?: string | null
+          format_date?: string | null
+          id?: string
+          logo_url?: string | null
+          observations_default?: string | null
+          primary_color?: string | null
+          restaurant_id?: string
+          show_taxes?: boolean | null
+          signature_image_url?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_pdf_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           created_at: string
           created_by: string
+          expected_delivery_date: string | null
           id: string
           notes: string | null
           order_date: string
@@ -1075,6 +1150,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          expected_delivery_date?: string | null
           id?: string
           notes?: string | null
           order_date?: string
@@ -1085,6 +1161,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          expected_delivery_date?: string | null
           id?: string
           notes?: string | null
           order_date?: string
