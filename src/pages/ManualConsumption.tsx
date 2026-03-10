@@ -34,6 +34,7 @@ export default function ManualConsumption() {
   const [step, setStep] = useState<Step>("product");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
+  const [inputUnit, setInputUnit] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
