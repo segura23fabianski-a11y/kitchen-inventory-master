@@ -639,6 +639,7 @@ export default function Products() {
                   <TableHead>Almacén</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Unidad</TableHead>
+                  <TableHead>Último Costo</TableHead>
                   <TableHead>Costo Prom.</TableHead>
                   <TableHead>Estado</TableHead>
                   {(canUpdate || canDelete) && <TableHead className="w-20" />}
