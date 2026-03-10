@@ -61,6 +61,8 @@ export default function WasteControl() {
   const [quantity, setQuantity] = useState("");
   const [wasteType, setWasteType] = useState<WasteType>("merma");
   const [reason, setReason] = useState("");
+  const [customReason, setCustomReason] = useState(false);
+  const [newCatalogReason, setNewCatalogReason] = useState("");
   const [notes, setNotes] = useState("");
   const [movementDate, setMovementDate] = useState<Date>(new Date());
   const [dateOpen, setDateOpen] = useState(false);
@@ -101,6 +103,24 @@ export default function WasteControl() {
       return data ?? [];
     },
   });
+
+  const { data: reasonCatalog } = useQuery({
+    queryKey: ["waste-reason-catalog"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("waste_reason_catalog" as any)
+        .select("id, waste_type, reason, active")
+        .eq("active", true)
+        .order("reason");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const catalogReasonsForType = useMemo(
+    () => (reasonCatalog ?? []).filter((r: any) => r.waste_type === wasteType),
+    [reasonCatalog, wasteType]
+  );
 
   const { data: wasteMovements, isLoading } = useQuery({
     queryKey: ["waste-movements"],
@@ -211,6 +231,7 @@ export default function WasteControl() {
       setSelectedProductId("");
       setQuantity("");
       setReason("");
+      setCustomReason(false);
       setNotes("");
       setEvidenceFile(null);
       setDialogOpen(false);
@@ -370,7 +391,7 @@ export default function WasteControl() {
                 {/* Type */}
                 <div className="space-y-2">
                   <Label>Tipo de pérdida *</Label>
-                  <Select value={wasteType} onValueChange={(v) => setWasteType(v as WasteType)}>
+                  <Select value={wasteType} onValueChange={(v) => { setWasteType(v as WasteType); setReason(""); setCustomReason(false); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {WASTE_TYPES.map((t) => (
@@ -383,7 +404,53 @@ export default function WasteControl() {
                 {/* Reason */}
                 <div className="space-y-2">
                   <Label>Motivo *</Label>
-                  <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Describe el motivo de la pérdida..." />
+                  {catalogReasonsForType.length > 0 && !customReason ? (
+                    <div className="space-y-2">
+                      <Select value={reason} onValueChange={setReason}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar motivo..." /></SelectTrigger>
+                        <SelectContent>
+                          {catalogReasonsForType.map((r: any) => (
+                            <SelectItem key={r.id} value={r.reason}>{r.reason}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => setCustomReason(true)}>
+                        Escribir otro motivo
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Describe el motivo de la pérdida..." />
+                      {catalogReasonsForType.length > 0 && (
+                        <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => { setCustomReason(false); setReason(""); }}>
+                          Elegir del catálogo
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {/* Add new reason to catalog */}
+                  {customReason && reason.trim() && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={async () => {
+                          if (!restaurantId) return;
+                          await supabase.from("waste_reason_catalog" as any).insert({
+                            restaurant_id: restaurantId,
+                            waste_type: wasteType,
+                            reason: reason.trim(),
+                          } as any);
+                          qc.invalidateQueries({ queryKey: ["waste-reason-catalog"] });
+                          toast({ title: "Motivo guardado en catálogo" });
+                        }}
+                      >
+                        <Plus className="mr-1 h-3 w-3" /> Guardar en catálogo
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Date */}

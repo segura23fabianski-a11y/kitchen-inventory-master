@@ -1206,6 +1206,41 @@ export type Database = {
           },
         ]
       }
+      waste_reason_catalog: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          reason: string
+          restaurant_id: string
+          waste_type: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          reason: string
+          restaurant_id: string
+          waste_type: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          reason?: string
+          restaurant_id?: string
+          waste_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waste_reason_catalog_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
