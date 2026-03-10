@@ -28,7 +28,7 @@ import {
 // ── Types ──
 type MainMode = "home" | "recipes" | "services";
 type RecipeStep = "type" | "recipe" | "confirm";
-type ServiceStep = "service" | "product" | "confirm";
+type ServiceStep = "service" | "products" | "quantities";
 type ServiceType = "laundry" | "housekeeping";
 
 const SERVICE_CONFIG: Record<ServiceType, { label: string; emoji: string }> = {
