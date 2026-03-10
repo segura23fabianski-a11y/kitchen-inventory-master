@@ -100,7 +100,12 @@ export default function Movements() {
     },
   });
 
-  const computedTotal = (Number(quantity) || 0) * (Number(unitCost) || 0);
+  const selectedProduct = products?.find((p) => p.id === productId);
+  const effectiveUnit = inputUnit || selectedProduct?.unit || "unidad";
+  const convertedQty = selectedProduct
+    ? convertToProductUnit(Number(quantity) || 0, effectiveUnit, selectedProduct.unit)
+    : Number(quantity) || 0;
+  const computedTotal = convertedQty * (Number(unitCost) || 0);
 
   const isBackdating = backdatingAllowed && movementDate != null;
 
