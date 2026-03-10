@@ -1,10 +1,16 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ShoppingCart, Settings } from "lucide-react";
 import SuggestedPurchases from "@/components/purchase-orders/SuggestedPurchases";
 import OrdersList from "@/components/purchase-orders/OrdersList";
+import PdfSettingsForm from "@/components/purchase-orders/PdfSettingsForm";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useAuth } from "@/lib/auth";
 
 export default function PurchaseOrders() {
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -22,6 +28,12 @@ export default function PurchaseOrders() {
               <ShoppingCart className="h-4 w-4 mr-1" />
               Pedidos
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="pdf-settings">
+                <Settings className="h-4 w-4 mr-1" />
+                Plantilla PDF
+              </TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="suggestions" className="mt-4">
             <SuggestedPurchases />
@@ -29,6 +41,11 @@ export default function PurchaseOrders() {
           <TabsContent value="orders" className="mt-4">
             <OrdersList />
           </TabsContent>
+          {isAdmin && (
+            <TabsContent value="pdf-settings" className="mt-4">
+              <PdfSettingsForm />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </AppLayout>

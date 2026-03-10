@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Send, PackageCheck, Trash2, FileText, XCircle, Plus } from "lucide-react";
+import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye } from "lucide-react";
+import { generatePurchaseOrderPdf, PdfOrderData, PdfSettings } from "./generatePurchaseOrderPdf";
+import { usePdfSettings } from "@/hooks/use-pdf-settings";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import NewOrderDialog from "./NewOrderDialog";
@@ -21,6 +23,7 @@ export default function OrdersList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewOrder, setViewOrder] = useState<any>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const { data: pdfSettings } = usePdfSettings();
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -96,6 +99,40 @@ export default function OrdersList() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const handlePdf = async (order: any, action: "download" | "preview") => {
+    // Fetch supplier details
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("name, nit, phone, email, notes")
+      .eq("id", order.supplier_id)
+      .single();
+
+    // Fetch items
+    const { data: items } = await supabase
+      .from("purchase_order_items")
+      .select("*, products!inner(name, unit)")
+      .eq("purchase_order_id", order.id);
+
+    const pdfOrder: PdfOrderData = {
+      order_id: order.id,
+      order_date: order.order_date,
+      expected_delivery_date: order.expected_delivery_date,
+      supplier_name: supplier?.name || order.suppliers?.name || "",
+      supplier_nit: supplier?.nit,
+      supplier_phone: supplier?.phone,
+      supplier_email: supplier?.email,
+      notes: order.notes,
+      items: (items || []).map((it: any) => ({
+        name: it.products?.name || "",
+        unit: it.products?.unit || "",
+        quantity: Number(it.quantity),
+        unit_cost: it.unit_cost != null ? Number(it.unit_cost) : null,
+      })),
+    };
+
+    await generatePurchaseOrderPdf(pdfSettings || {}, pdfOrder, action);
+  };
+
   const statusBadge = (s: string) => {
     switch (s) {
       case "draft": return <Badge variant="secondary">Borrador</Badge>;
@@ -150,6 +187,12 @@ export default function OrdersList() {
                       <div className="flex gap-1">
                         <Button size="icon" variant="ghost" onClick={() => setViewOrder(o)} title="Ver detalle">
                           <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handlePdf(o, "download")} title="Descargar PDF">
+                          <Download className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handlePdf(o, "preview")} title="Vista previa PDF">
+                          <Eye className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         {o.status === "draft" && canCreate && (
                           <>
