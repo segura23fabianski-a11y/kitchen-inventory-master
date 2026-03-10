@@ -227,7 +227,7 @@ export default function PurchaseInvoices() {
 
   const removeItem = (tempId: string) => setItems((prev) => prev.filter((i) => i.tempId !== tempId));
 
-  const formTotal = items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unit_cost) || 0), 0);
+  const formTotal = items.reduce((sum, i) => sum + convertToProductUnit(Number(i.quantity) || 0, i.input_unit, i.product_unit) * (Number(i.unit_cost) || 0), 0);
 
   const saveInvoice = useMutation({
     mutationFn: async () => {
