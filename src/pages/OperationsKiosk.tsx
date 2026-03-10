@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +21,7 @@ import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
   Shirt, SprayCan, ChevronLeft, CheckCircle2, History,
   CalendarDays, ClipboardList, Droplets, Search, Package,
-  Plus, Settings, Trash2, Tag,
+  Plus, Settings, Trash2, Tag, Pencil,
 } from "lucide-react";
 
 // ── Types ──
@@ -58,6 +59,9 @@ export default function OperationsKiosk() {
   const [newServiceName, setNewServiceName] = useState("");
   const [newServiceDesc, setNewServiceDesc] = useState("");
   const [manageCategoriesServiceId, setManageCategoriesServiceId] = useState<string | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editServiceName, setEditServiceName] = useState("");
+  const [editServiceDesc, setEditServiceDesc] = useState("");
 
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
@@ -259,6 +263,35 @@ export default function OperationsKiosk() {
       setNewServiceName("");
       setNewServiceDesc("");
       toast({ title: "Servicio creado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateServiceMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("operational_services")
+        .update({ name: editServiceName.trim(), description: editServiceDesc.trim() || null })
+        .eq("id", editingServiceId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["operational-services"] });
+      setEditingServiceId(null);
+      toast({ title: "Servicio actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("operational_services").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["operational-services"] });
+      qc.invalidateQueries({ queryKey: ["service-categories"] });
+      setManageCategoriesServiceId(null);
+      toast({ title: "Servicio eliminado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -775,23 +808,69 @@ export default function OperationsKiosk() {
                 <div className="space-y-2">
                   {services.map((s) => {
                     const isExpanded = manageCategoriesServiceId === s.id;
+                    const isEditing = editingServiceId === s.id;
                     const links = serviceCategoryLinks?.filter((l) => l.service_id === s.id) ?? [];
                     return (
                       <div key={s.id} className="border rounded-lg">
-                        <button
-                          className="w-full text-left p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                          onClick={() => setManageCategoriesServiceId(isExpanded ? null : s.id)}
-                        >
-                          <div>
+                        <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+                          <button
+                            className="flex-1 text-left"
+                            onClick={() => setManageCategoriesServiceId(isExpanded ? null : s.id)}
+                          >
                             <p className="font-medium">{s.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {links.length} categoría{links.length !== 1 ? "s" : ""} · {productCountForService(s.id)} producto{productCountForService(s.id) !== 1 ? "s" : ""}
                             </p>
+                          </button>
+                          <div className="flex items-center gap-1 ml-2">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                              setEditingServiceId(s.id);
+                              setEditServiceName(s.name);
+                              setEditServiceDesc(s.description || "");
+                              setManageCategoriesServiceId(s.id);
+                            }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Se eliminará "{s.name}" y sus categorías asociadas. Si hay movimientos vinculados, la operación podría fallar.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteServiceMutation.mutate(s.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? "-rotate-90" : ""}`} />
                           </div>
-                          <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? "-rotate-90" : ""}`} />
-                        </button>
+                        </div>
                         {isExpanded && (
                           <div className="border-t p-3 space-y-3">
+                            {/* Edit service name/description */}
+                            {isEditing && (
+                              <div className="space-y-2 border-b border-border pb-3">
+                                <p className="text-xs font-medium text-muted-foreground">Editar servicio:</p>
+                                <KioskTextInput value={editServiceName} onChange={setEditServiceName} placeholder="Nombre" keyboardLabel="Nombre" />
+                                <KioskTextInput value={editServiceDesc} onChange={setEditServiceDesc} placeholder="Descripción (opcional)" keyboardLabel="Descripción" />
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => setEditingServiceId(null)}>Cancelar</Button>
+                                  <Button size="sm" disabled={!editServiceName.trim() || updateServiceMutation.isPending} onClick={() => updateServiceMutation.mutate()}>
+                                    {updateServiceMutation.isPending ? "Guardando..." : "Guardar"}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                             {/* Linked categories */}
                             {links.length > 0 && (
                               <div className="space-y-1">
