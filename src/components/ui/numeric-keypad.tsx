@@ -10,7 +10,7 @@ interface NumericKeypadProps {
   onOpenChange: (open: boolean) => void;
   value: string;
   onConfirm: (value: string) => void;
-  /** Max decimal places (default 3) */
+/** Max decimal places (default 6) */
   maxDecimals?: number;
   /** Max value allowed (default Infinity) */
   maxValue?: number;
@@ -27,12 +27,23 @@ export function NumericKeypad({
   onOpenChange,
   value: initialValue,
   onConfirm,
-  maxDecimals = 3,
+  maxDecimals = 6,
   maxValue = Infinity,
   label,
   quickButtons = DEFAULT_QUICK,
 }: NumericKeypadProps) {
   const [display, setDisplay] = React.useState(initialValue || "0");
+
+  // Format number for display: 1234567.89 → 1.234.567,89
+  const formatForDisplay = (raw: string): string => {
+    if (!raw || raw === "0") return "0";
+    const dotIdx = raw.indexOf(".");
+    const intPart = dotIdx === -1 ? raw : raw.slice(0, dotIdx);
+    const decPart = dotIdx === -1 ? "" : raw.slice(dotIdx + 1);
+    // Add thousand separators with dots
+    const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return decPart !== "" || raw.endsWith(".") ? `${formattedInt},${decPart}` : formattedInt;
+  };
 
   // Sync when opened
   React.useEffect(() => {
@@ -101,7 +112,7 @@ export function NumericKeypad({
         )}
         {/* Display */}
         <div className="rounded-lg border bg-muted/50 px-4 py-3 text-right font-mono text-3xl font-bold tracking-wider text-foreground min-h-[3.5rem] flex items-center justify-end overflow-hidden">
-          {display}
+          {formatForDisplay(display)}
         </div>
 
         {/* Quick buttons */}
@@ -141,7 +152,7 @@ export function NumericKeypad({
             className={btnClass}
             onClick={() => appendDigit(".")}
           >
-            .
+            ,
           </Button>
           <Button
             type="button"

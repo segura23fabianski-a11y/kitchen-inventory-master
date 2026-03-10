@@ -26,7 +26,7 @@ const NumericKeypadInput = React.forwardRef<HTMLInputElement, NumericKeypadInput
   (
     {
       keypadLabel,
-      maxDecimals = 3,
+      maxDecimals = 6,
       maxValue,
       quickButtons,
       forceKeypad,
