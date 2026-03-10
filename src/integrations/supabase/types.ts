@@ -253,6 +253,121 @@ export type Database = {
           },
         ]
       }
+      physical_count_items: {
+        Row: {
+          count_id: string
+          counted_stock: number | null
+          created_at: string
+          difference: number | null
+          id: string
+          notes: string | null
+          product_id: string
+          system_stock: number
+        }
+        Insert: {
+          count_id: string
+          counted_stock?: number | null
+          created_at?: string
+          difference?: number | null
+          id?: string
+          notes?: string | null
+          product_id: string
+          system_stock?: number
+        }
+        Update: {
+          count_id?: string
+          counted_stock?: number | null
+          created_at?: string
+          difference?: number | null
+          id?: string
+          notes?: string | null
+          product_id?: string
+          system_stock?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "physical_count_items_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "physical_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "physical_count_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      physical_counts: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          category_id: string | null
+          count_date: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          notes: string | null
+          restaurant_id: string
+          status: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category_id?: string | null
+          count_date?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          notes?: string | null
+          restaurant_id: string
+          status?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category_id?: string | null
+          count_date?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          restaurant_id?: string
+          status?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "physical_counts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "physical_counts_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "physical_counts_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_codes: {
         Row: {
           code: string
