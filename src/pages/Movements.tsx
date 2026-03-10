@@ -34,7 +34,7 @@ export default function Movements() {
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unitCost, setUnitCost] = useState("");
+  const [inputUnit, setInputUnit] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
