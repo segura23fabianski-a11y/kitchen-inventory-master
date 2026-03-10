@@ -85,11 +85,22 @@ export default function Recipes() {
     },
   });
 
+  const getProductCost = (productId: string): number => {
+    const prod = productMap.get(productId);
+    if (!prod) return 0;
+    const avg = Number(prod.average_cost ?? 0);
+    if (avg > 0) return avg;
+    const last = Number((prod as any).last_unit_cost ?? 0);
+    if (last > 0) return last;
+    return 0;
+  };
+
   const calcLineCost = (item: { product_id: string; quantity: number; unit: string }) => {
     const prod = productMap.get(item.product_id);
     if (!prod) return 0;
+    const cost = getProductCost(item.product_id);
     const qtyInProductUnit = convertToProductUnit(item.quantity, item.unit, prod.unit);
-    return Number(prod.average_cost) * qtyInProductUnit;
+    return cost * qtyInProductUnit;
   };
 
   const calcRecipeCost = (items: { product_id: string; quantity: number; unit: string }[]) =>
@@ -102,8 +113,7 @@ export default function Recipes() {
   };
 
   const productHasCost = (productId: string) => {
-    const prod = productMap.get(productId);
-    return prod ? Number(prod.average_cost) > 0 : false;
+    return getProductCost(productId) > 0;
   };
 
   const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
