@@ -451,9 +451,14 @@ export default function Recipes() {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
                       </Button>
+                      {canUpdate && (
+                        <Button variant="outline" size="sm" onClick={() => { setViewRecipeId(recipe.id); startEdit(recipe); }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {canDelete && (
                         <Button variant="ghost" size="sm" onClick={() => deleteRecipe.mutate(recipe.id)} disabled={deleteRecipe.isPending}>
                           <Trash2 className="h-4 w-4 text-destructive" />
