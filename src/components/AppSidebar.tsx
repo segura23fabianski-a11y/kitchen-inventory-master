@@ -23,7 +23,6 @@ const allNavItems: NavItem[] = [
   { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
   { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
   { to: "/operations", icon: SprayCan, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
-  { to: "/manual-consumption", icon: Droplets, label: "Consumo Manual", permKey: "kitchen_kiosk" },
   { to: "/reports", icon: BarChart3, label: "Reportes", permKey: "reports" },
   { to: "/executive", icon: PieChart, label: "Dashboard Ejecutivo", permKey: "reports" },
   { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },

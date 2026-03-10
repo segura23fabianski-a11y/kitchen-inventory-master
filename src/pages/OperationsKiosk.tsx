@@ -2,38 +2,74 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAudit } from "@/hooks/use-audit";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
-import { Shirt, SprayCan, ChevronLeft, CheckCircle2, History, ChefHat, CalendarDays } from "lucide-react";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
+import {
+  Shirt, SprayCan, ChevronLeft, CheckCircle2, History,
+  CalendarDays, ClipboardList, Droplets, Search, Package,
+  Plus, Settings, Trash2,
+} from "lucide-react";
 
+// ── Types ──
+type MainMode = "home" | "recipes" | "services";
+type RecipeStep = "type" | "recipe" | "confirm";
+type ServiceStep = "service" | "product" | "confirm";
 type ServiceType = "laundry" | "housekeeping";
-type Step = "type" | "recipe" | "confirm" | "history";
 
-const SERVICE_CONFIG: Record<ServiceType, { label: string; icon: typeof Shirt; color: string; emoji: string }> = {
-  laundry: { label: "Lavandería", icon: Shirt, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300", emoji: "🧺" },
-  housekeeping: { label: "Aseo / Housekeeping", icon: SprayCan, color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300", emoji: "🧹" },
+const SERVICE_CONFIG: Record<ServiceType, { label: string; emoji: string }> = {
+  laundry: { label: "Lavandería", emoji: "🧺" },
+  housekeeping: { label: "Housekeeping", emoji: "🧹" },
 };
 
 export default function OperationsKiosk() {
-  const [step, setStep] = useState<Step>("type");
+  // ── Shared state ──
+  const [mode, setMode] = useState<MainMode>("home");
+  const [showHistory, setShowHistory] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+
+  // ── Recipe flow state ──
+  const [recipeStep, setRecipeStep] = useState<RecipeStep>("type");
   const [serviceType, setServiceType] = useState<ServiceType | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [portions, setPortions] = useState<number>(1);
+
+  // ── Service flow state ──
+  const [serviceStep, setServiceStep] = useState<ServiceStep>("service");
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState<number>(0);
+  const [notes, setNotes] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+
+  // ── Admin manage services ──
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceDesc, setNewServiceDesc] = useState("");
+  const [manageProductsServiceId, setManageProductsServiceId] = useState<string | null>(null);
+  const [addProductSearch, setAddProductSearch] = useState("");
+
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const { toast } = useToast();
   const { logAudit } = useAudit();
   const restaurantId = useRestaurantId();
   const qc = useQueryClient();
 
-  // Recipes filtered by type
+  const isAdmin = hasPermission("products") || hasPermission("recipes");
+
+  // ── Queries ──
   const { data: recipes } = useQuery({
     queryKey: ["recipes-operational"],
     queryFn: async () => {
@@ -42,8 +78,7 @@ export default function OperationsKiosk() {
         .select("id, name, description, recipe_type, recipe_ingredients(id, product_id, quantity, unit)")
         .order("name");
       if (error) throw error;
-      // Filter in JS to avoid TS issues with .in on new column
-      return (data as any[]).filter((r: any) => r.recipe_type === "laundry" || r.recipe_type === "housekeeping");
+      return (data as any[]).filter((r) => r.recipe_type === "laundry" || r.recipe_type === "housekeeping");
     },
   });
 
@@ -56,35 +91,63 @@ export default function OperationsKiosk() {
     },
   });
 
-  // Recent operational history
+  const { data: services } = useQuery({
+    queryKey: ["operational-services"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("operational_services").select("*").eq("active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: productServiceLinks } = useQuery({
+    queryKey: ["product-operational-services"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_operational_services").select("*");
+      if (error) throw error;
+      return data as { id: string; product_id: string; service_id: string; restaurant_id: string }[];
+    },
+  });
+
   const { data: history } = useQuery({
-    queryKey: ["operations-history"],
+    queryKey: ["operations-history-all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("id, created_at, notes, quantity, total_cost, recipe_id")
-        .not("recipe_id", "is", null)
+        .select("id, created_at, notes, quantity, total_cost, product_id, recipe_id, service_id, type")
+        .or("type.eq.operational_consumption,recipe_id.not.is.null")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
-      // Deduplicate by recipe_id + created_at (grouped movements)
-      const seen = new Map<string, typeof data[0]>();
-      for (const m of data ?? []) {
-        const key = `${m.recipe_id}_${m.created_at}`;
-        if (!seen.has(key)) seen.set(key, m);
-      }
-      return [...seen.values()].slice(0, 50);
+      return data;
     },
   });
 
   const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
+  const serviceMap = new Map(services?.map((s) => [s.id, s]) ?? []);
+  const recipeMap = new Map(recipes?.map((r: any) => [r.id, r]) ?? []);
 
+  // Products linked to a specific service
+  const productsForService = useMemo(() => {
+    if (!selectedServiceId || !productServiceLinks || !products) return [];
+    const linkedIds = new Set(
+      productServiceLinks.filter((l) => l.service_id === selectedServiceId).map((l) => l.product_id)
+    );
+    const linked = products.filter((p) => linkedIds.has(p.id));
+    if (!productSearch.trim()) return linked;
+    const q = productSearch.toLowerCase();
+    return linked.filter((p) => p.name.toLowerCase().includes(q));
+  }, [selectedServiceId, productServiceLinks, products, productSearch]);
+
+  // ── Recipe helpers ──
   const filteredRecipes = useMemo(() => {
     if (!recipes || !serviceType) return [];
     return recipes.filter((r: any) => r.recipe_type === serviceType);
   }, [recipes, serviceType]);
 
   const selectedRecipe = recipes?.find((r: any) => r.id === selectedRecipeId);
+  const portionLabel = serviceType === "laundry" ? "prendas" : "habitaciones";
+  const portionSingular = serviceType === "laundry" ? "prenda" : "habitación";
 
   const recipeIngredients = useMemo(() => {
     if (!selectedRecipe) return [];
@@ -99,14 +162,19 @@ export default function OperationsKiosk() {
     });
   }, [selectedRecipe, portions, productMap]);
 
-  const totalCost = recipeIngredients.reduce((s: number, i: any) => s + i.cost, 0);
+  const recipeTotalCost = recipeIngredients.reduce((s: number, i: any) => s + i.cost, 0);
   const allHaveStock = recipeIngredients.every((i: any) => i.hasStock);
-  const canConfirm = selectedRecipeId && portions > 0 && allHaveStock;
+  const canConfirmRecipe = selectedRecipeId && portions > 0 && allHaveStock;
 
-  const portionLabel = serviceType === "laundry" ? "prendas" : serviceType === "housekeeping" ? "habitaciones" : "porciones";
-  const portionSingular = serviceType === "laundry" ? "prenda" : serviceType === "housekeeping" ? "habitación" : "porción";
+  // ── Service helpers ──
+  const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
+  const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
+  const estimatedCost = selectedProduct && quantity > 0 ? quantity * Number(selectedProduct.average_cost) : 0;
+  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= quantity : false;
+  const canConfirmService = selectedProductId && quantity > 0 && selectedServiceId && hasStock;
 
-  const confirmMutation = useMutation({
+  // ── Mutations ──
+  const confirmRecipeMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("register_recipe_consumption", {
         _recipe_id: selectedRecipeId!,
@@ -126,230 +194,208 @@ export default function OperationsKiosk() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
-      qc.invalidateQueries({ queryKey: ["operations-history"] });
-      toast({
-        title: "✅ Servicio registrado",
-        description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — $${totalCost.toFixed(2)}`,
-      });
-      resetAll();
+      qc.invalidateQueries({ queryKey: ["operations-history-all"] });
+      toast({ title: "✅ Servicio registrado", description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — $${recipeTotalCost.toFixed(2)}` });
+      goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const resetAll = () => {
-    setStep("type");
+  const confirmServiceMutation = useMutation({
+    mutationFn: async () => {
+      const unitCost = Number(selectedProduct!.average_cost);
+      const totalCost = quantity * unitCost;
+      const { error } = await supabase.from("inventory_movements").insert({
+        product_id: selectedProductId!,
+        user_id: user!.id,
+        type: "operational_consumption",
+        quantity,
+        unit_cost: unitCost,
+        total_cost: totalCost,
+        service_id: selectedServiceId!,
+        notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${quantity} ${selectedProduct?.unit}`,
+        restaurant_id: restaurantId!,
+      } as any);
+      if (error) throw error;
+      await logAudit({
+        entityType: "operational_consumption",
+        entityId: selectedProductId!,
+        action: "CREATE",
+        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
+        canRollback: false,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["movements"] });
+      qc.invalidateQueries({ queryKey: ["operations-history-all"] });
+      toast({ title: "✅ Consumo registrado", description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — $${estimatedCost.toFixed(2)}` });
+      goHome();
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const createServiceMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("operational_services").insert({
+        name: newServiceName.trim(),
+        description: newServiceDesc.trim() || null,
+        restaurant_id: restaurantId!,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["operational-services"] });
+      setNewServiceName("");
+      setNewServiceDesc("");
+      toast({ title: "Servicio creado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const linkProductMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const { error } = await supabase.from("product_operational_services").insert({
+        product_id: productId,
+        service_id: manageProductsServiceId!,
+        restaurant_id: restaurantId!,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["product-operational-services"] });
+      toast({ title: "Producto vinculado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const unlinkProductMutation = useMutation({
+    mutationFn: async (linkId: string) => {
+      const { error } = await supabase.from("product_operational_services").delete().eq("id", linkId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["product-operational-services"] });
+      toast({ title: "Producto desvinculado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Navigation ──
+  const goHome = () => {
+    setMode("home");
+    setRecipeStep("type");
+    setServiceStep("service");
     setServiceType(null);
     setSelectedRecipeId(null);
     setPortions(1);
+    setSelectedServiceId(null);
+    setSelectedProductId(null);
+    setQuantity(0);
+    setNotes("");
+    setProductSearch("");
+    setShowHistory(false);
   };
 
-  const selectType = (t: ServiceType) => {
-    setServiceType(t);
-    setSelectedRecipeId(null);
-    setPortions(1);
-    setStep("recipe");
-  };
+  // Linked product IDs for manage dialog
+  const linkedProductIds = useMemo(() => {
+    if (!manageProductsServiceId || !productServiceLinks) return new Set<string>();
+    return new Set(productServiceLinks.filter((l) => l.service_id === manageProductsServiceId).map((l) => l.product_id));
+  }, [manageProductsServiceId, productServiceLinks]);
 
-  const selectRecipe = (id: string) => {
-    setSelectedRecipeId(id);
-    setPortions(1);
-    setStep("confirm");
-  };
+  const linksForManageService = useMemo(() => {
+    if (!manageProductsServiceId || !productServiceLinks) return [];
+    return productServiceLinks.filter((l) => l.service_id === manageProductsServiceId);
+  }, [manageProductsServiceId, productServiceLinks]);
 
-  const recipeMap = new Map(recipes?.map((r: any) => [r.id, r]) ?? []);
+  const unlinkedProducts = useMemo(() => {
+    if (!products) return [];
+    const filtered = products.filter((p) => !linkedProductIds.has(p.id));
+    if (!addProductSearch.trim()) return filtered;
+    const q = addProductSearch.toLowerCase();
+    return filtered.filter((p) => p.name.toLowerCase().includes(q));
+  }, [products, linkedProductIds, addProductSearch]);
+
+  // ── Deduplicated history for recipes ──
+  const historyItems = useMemo(() => {
+    if (!history) return [];
+    const seen = new Set<string>();
+    const result: typeof history = [];
+    for (const h of history) {
+      if (h.recipe_id) {
+        const key = `${h.recipe_id}_${h.created_at}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      // Only show operational items
+      const recipe = h.recipe_id ? recipeMap.get(h.recipe_id) : null;
+      const isOpsRecipe = recipe && ((recipe as any).recipe_type === "laundry" || (recipe as any).recipe_type === "housekeeping");
+      const isManual = h.type === "operational_consumption";
+      if (!isOpsRecipe && !isManual) continue;
+      result.push(h);
+    }
+    return result.slice(0, 50);
+  }, [history, recipeMap]);
 
   return (
     <AppLayout>
       <div className="mx-auto max-w-xl space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="font-heading text-3xl font-bold">Registro Operativo</h1>
-          <p className="text-muted-foreground">Lavandería &amp; Housekeeping</p>
+          <h1 className="font-heading text-3xl font-bold">Kiosco Operativo</h1>
+          <p className="text-muted-foreground">Lavandería · Housekeeping · Aseo · Consumibles</p>
         </div>
 
-        {/* Step indicators */}
-        <div className="flex items-center justify-center gap-2 text-sm">
-          <Badge variant={step === "type" ? "default" : "secondary"}>1. Servicio</Badge>
-          <span className="text-muted-foreground">→</span>
-          <Badge variant={step === "recipe" ? "default" : "secondary"}>2. Receta</Badge>
-          <span className="text-muted-foreground">→</span>
-          <Badge variant={step === "confirm" ? "default" : "secondary"}>3. Confirmar</Badge>
-        </div>
-
-        {/* History toggle */}
-        {step === "type" && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => setStep("history")}>
-              <History className="mr-1 h-3.5 w-3.5" /> Historial
-            </Button>
-          </div>
-        )}
-
-        {/* ===== Step 1: Select service type ===== */}
-        {step === "type" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {(Object.entries(SERVICE_CONFIG) as [ServiceType, typeof SERVICE_CONFIG["laundry"]][]).map(([key, cfg]) => {
-              const Icon = cfg.icon;
-              const count = recipes?.filter((r: any) => r.recipe_type === key).length ?? 0;
-              return (
-                <button
-                  key={key}
-                  onClick={() => selectType(key)}
-                  className="rounded-xl border-2 border-border p-8 text-center transition-all hover:shadow-lg hover:border-primary active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <span className="text-5xl">{cfg.emoji}</span>
-                    <Icon className="h-8 w-8 text-primary" />
-                    <span className="font-heading text-xl font-bold">{cfg.label}</span>
-                    <span className="text-sm text-muted-foreground">{count} receta{count !== 1 ? "s" : ""}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ===== Step 2: Select recipe ===== */}
-        {step === "recipe" && serviceType && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => { setStep("type"); setServiceType(null); }}>
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {SERVICE_CONFIG[serviceType].emoji} {SERVICE_CONFIG[serviceType].label}
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {filteredRecipes.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No hay recetas de {SERVICE_CONFIG[serviceType].label.toLowerCase()} registradas.<br />
-                  Créalas en el módulo de Recetas.
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {filteredRecipes.map((r: any) => {
-                    const ingCount = r.recipe_ingredients?.length ?? 0;
-                    const cost = (r.recipe_ingredients ?? []).reduce((s: number, ri: any) => {
-                      const prod = productMap.get(ri.product_id);
-                      if (!prod) return s;
-                      const qty = convertToProductUnit(Number(ri.quantity), ri.unit, prod.unit);
-                      return s + qty * Number(prod.average_cost);
-                    }, 0);
-                    return (
-                      <button
-                        key={r.id}
-                        onClick={() => selectRecipe(r.id)}
-                        className="rounded-lg border-2 border-border p-5 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-heading font-bold text-lg">{r.name}</p>
-                            {r.description && <p className="text-sm text-muted-foreground mt-0.5">{r.description}</p>}
-                            <p className="text-xs text-muted-foreground mt-1">{ingCount} insumo{ingCount !== 1 ? "s" : ""}</p>
-                          </div>
-                          <span className="font-heading font-bold text-lg text-primary">${cost.toFixed(2)}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+        {/* ===== HOME ===== */}
+        {mode === "home" && !showHistory && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Recetas Operativas */}
+              <button
+                onClick={() => { setMode("recipes"); setRecipeStep("type"); }}
+                className="rounded-xl border-2 border-border p-8 text-center transition-all hover:shadow-lg hover:border-primary active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <span className="text-5xl">📋</span>
+                  <ClipboardList className="h-8 w-8 text-primary" />
+                  <span className="font-heading text-xl font-bold">Recetas Operativas</span>
+                  <span className="text-sm text-muted-foreground">Lavandería · Housekeeping</span>
                 </div>
+              </button>
+
+              {/* Registro por Servicio */}
+              <button
+                onClick={() => { setMode("services"); setServiceStep("service"); }}
+                className="rounded-xl border-2 border-border p-8 text-center transition-all hover:shadow-lg hover:border-primary active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <span className="text-5xl">🧴</span>
+                  <Droplets className="h-8 w-8 text-primary" />
+                  <span className="font-heading text-xl font-bold">Registro por Servicio</span>
+                  <span className="text-sm text-muted-foreground">Menaje · Aseo · Consumibles</span>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex justify-between gap-2">
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => setManageOpen(true)}>
+                  <Settings className="mr-1 h-3.5 w-3.5" /> Gestionar Servicios
+                </Button>
               )}
-            </CardContent>
-          </Card>
+              <Button variant="outline" size="sm" onClick={() => setShowHistory(true)}>
+                <History className="mr-1 h-3.5 w-3.5" /> Historial
+              </Button>
+            </div>
+          </>
         )}
 
-        {/* ===== Step 3: Confirm ===== */}
-        {step === "confirm" && selectedRecipe && serviceType && (
+        {/* ===== HISTORY ===== */}
+        {showHistory && mode === "home" && (
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => { setStep("recipe"); setSelectedRecipeId(null); }}>
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {SERVICE_CONFIG[serviceType].emoji} {selectedRecipe.name}
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* Quantity input */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cantidad de {portionLabel}</label>
-                <NumericKeypadInput
-                  mode="integer"
-                  value={portions}
-                  onChange={(v) => setPortions(Math.max(1, Number(v) || 1))}
-                  min="1"
-                  keypadLabel={`Cantidad de ${portionLabel}`}
-                  className="text-center text-2xl font-bold h-14"
-                />
-                <p className="text-xs text-muted-foreground text-center">
-                  Ingresa cuántas {portionLabel} se procesaron
-                </p>
-              </div>
-
-              {/* Ingredients preview */}
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Insumo</TableHead>
-                    <TableHead className="text-right">Cant. total</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    <TableHead className="text-right">Costo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recipeIngredients.map((ing: any) => (
-                    <TableRow key={ing.id}>
-                      <TableCell className="font-medium">{ing.prod?.name ?? "—"}</TableCell>
-                      <TableCell className="text-right">{ing.totalQty.toFixed(2)} {ing.unit}</TableCell>
-                      <TableCell className={`text-right ${!ing.hasStock ? "text-destructive font-semibold" : ""}`}>
-                        {ing.prod ? `${Number(ing.prod.current_stock).toFixed(2)} ${ing.prod.unit}` : "—"}
-                      </TableCell>
-                      <TableCell className="text-right">${ing.cost.toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {/* Totals */}
-              <div className="rounded-md bg-muted p-4 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Costo total</span>
-                <span className="font-heading text-2xl font-bold">${totalCost.toFixed(2)}</span>
-              </div>
-
-              {!allHaveStock && (
-                <p className="text-sm text-destructive text-center font-medium">⚠️ Stock insuficiente en uno o más insumos</p>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => { setStep("recipe"); setSelectedRecipeId(null); }}>
-                  Cancelar
-                </Button>
-                <Button
-                  className="flex-1 h-14 text-lg"
-                  disabled={!canConfirm || confirmMutation.isPending}
-                  onClick={() => confirmMutation.mutate()}
-                >
-                  {confirmMutation.isPending ? "Registrando..." : (
-                    <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Confirmar</span>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ===== History ===== */}
-        {step === "history" && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => setStep("type")}>
+                <Button variant="ghost" size="icon" onClick={() => setShowHistory(false)}>
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -358,26 +404,33 @@ export default function OperationsKiosk() {
               </div>
             </CardHeader>
             <CardContent>
-              {!history?.length ? (
+              {!historyItems.length ? (
                 <p className="text-center text-muted-foreground py-8">Sin registros recientes</p>
               ) : (
                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                  {history.map((h) => {
-                    const recipe = recipeMap.get(h.recipe_id ?? "");
-                    const rType = (recipe as any)?.recipe_type;
-                    const isOps = rType === "laundry" || rType === "housekeeping";
-                    if (!isOps) return null;
-                    const cfg = rType ? SERVICE_CONFIG[rType as ServiceType] : null;
+                  {historyItems.map((h) => {
+                    const recipe = h.recipe_id ? recipeMap.get(h.recipe_id) : null;
+                    const prod = productMap.get(h.product_id);
+                    const svc = h.service_id ? serviceMap.get(h.service_id) : null;
+                    const rType = (recipe as any)?.recipe_type as ServiceType | undefined;
+                    const isRecipe = !!recipe;
+                    const emoji = rType ? SERVICE_CONFIG[rType]?.emoji : "🧴";
                     return (
                       <div key={h.id} className="flex items-center gap-3 rounded-lg border p-3">
-                        <span className="text-xl">{cfg?.emoji ?? "📦"}</span>
+                        <span className="text-xl">{emoji}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{recipe?.name ?? h.notes}</p>
+                          <p className="font-medium text-sm truncate">
+                            {isRecipe ? recipe?.name : prod?.name ?? h.notes}
+                          </p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             <CalendarDays className="h-3 w-3" />
                             {new Date(h.created_at).toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {svc && <span className="ml-1">· {svc.name}</span>}
                           </p>
                         </div>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {isRecipe ? "Receta" : "Manual"}
+                        </Badge>
                         <span className="font-heading font-bold text-sm">${Number(h.total_cost).toFixed(2)}</span>
                       </div>
                     );
@@ -387,7 +440,396 @@ export default function OperationsKiosk() {
             </CardContent>
           </Card>
         )}
+
+        {/* ═══════════════════════════════════════════
+            RECIPE FLOW
+            ═══════════════════════════════════════════ */}
+        {mode === "recipes" && (
+          <>
+            {/* Step indicators */}
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Badge variant={recipeStep === "type" ? "default" : "secondary"}>1. Tipo</Badge>
+              <span className="text-muted-foreground">→</span>
+              <Badge variant={recipeStep === "recipe" ? "default" : "secondary"}>2. Receta</Badge>
+              <span className="text-muted-foreground">→</span>
+              <Badge variant={recipeStep === "confirm" ? "default" : "secondary"}>3. Confirmar</Badge>
+            </div>
+
+            {/* Select type */}
+            {recipeStep === "type" && (
+              <>
+                <Button variant="ghost" size="sm" onClick={goHome} className="mb-2">
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Menú principal
+                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {(Object.entries(SERVICE_CONFIG) as [ServiceType, typeof SERVICE_CONFIG["laundry"]][]).map(([key, cfg]) => {
+                    const count = recipes?.filter((r: any) => r.recipe_type === key).length ?? 0;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => { setServiceType(key); setRecipeStep("recipe"); }}
+                        className="rounded-xl border-2 border-border p-8 text-center transition-all hover:shadow-lg hover:border-primary active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <div className="flex flex-col items-center gap-3">
+                          <span className="text-5xl">{cfg.emoji}</span>
+                          <span className="font-heading text-xl font-bold">{cfg.label}</span>
+                          <span className="text-sm text-muted-foreground">{count} receta{count !== 1 ? "s" : ""}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Select recipe */}
+            {recipeStep === "recipe" && serviceType && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => { setRecipeStep("type"); setServiceType(null); }}>
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <CardTitle className="text-lg">{SERVICE_CONFIG[serviceType].emoji} {SERVICE_CONFIG[serviceType].label}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {filteredRecipes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">No hay recetas de {SERVICE_CONFIG[serviceType].label.toLowerCase()} registradas.</p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {filteredRecipes.map((r: any) => {
+                        const cost = (r.recipe_ingredients ?? []).reduce((s: number, ri: any) => {
+                          const prod = productMap.get(ri.product_id);
+                          if (!prod) return s;
+                          const qty = convertToProductUnit(Number(ri.quantity), ri.unit, prod.unit);
+                          return s + qty * Number(prod.average_cost);
+                        }, 0);
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => { setSelectedRecipeId(r.id); setPortions(1); setRecipeStep("confirm"); }}
+                            className="rounded-lg border-2 border-border p-5 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-heading font-bold text-lg">{r.name}</p>
+                                {r.description && <p className="text-sm text-muted-foreground mt-0.5">{r.description}</p>}
+                                <p className="text-xs text-muted-foreground mt-1">{r.recipe_ingredients?.length ?? 0} insumo{(r.recipe_ingredients?.length ?? 0) !== 1 ? "s" : ""}</p>
+                              </div>
+                              <span className="font-heading font-bold text-lg text-primary">${cost.toFixed(2)}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Confirm recipe */}
+            {recipeStep === "confirm" && selectedRecipe && serviceType && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => { setRecipeStep("recipe"); setSelectedRecipeId(null); }}>
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <CardTitle className="text-lg">{SERVICE_CONFIG[serviceType].emoji} {selectedRecipe.name}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Cantidad de {portionLabel}</label>
+                    <NumericKeypadInput
+                      mode="integer"
+                      value={portions}
+                      onChange={(v) => setPortions(Math.max(1, Number(v) || 1))}
+                      min="1"
+                      keypadLabel={`Cantidad de ${portionLabel}`}
+                      className="text-center text-2xl font-bold h-14"
+                    />
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Insumo</TableHead>
+                        <TableHead className="text-right">Cant. total</TableHead>
+                        <TableHead className="text-right">Stock</TableHead>
+                        <TableHead className="text-right">Costo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recipeIngredients.map((ing: any) => (
+                        <TableRow key={ing.id}>
+                          <TableCell className="font-medium">{ing.prod?.name ?? "—"}</TableCell>
+                          <TableCell className="text-right">{ing.totalQty.toFixed(2)} {ing.unit}</TableCell>
+                          <TableCell className={`text-right ${!ing.hasStock ? "text-destructive font-semibold" : ""}`}>
+                            {ing.prod ? `${Number(ing.prod.current_stock).toFixed(2)} ${ing.prod.unit}` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right">${ing.cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="rounded-md bg-muted p-4 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Costo total</span>
+                    <span className="font-heading text-2xl font-bold">${recipeTotalCost.toFixed(2)}</span>
+                  </div>
+                  {!allHaveStock && <p className="text-sm text-destructive text-center font-medium">⚠️ Stock insuficiente en uno o más insumos</p>}
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={() => { setRecipeStep("recipe"); setSelectedRecipeId(null); }}>Cancelar</Button>
+                    <Button className="flex-1 h-14 text-lg" disabled={!canConfirmRecipe || confirmRecipeMutation.isPending} onClick={() => confirmRecipeMutation.mutate()}>
+                      {confirmRecipeMutation.isPending ? "Registrando..." : <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Confirmar</span>}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* ═══════════════════════════════════════════
+            SERVICE FLOW (Manual consumption)
+            ═══════════════════════════════════════════ */}
+        {mode === "services" && (
+          <>
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Badge variant={serviceStep === "service" ? "default" : "secondary"}>1. Servicio</Badge>
+              <span className="text-muted-foreground">→</span>
+              <Badge variant={serviceStep === "product" ? "default" : "secondary"}>2. Producto</Badge>
+              <span className="text-muted-foreground">→</span>
+              <Badge variant={serviceStep === "confirm" ? "default" : "secondary"}>3. Confirmar</Badge>
+            </div>
+
+            {/* Select service */}
+            {serviceStep === "service" && (
+              <>
+                <Button variant="ghost" size="sm" onClick={goHome} className="mb-2">
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Menú principal
+                </Button>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2"><Droplets className="h-5 w-5 text-primary" /> Seleccionar servicio</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {!services?.length ? (
+                      <p className="text-center text-muted-foreground py-8">No hay servicios. Un administrador debe crearlos.</p>
+                    ) : (
+                      <div className="grid gap-3">
+                        {services.map((s) => {
+                          const linkedCount = productServiceLinks?.filter((l) => l.service_id === s.id).length ?? 0;
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("product"); setProductSearch(""); }}
+                              className="rounded-lg border-2 border-border p-5 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              <p className="font-heading font-bold text-lg">{s.name}</p>
+                              {s.description && <p className="text-sm text-muted-foreground">{s.description}</p>}
+                              <p className="text-xs text-muted-foreground mt-1">{linkedCount} producto{linkedCount !== 1 ? "s" : ""} asociado{linkedCount !== 1 ? "s" : ""}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {/* Select product */}
+            {serviceStep === "product" && selectedServiceId && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => { setServiceStep("service"); setSelectedServiceId(null); }}>
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <CardTitle className="text-lg">{selectedService?.name} — Producto</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <KioskTextInput className="pl-10" placeholder="Buscar producto..." value={productSearch} onChange={setProductSearch} keyboardLabel="Buscar" inputType="search" />
+                  </div>
+                  <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                    {productsForService.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        {productServiceLinks?.filter((l) => l.service_id === selectedServiceId).length === 0
+                          ? "No hay productos asociados a este servicio. Un administrador debe vincularlos."
+                          : "Sin resultados"}
+                      </p>
+                    ) : (
+                      productsForService.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => { setSelectedProductId(p.id); setQuantity(0); setNotes(""); setServiceStep("confirm"); }}
+                          className="w-full rounded-lg border-2 border-border p-4 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-heading font-bold">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">Stock: {Number(p.current_stock).toFixed(2)} {p.unit} · ${Number(p.average_cost).toFixed(2)}/{p.unit}</p>
+                            </div>
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Confirm service consumption */}
+            {serviceStep === "confirm" && selectedProduct && selectedServiceId && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => { setServiceStep("product"); setSelectedProductId(null); }}>
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <CardTitle className="text-lg">{selectedProduct.name}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <Label>Cantidad ({selectedProduct.unit}) *</Label>
+                    <NumericKeypadInput
+                      mode="decimal"
+                      value={quantity || ""}
+                      onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
+                      min="0.001"
+                      keypadLabel={`Cantidad en ${selectedProduct.unit}`}
+                      className="text-center text-2xl font-bold h-14"
+                    />
+                    <p className="text-xs text-muted-foreground text-center">Stock: {Number(selectedProduct.current_stock).toFixed(2)} {selectedProduct.unit}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notas (opcional)</Label>
+                    <KioskTextInput value={notes} onChange={setNotes} placeholder="Observaciones..." keyboardLabel="Notas" />
+                  </div>
+                  <div className="rounded-md bg-muted p-4 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Servicio</span>
+                      <span className="font-medium">{selectedService?.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Producto</span>
+                      <span className="font-medium">{selectedProduct.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Cantidad</span>
+                      <span className="font-medium">{quantity} {selectedProduct.unit}</span>
+                    </div>
+                    <div className="border-t border-border pt-2 flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Costo estimado</span>
+                      <span className="font-heading text-2xl font-bold">${estimatedCost.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  {!hasStock && quantity > 0 && <p className="text-sm text-destructive text-center font-medium">⚠️ Stock insuficiente</p>}
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={() => { setServiceStep("product"); setSelectedProductId(null); }}>Cancelar</Button>
+                    <Button className="flex-1 h-14 text-lg" disabled={!canConfirmService || confirmServiceMutation.isPending} onClick={() => confirmServiceMutation.mutate()}>
+                      {confirmServiceMutation.isPending ? "Registrando..." : <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Confirmar</span>}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
       </div>
+
+      {/* ═══ Manage Services Dialog (Admin) ═══ */}
+      <Dialog open={manageOpen} onOpenChange={(o) => { setManageOpen(o); if (!o) { setManageProductsServiceId(null); setAddProductSearch(""); } }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Gestionar Servicios Operativos</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Create service */}
+            <div className="space-y-3 border-b border-border pb-4">
+              <Label className="font-semibold">Crear nuevo servicio</Label>
+              <KioskTextInput value={newServiceName} onChange={setNewServiceName} placeholder="Nombre del servicio" keyboardLabel="Nombre" />
+              <KioskTextInput value={newServiceDesc} onChange={setNewServiceDesc} placeholder="Descripción (opcional)" keyboardLabel="Descripción" />
+              <Button size="sm" disabled={!newServiceName.trim() || createServiceMutation.isPending} onClick={() => createServiceMutation.mutate()}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Crear
+              </Button>
+            </div>
+
+            {/* Existing services + product linking */}
+            <div className="space-y-3">
+              <Label className="font-semibold">Servicios existentes — Productos asociados</Label>
+              {!services?.length ? (
+                <p className="text-muted-foreground text-sm">Sin servicios</p>
+              ) : (
+                <div className="space-y-2">
+                  {services.map((s) => {
+                    const isExpanded = manageProductsServiceId === s.id;
+                    const links = productServiceLinks?.filter((l) => l.service_id === s.id) ?? [];
+                    return (
+                      <div key={s.id} className="border rounded-lg">
+                        <button
+                          className="w-full text-left p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                          onClick={() => { setManageProductsServiceId(isExpanded ? null : s.id); setAddProductSearch(""); }}
+                        >
+                          <div>
+                            <p className="font-medium">{s.name}</p>
+                            <p className="text-xs text-muted-foreground">{links.length} producto{links.length !== 1 ? "s" : ""}</p>
+                          </div>
+                          <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? "-rotate-90" : ""}`} />
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t p-3 space-y-3">
+                            {/* Linked products */}
+                            {links.length > 0 && (
+                              <div className="space-y-1">
+                                {links.map((link) => {
+                                  const prod = productMap.get(link.product_id);
+                                  return (
+                                    <div key={link.id} className="flex items-center justify-between rounded px-2 py-1 bg-muted/50">
+                                      <span className="text-sm">{prod?.name ?? "—"}</span>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => unlinkProductMutation.mutate(link.id)}>
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {/* Add product */}
+                            <div className="space-y-2">
+                              <div className="relative">
+                                <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                                <KioskTextInput className="pl-7 text-sm h-8" placeholder="Agregar producto..." value={addProductSearch} onChange={setAddProductSearch} keyboardLabel="Buscar producto" inputType="search" />
+                              </div>
+                              <div className="max-h-40 overflow-y-auto space-y-1">
+                                {unlinkedProducts.slice(0, 20).map((p) => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => linkProductMutation.mutate(p.id)}
+                                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors"
+                                  >
+                                    <Plus className="inline h-3 w-3 mr-1 text-primary" />{p.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
