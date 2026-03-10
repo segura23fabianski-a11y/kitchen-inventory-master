@@ -317,19 +317,31 @@ export default function ManualConsumption() {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* Quantity */}
+              {/* Quantity + Unit */}
               <div className="space-y-2">
-                <Label>
-                  Cantidad ({selectedProduct.unit}) *
-                </Label>
-                <NumericKeypadInput
-                  mode="decimal"
-                  value={quantity || ""}
-                  onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
-                  min="0.001"
-                  keypadLabel={`Cantidad en ${selectedProduct.unit}`}
-                  className="text-center text-2xl font-bold h-14"
-                />
+                <Label>Cantidad *</Label>
+                <div className="flex gap-2">
+                  <NumericKeypadInput
+                    mode="decimal"
+                    value={quantity || ""}
+                    onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
+                    min="0.001"
+                    keypadLabel={`Cantidad`}
+                    className="text-center text-2xl font-bold h-14 flex-1"
+                  />
+                  <div className="w-24">
+                    <UnitSelector
+                      productUnit={selectedProduct.unit}
+                      value={effectiveUnit}
+                      onChange={setInputUnit}
+                    />
+                  </div>
+                </div>
+                {effectiveUnit !== selectedProduct.unit && quantity > 0 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    = {convertedQty.toFixed(4)} {selectedProduct.unit}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
                   Stock disponible:{" "}
                   {Number(selectedProduct.current_stock).toFixed(2)}{" "}
