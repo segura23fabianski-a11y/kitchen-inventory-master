@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useToast } from "@/hooks/use-toast";
+import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
