@@ -190,6 +190,7 @@ export default function ManualConsumption() {
     setStep("product");
     setSelectedProductId(null);
     setQuantity(0);
+    setInputUnit("");
     setSelectedServiceId(null);
     setNotes("");
     setSearch("");
