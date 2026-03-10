@@ -25,6 +25,7 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import OperationsKiosk from "./pages/OperationsKiosk";
 import Kardex from "./pages/Kardex";
 import PhysicalInventory from "./pages/PhysicalInventory";
+import WasteControl from "./pages/WasteControl";
 
 import NotFound from "./pages/NotFound";
 
@@ -77,6 +78,7 @@ const AppRoutes = () => (
     <Route path="/kardex" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/kardex/:productId" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/physical-inventory" element={<ProtectedRoute roles={["admin", "bodega"]}><PhysicalInventory /></ProtectedRoute>} />
+    <Route path="/waste" element={<ProtectedRoute roles={["admin", "bodega"]}><WasteControl /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
     <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />

@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History, Trash2, FileText, Truck, ShoppingCart, SprayCan, Droplets, BookOpen, ClipboardCheck } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History, Trash2, FileText, Truck, ShoppingCart, SprayCan, Droplets, BookOpen, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink } from "react-router-dom";
@@ -22,6 +22,7 @@ const allNavItems: NavItem[] = [
   { to: "/purchase-orders", icon: ShoppingCart, label: "Pedidos de Compra", permKey: "purchase_orders" },
   { to: "/kardex", icon: BookOpen, label: "Kardex", permKey: "movements" },
   { to: "/physical-inventory", icon: ClipboardCheck, label: "Inventario Físico", permKey: "physical_inventory" },
+  { to: "/waste", icon: AlertTriangle, label: "Desperdicios", permKey: "waste_control" },
   { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
   { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
   { to: "/operations", icon: SprayCan, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
