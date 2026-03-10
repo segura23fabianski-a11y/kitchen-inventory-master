@@ -224,16 +224,18 @@ export default function OperationsKiosk() {
   const confirmServiceMutation = useMutation({
     mutationFn: async () => {
       const unitCost = Number(selectedProduct!.average_cost);
-      const totalCost = quantity * unitCost;
+      const totalCost = svcConvertedQty * unitCost;
       const { error } = await supabase.from("inventory_movements").insert({
         product_id: selectedProductId!,
         user_id: user!.id,
         type: "operational_consumption",
-        quantity,
+        quantity: svcConvertedQty,
         unit_cost: unitCost,
         total_cost: totalCost,
         service_id: selectedServiceId!,
-        notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${quantity} ${selectedProduct?.unit}`,
+        notes: svcEffectiveUnit !== selectedProduct?.unit
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${svcEffectiveUnit} → ${svcConvertedQty.toFixed(4)} ${selectedProduct?.unit}`
+          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${svcConvertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
       if (error) throw error;
@@ -241,7 +243,7 @@ export default function OperationsKiosk() {
         entityType: "operational_consumption",
         entityId: selectedProductId!,
         action: "CREATE",
-        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
+        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity: svcConvertedQty, input_quantity: quantity, input_unit: svcEffectiveUnit, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
         canRollback: false,
       });
     },
