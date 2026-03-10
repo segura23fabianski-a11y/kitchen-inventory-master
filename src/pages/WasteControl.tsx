@@ -59,8 +59,10 @@ export default function WasteControl() {
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [wasteType, setWasteType] = useState<WasteType>("merma");
   const [reason, setReason] = useState("");
   const [customReason, setCustomReason] = useState(false);
+  const [newCatalogReason, setNewCatalogReason] = useState("");
   const [notes, setNotes] = useState("");
   const [movementDate, setMovementDate] = useState<Date>(new Date());
   const [dateOpen, setDateOpen] = useState(false);
