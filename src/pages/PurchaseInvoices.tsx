@@ -156,6 +156,7 @@ export default function PurchaseInvoices() {
     setAddProductId("");
     setAddQuantity("");
     setAddUnitCost("");
+    setAddInputUnit("");
     setEditingInvoice(null);
   };
 
