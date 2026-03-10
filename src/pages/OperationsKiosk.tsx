@@ -52,6 +52,7 @@ export default function OperationsKiosk() {
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
+  const [serviceInputUnit, setServiceInputUnit] = useState("");
   const [notes, setNotes] = useState("");
   const [productSearch, setProductSearch] = useState("");
 
