@@ -82,6 +82,7 @@ export default function PurchaseInvoices() {
   const [addProductId, setAddProductId] = useState("");
   const [addQuantity, setAddQuantity] = useState("");
   const [addUnitCost, setAddUnitCost] = useState("");
+  const [addInputUnit, setAddInputUnit] = useState("");
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
 
   const { user } = useAuth();
