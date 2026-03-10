@@ -87,7 +87,7 @@ export default function OperationalReports() {
         .lte("movement_date", to)
         .order("movement_date", { ascending: false });
       if (error) throw error;
-      return data as MovementRow[];
+      return (data ?? []) as unknown as MovementRow[];
     },
   });
 
