@@ -706,6 +706,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          recipe_type: string
           restaurant_id: string
           updated_at: string
         }
@@ -714,6 +715,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          recipe_type?: string
           restaurant_id: string
           updated_at?: string
         }
@@ -722,6 +724,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          recipe_type?: string
           restaurant_id?: string
           updated_at?: string
         }
