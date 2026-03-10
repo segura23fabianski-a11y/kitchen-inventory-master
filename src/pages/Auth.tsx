@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Package } from "lucide-react";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
+import { useBranding } from "@/hooks/use-branding";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
