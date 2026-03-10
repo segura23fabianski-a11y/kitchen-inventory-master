@@ -177,7 +177,10 @@ export default function Movements() {
   const handleProductChange = (id: string) => {
     setProductId(id);
     const prod = products?.find((p) => p.id === id);
-    if (prod) setUnitCost(String(prod.average_cost));
+    if (prod) {
+      setUnitCost(String(prod.average_cost));
+      setInputUnit(prod.unit); // default to product's base unit
+    }
     setProductPopoverOpen(false);
     setTimeout(() => {
       const qtyInput = document.querySelector<HTMLInputElement>('[data-mov-qty-input]');
