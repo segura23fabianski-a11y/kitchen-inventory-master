@@ -1,4 +1,4 @@
-import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History, Trash2, FileText, Truck, ShoppingCart, SprayCan, Droplets, BookOpen, ClipboardCheck, AlertTriangle, Layers } from "lucide-react";
+import { Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users, ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History, Trash2, FileText, Truck, ShoppingCart, SprayCan, Droplets, BookOpen, ClipboardCheck, AlertTriangle, Layers, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink } from "react-router-dom";
@@ -19,6 +19,7 @@ const allNavItems: NavItem[] = [
   { to: "/warehouses", icon: Warehouse, label: "Almacenes", permKey: "warehouses" },
   { to: "/purchases", icon: FileText, label: "Compras / Facturas", permKey: "purchases" },
   { to: "/suppliers", icon: Truck, label: "Proveedores", permKey: "suppliers" },
+  { to: "/price-history", icon: TrendingUp, label: "Histórico Precios", permKey: "purchases" },
   { to: "/purchase-orders", icon: ShoppingCart, label: "Pedidos de Compra", permKey: "purchase_orders" },
   { to: "/kardex", icon: BookOpen, label: "Kardex", permKey: "movements" },
   { to: "/physical-inventory", icon: ClipboardCheck, label: "Inventario Físico", permKey: "physical_inventory" },
