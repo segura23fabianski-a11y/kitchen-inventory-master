@@ -343,6 +343,7 @@ export default function OperationsKiosk() {
     setSelectedServiceId(null);
     setSelectedProductId(null);
     setQuantity(0);
+    setServiceInputUnit("");
     setNotes("");
     setProductSearch("");
     setShowHistory(false);
