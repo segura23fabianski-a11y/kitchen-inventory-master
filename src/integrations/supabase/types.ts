@@ -151,6 +151,7 @@ export type Database = {
           quantity: number
           recipe_id: string | null
           restaurant_id: string
+          service_id: string | null
           total_cost: number
           type: string
           unit_cost: number
@@ -165,6 +166,7 @@ export type Database = {
           quantity: number
           recipe_id?: string | null
           restaurant_id: string
+          service_id?: string | null
           total_cost?: number
           type: string
           unit_cost?: number
@@ -179,6 +181,7 @@ export type Database = {
           quantity?: number
           recipe_id?: string | null
           restaurant_id?: string
+          service_id?: string | null
           total_cost?: number
           type?: string
           unit_cost?: number
@@ -201,6 +204,48 @@ export type Database = {
           },
           {
             foreignKeyName: "inventory_movements_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "operational_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operational_services: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          restaurant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          restaurant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_services_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
