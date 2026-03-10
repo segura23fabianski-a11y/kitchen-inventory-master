@@ -680,6 +680,7 @@ export default function Products() {
                         <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
                         <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
                         <TableCell className="text-muted-foreground">{p.unit}</TableCell>
+                        <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `$${Number((p as any).last_unit_cost).toFixed(2)}` : "—"}</TableCell>
                         <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
                         <TableCell>
                           {Number(p.current_stock) <= Number(p.min_stock) ? (

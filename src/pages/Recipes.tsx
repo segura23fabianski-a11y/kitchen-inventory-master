@@ -65,7 +65,7 @@ export default function Recipes() {
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost").order("name");
+      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost, last_unit_cost").order("name");
       if (error) throw error;
       return data;
     },
