@@ -34,6 +34,17 @@ export function NumericKeypad({
 }: NumericKeypadProps) {
   const [display, setDisplay] = React.useState(initialValue || "0");
 
+  // Format number for display: 1234567.89 → 1.234.567,89
+  const formatForDisplay = (raw: string): string => {
+    if (!raw || raw === "0") return "0";
+    const dotIdx = raw.indexOf(".");
+    const intPart = dotIdx === -1 ? raw : raw.slice(0, dotIdx);
+    const decPart = dotIdx === -1 ? "" : raw.slice(dotIdx + 1);
+    // Add thousand separators with dots
+    const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return decPart !== "" || raw.endsWith(".") ? `${formattedInt},${decPart}` : formattedInt;
+  };
+
   // Sync when opened
   React.useEffect(() => {
     if (open) {
