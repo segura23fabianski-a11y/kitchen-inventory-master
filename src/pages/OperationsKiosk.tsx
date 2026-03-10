@@ -807,23 +807,69 @@ export default function OperationsKiosk() {
                 <div className="space-y-2">
                   {services.map((s) => {
                     const isExpanded = manageCategoriesServiceId === s.id;
+                    const isEditing = editingServiceId === s.id;
                     const links = serviceCategoryLinks?.filter((l) => l.service_id === s.id) ?? [];
                     return (
                       <div key={s.id} className="border rounded-lg">
-                        <button
-                          className="w-full text-left p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                          onClick={() => setManageCategoriesServiceId(isExpanded ? null : s.id)}
-                        >
-                          <div>
+                        <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+                          <button
+                            className="flex-1 text-left"
+                            onClick={() => setManageCategoriesServiceId(isExpanded ? null : s.id)}
+                          >
                             <p className="font-medium">{s.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {links.length} categoría{links.length !== 1 ? "s" : ""} · {productCountForService(s.id)} producto{productCountForService(s.id) !== 1 ? "s" : ""}
                             </p>
+                          </button>
+                          <div className="flex items-center gap-1 ml-2">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                              setEditingServiceId(s.id);
+                              setEditServiceName(s.name);
+                              setEditServiceDesc(s.description || "");
+                              setManageCategoriesServiceId(s.id);
+                            }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Se eliminará "{s.name}" y sus categorías asociadas. Si hay movimientos vinculados, la operación podría fallar.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteServiceMutation.mutate(s.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? "-rotate-90" : ""}`} />
                           </div>
-                          <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? "-rotate-90" : ""}`} />
-                        </button>
+                        </div>
                         {isExpanded && (
                           <div className="border-t p-3 space-y-3">
+                            {/* Edit service name/description */}
+                            {isEditing && (
+                              <div className="space-y-2 border-b border-border pb-3">
+                                <p className="text-xs font-medium text-muted-foreground">Editar servicio:</p>
+                                <KioskTextInput value={editServiceName} onChange={setEditServiceName} placeholder="Nombre" keyboardLabel="Nombre" />
+                                <KioskTextInput value={editServiceDesc} onChange={setEditServiceDesc} placeholder="Descripción (opcional)" keyboardLabel="Descripción" />
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => setEditingServiceId(null)}>Cancelar</Button>
+                                  <Button size="sm" disabled={!editServiceName.trim() || updateServiceMutation.isPending} onClick={() => updateServiceMutation.mutate()}>
+                                    {updateServiceMutation.isPending ? "Guardando..." : "Guardar"}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                             {/* Linked categories */}
                             {links.length > 0 && (
                               <div className="space-y-1">
