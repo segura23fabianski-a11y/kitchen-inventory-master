@@ -394,7 +394,7 @@ export default function ManualConsumption() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cantidad</span>
                   <span className="font-medium">
-                    {quantity} {selectedProduct.unit}
+                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` (${convertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
