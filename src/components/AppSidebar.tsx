@@ -86,6 +86,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
       { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
+      { to: "/branding", icon: Paintbrush, label: "Configuración Visual", permKey: "users" },
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "audit" },
     ],
