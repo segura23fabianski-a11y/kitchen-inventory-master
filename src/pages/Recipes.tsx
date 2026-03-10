@@ -577,7 +577,7 @@ export default function Recipes() {
                               <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                               <SelectContent>
                                 {products?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${Number(p.average_cost).toFixed(2)}/{p.unit}</SelectItem>
+                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${getProductCost(p.id).toFixed(2)}/{p.unit}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
