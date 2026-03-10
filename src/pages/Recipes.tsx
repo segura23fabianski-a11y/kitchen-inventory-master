@@ -465,7 +465,7 @@ export default function Recipes() {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
-                      <span className="font-heading font-bold text-lg">${cost.toFixed(2)}</span>
+                      <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
                     </div>
                     {rType === "food" && (
                       <p className="text-xs text-muted-foreground">
