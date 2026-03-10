@@ -146,11 +146,13 @@ export default function OperationalReports() {
 
   // Unique areas for filter
   const allAreas = useMemo(() => {
-    if (!movements) return [];
     const set = new Set<string>();
-    movements.forEach((m) => set.add(getArea(m, servicesMap, recipesMap)));
+    // Always include all operational services from catalog
+    services?.forEach((s) => set.add(s.name));
+    // Also include derived areas from movements (Cocina, Desperdicios, etc.)
+    movements?.forEach((m) => set.add(getArea(m, servicesMap, recipesMap)));
     return Array.from(set).sort();
-  }, [movements, servicesMap, recipesMap]);
+  }, [movements, services, servicesMap, recipesMap]);
 
   // Filtered movements
   const filtered = useMemo(() => {
