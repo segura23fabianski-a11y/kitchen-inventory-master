@@ -55,6 +55,7 @@ type DraftItem = {
   product_id: string;
   product_name: string;
   product_unit: string;
+  input_unit: string;
   quantity: string;
   unit_cost: string;
 };
