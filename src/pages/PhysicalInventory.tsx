@@ -208,11 +208,11 @@ export default function PhysicalInventory() {
         .eq("id", selectedCountId);
       if (error) throw error;
 
-      await logAudit("physical_count", selectedCountId, "APPROVE_PHYSICAL_COUNT", null, {
+      await logAudit({ entityType: "physical_count", entityId: selectedCountId, action: "UPDATE", after: {
         name: selectedCount?.name,
         adjusted_products: itemsWithDiff.length,
         total_products: countItems?.length ?? 0,
-      });
+      } });
     },
     onSuccess: () => {
       toast({ title: "Conteo aprobado", description: "Ajustes de inventario generados automáticamente." });
