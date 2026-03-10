@@ -103,13 +103,16 @@ export default function OperationsKiosk() {
   const allHaveStock = recipeIngredients.every((i: any) => i.hasStock);
   const canConfirm = selectedRecipeId && portions > 0 && allHaveStock;
 
+  const portionLabel = serviceType === "laundry" ? "prendas" : serviceType === "housekeeping" ? "habitaciones" : "porciones";
+  const portionSingular = serviceType === "laundry" ? "prenda" : serviceType === "housekeeping" ? "habitación" : "porción";
+
   const confirmMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("register_recipe_consumption", {
         _recipe_id: selectedRecipeId!,
         _user_id: user!.id,
         _portions: portions,
-        _notes: `Registro operativo: ${SERVICE_CONFIG[serviceType!].label} — ${selectedRecipe?.name} x${portions}`,
+        _notes: `Registro operativo: ${SERVICE_CONFIG[serviceType!].label} — ${selectedRecipe?.name} x${portions} ${portionLabel}`,
       });
       if (error) throw error;
       await logAudit({
@@ -126,7 +129,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["operations-history"] });
       toast({
         title: "✅ Servicio registrado",
-        description: `${selectedRecipe?.name} x${portions} — $${totalCost.toFixed(2)}`,
+        description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — $${totalCost.toFixed(2)}`,
       });
       resetAll();
     },
@@ -274,17 +277,17 @@ export default function OperationsKiosk() {
             <CardContent className="space-y-5">
               {/* Quantity input */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Cantidad ejecutada</label>
+                <label className="text-sm font-medium">Cantidad de {portionLabel}</label>
                 <NumericKeypadInput
                   mode="integer"
                   value={portions}
                   onChange={(v) => setPortions(Math.max(1, Number(v) || 1))}
                   min="1"
-                  keypadLabel="Cantidad"
+                  keypadLabel={`Cantidad de ${portionLabel}`}
                   className="text-center text-2xl font-bold h-14"
                 />
                 <p className="text-xs text-muted-foreground text-center">
-                  Ej: 2 habitaciones, 5 prendas, 8 kg…
+                  Ingresa cuántas {portionLabel} se procesaron
                 </p>
               </div>
 
