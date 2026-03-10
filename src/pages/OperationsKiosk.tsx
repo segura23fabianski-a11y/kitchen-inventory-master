@@ -683,7 +683,7 @@ export default function OperationsKiosk() {
                           return (
                             <button
                               key={s.id}
-                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("products"); setProductSearch(""); setSelectedProductIds(new Set()); setSvcQuantities({}); }}
+                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("products"); setProductSearch(""); setSelectedProductIds(new Set()); setSvcQuantities({}); setSvcUnits({}); }}
                               className="rounded-lg border-2 border-border p-5 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                               <p className="font-heading font-bold text-lg">{s.name}</p>
