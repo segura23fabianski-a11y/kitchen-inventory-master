@@ -11,12 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAudit } from "@/hooks/use-audit";
 import { convertToProductUnit } from "@/lib/unit-conversion";
-import { UnitSelector } from "@/components/UnitSelector";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
@@ -28,7 +26,7 @@ import {
 // ── Types ──
 type MainMode = "home" | "recipes" | "services";
 type RecipeStep = "type" | "recipe" | "confirm";
-type ServiceStep = "service" | "product" | "confirm";
+type ServiceStep = "service" | "products" | "quantities";
 type ServiceType = "laundry" | "housekeeping";
 
 const SERVICE_CONFIG: Record<ServiceType, { label: string; emoji: string }> = {
@@ -51,9 +49,8 @@ export default function OperationsKiosk() {
   // ── Service flow state ──
   const [serviceStep, setServiceStep] = useState<ServiceStep>("service");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState<number>(0);
-  const [serviceInputUnit, setServiceInputUnit] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [svcQuantities, setSvcQuantities] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
   const [productSearch, setProductSearch] = useState("");
 
@@ -182,16 +179,27 @@ export default function OperationsKiosk() {
   const allHaveStock = recipeIngredients.every((i: any) => i.hasStock);
   const canConfirmRecipe = selectedRecipeId && portions > 0 && allHaveStock;
 
-  // ── Service helpers ──
-  const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
+  // ── Service helpers (multi-product) ──
   const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
-  const svcEffectiveUnit = serviceInputUnit || selectedProduct?.unit || "unidad";
-  const svcConvertedQty = selectedProduct
-    ? convertToProductUnit(quantity, svcEffectiveUnit, selectedProduct.unit)
-    : quantity;
-  const estimatedCost = selectedProduct && svcConvertedQty > 0 ? svcConvertedQty * Number(selectedProduct.average_cost) : 0;
-  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= svcConvertedQty : false;
-  const canConfirmService = selectedProductId && quantity > 0 && selectedServiceId && hasStock;
+
+  const svcLines = useMemo(() => {
+    if (!products) return [];
+    return [...selectedProductIds].map((pid) => {
+      const product = productMap.get(pid);
+      if (!product) return null;
+      const qty = svcQuantities[pid] ?? 0;
+      const stock = Number(product.current_stock ?? 0);
+      const unitCost = Number(product.average_cost ?? 0);
+      const totalCost = qty * unitCost;
+      const insufficient = qty > stock;
+      return { product, qty, stock, unitCost, totalCost, insufficient };
+    }).filter(Boolean) as { product: typeof products[0]; qty: number; stock: number; unitCost: number; totalCost: number; insufficient: boolean }[];
+  }, [selectedProductIds, svcQuantities, products, productMap]);
+
+  const svcHasInsufficient = svcLines.some((l) => l.insufficient);
+  const svcGrandTotal = svcLines.reduce((s, l) => s + l.totalCost, 0);
+  const svcHasQuantities = svcLines.some((l) => l.qty > 0);
+  const canConfirmService = selectedServiceId && selectedProductIds.size > 0 && svcHasQuantities && !svcHasInsufficient;
 
   // ── Mutations ──
   const confirmRecipeMutation = useMutation({
@@ -223,27 +231,27 @@ export default function OperationsKiosk() {
 
   const confirmServiceMutation = useMutation({
     mutationFn: async () => {
-      const unitCost = Number(selectedProduct!.average_cost);
-      const totalCost = svcConvertedQty * unitCost;
-      const { error } = await supabase.from("inventory_movements").insert({
-        product_id: selectedProductId!,
-        user_id: user!.id,
-        type: "operational_consumption",
-        quantity: svcConvertedQty,
-        unit_cost: unitCost,
-        total_cost: totalCost,
-        service_id: selectedServiceId!,
-        notes: svcEffectiveUnit !== selectedProduct?.unit
-          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${svcEffectiveUnit} → ${svcConvertedQty.toFixed(4)} ${selectedProduct?.unit}`
-          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${svcConvertedQty} ${selectedProduct?.unit}`,
-        restaurant_id: restaurantId!,
-      } as any);
-      if (error) throw error;
+      for (const line of svcLines) {
+        if (line.qty <= 0) continue;
+        const { error } = await supabase.from("inventory_movements").insert({
+          product_id: line.product.id,
+          user_id: user!.id,
+          type: "operational_consumption",
+          quantity: line.qty,
+          unit_cost: line.unitCost,
+          total_cost: line.totalCost,
+          service_id: selectedServiceId!,
+          notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.qty} ${line.product.unit}`,
+          restaurant_id: restaurantId!,
+        } as any);
+        if (error) throw error;
+      }
+      const validLines = svcLines.filter((l) => l.qty > 0);
       await logAudit({
         entityType: "operational_consumption",
-        entityId: selectedProductId!,
+        entityId: selectedServiceId!,
         action: "CREATE",
-        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity: svcConvertedQty, input_quantity: quantity, input_unit: svcEffectiveUnit, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
+        after: { service: selectedService?.name, products: validLines.map((l) => ({ name: l.product.name, qty: l.qty, unit: l.product.unit, cost: l.totalCost })), total_cost: svcGrandTotal },
         canRollback: false,
       });
     },
@@ -251,7 +259,8 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
-      toast({ title: "✅ Consumo registrado", description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — $${estimatedCost.toFixed(2)}` });
+      const count = svcLines.filter((l) => l.qty > 0).length;
+      toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — $${svcGrandTotal.toFixed(2)}` });
       goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -341,9 +350,8 @@ export default function OperationsKiosk() {
     setSelectedRecipeId(null);
     setPortions(1);
     setSelectedServiceId(null);
-    setSelectedProductId(null);
-    setQuantity(0);
-    setServiceInputUnit("");
+    setSelectedProductIds(new Set());
+    setSvcQuantities({});
     setNotes("");
     setProductSearch("");
     setShowHistory(false);
@@ -642,9 +650,9 @@ export default function OperationsKiosk() {
             <div className="flex items-center justify-center gap-2 text-sm">
               <Badge variant={serviceStep === "service" ? "default" : "secondary"}>1. Servicio</Badge>
               <span className="text-muted-foreground">→</span>
-              <Badge variant={serviceStep === "product" ? "default" : "secondary"}>2. Producto</Badge>
+              <Badge variant={serviceStep === "products" ? "default" : "secondary"}>2. Productos</Badge>
               <span className="text-muted-foreground">→</span>
-              <Badge variant={serviceStep === "confirm" ? "default" : "secondary"}>3. Confirmar</Badge>
+              <Badge variant={serviceStep === "quantities" ? "default" : "secondary"}>3. Cantidades</Badge>
             </div>
 
             {serviceStep === "service" && (
@@ -667,7 +675,7 @@ export default function OperationsKiosk() {
                           return (
                             <button
                               key={s.id}
-                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("product"); setProductSearch(""); }}
+                              onClick={() => { setSelectedServiceId(s.id); setServiceStep("products"); setProductSearch(""); setSelectedProductIds(new Set()); setSvcQuantities({}); }}
                               className="rounded-lg border-2 border-border p-5 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                               <p className="font-heading font-bold text-lg">{s.name}</p>
@@ -685,22 +693,22 @@ export default function OperationsKiosk() {
               </>
             )}
 
-            {serviceStep === "product" && selectedServiceId && (
+            {serviceStep === "products" && selectedServiceId && (
               <Card>
-                <CardHeader>
+                <CardHeader className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" onClick={() => { setServiceStep("service"); setSelectedServiceId(null); }}>
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
-                    <CardTitle className="text-lg">{selectedService?.name} — Producto</CardTitle>
+                    <CardTitle className="text-lg">{selectedService?.name} — Seleccionar productos</CardTitle>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <KioskTextInput className="pl-10" placeholder="Buscar producto..." value={productSearch} onChange={setProductSearch} keyboardLabel="Buscar" inputType="search" />
                   </div>
-                  <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="max-h-[40vh] overflow-y-auto">
                     {productsForService.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">
                         {(serviceCategoryLinks?.filter((l) => l.service_id === selectedServiceId).length ?? 0) === 0
@@ -708,92 +716,145 @@ export default function OperationsKiosk() {
                           : "Sin productos en las categorías asociadas."}
                       </p>
                     ) : (
-                      productsForService.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => { setSelectedProductId(p.id); setQuantity(0); setNotes(""); setServiceStep("confirm"); }}
-                          className="w-full rounded-lg border-2 border-border p-4 text-left transition-all hover:shadow-md hover:border-primary active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-heading font-bold">{p.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {p.category_id && categoryMap.get(p.category_id)?.name ? <span className="mr-2"><Tag className="inline h-3 w-3 mr-0.5" />{categoryMap.get(p.category_id)!.name}</span> : null}
-                                Stock: {Number(p.current_stock).toFixed(2)} {p.unit} · ${Number(p.average_cost).toFixed(2)}/{p.unit}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {productsForService.map((p) => {
+                          const selected = selectedProductIds.has(p.id);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProductIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(p.id)) next.delete(p.id);
+                                  else next.add(p.id);
+                                  return next;
+                                });
+                              }}
+                              className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
+                                selected
+                                  ? "border-primary bg-primary/10 ring-1 ring-primary"
+                                  : "border-border hover:bg-muted/50"
+                              }`}
+                            >
+                              <p className="font-medium text-sm truncate">{p.name}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {p.category_id && categoryMap.get(p.category_id)?.name ? <span className="block truncate"><Tag className="inline h-3 w-3 mr-0.5" />{categoryMap.get(p.category_id)!.name}</span> : null}
+                                Stock: {Number(p.current_stock).toFixed(2)} {p.unit}
                               </p>
-                            </div>
-                            <Package className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                        </button>
-                      ))
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
+                  <Button
+                    className="w-full"
+                    disabled={selectedProductIds.size === 0}
+                    onClick={() => setServiceStep("quantities")}
+                  >
+                    Siguiente ({selectedProductIds.size} producto{selectedProductIds.size !== 1 ? "s" : ""})
+                  </Button>
                 </CardContent>
               </Card>
             )}
 
-            {serviceStep === "confirm" && selectedProduct && selectedServiceId && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => { setServiceStep("product"); setSelectedProductId(null); }}>
-                      <ChevronLeft className="h-5 w-5" />
-                    </Button>
-                    <CardTitle className="text-lg">{selectedProduct.name}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="space-y-2">
-                    <Label>Cantidad *</Label>
-                    <div className="flex gap-2">
-                      <NumericKeypadInput
-                        mode="decimal"
-                        value={quantity || ""}
-                        onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
-                        min="0.001"
-                        keypadLabel="Cantidad"
-                        className="text-center text-2xl font-bold h-14 flex-1"
-                      />
-                      <div className="w-24">
-                        <UnitSelector productUnit={selectedProduct.unit} value={svcEffectiveUnit} onChange={setServiceInputUnit} />
-                      </div>
+            {serviceStep === "quantities" && selectedServiceId && (
+              <>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => setServiceStep("products")}>
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <ClipboardList className="h-5 w-5 text-primary" /> Cantidades a descontar
+                        <Badge variant="outline" className="ml-auto">{selectedService?.name}</Badge>
+                      </CardTitle>
                     </div>
-                    {svcEffectiveUnit !== selectedProduct.unit && quantity > 0 && (
-                      <p className="text-xs text-muted-foreground text-center">= {svcConvertedQty.toFixed(4)} {selectedProduct.unit}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground text-center">Stock: {Number(selectedProduct.current_stock).toFixed(2)} {selectedProduct.unit}</p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Producto</TableHead>
+                          <TableHead className="text-right">Cantidad</TableHead>
+                          <TableHead className="text-right">Stock</TableHead>
+                          <TableHead className="text-right">Costo</TableHead>
+                          <TableHead className="w-10"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {svcLines.map((l) => (
+                          <TableRow key={l.product.id}>
+                            <TableCell className="font-medium text-sm">{l.product.name}
+                              <span className="block text-xs text-muted-foreground">{l.product.unit}</span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <NumericKeypadInput
+                                mode="decimal"
+                                value={l.qty || ""}
+                                onChange={(v) =>
+                                  setSvcQuantities((prev) => ({
+                                    ...prev,
+                                    [l.product.id]: Math.max(0, Number(v) || 0),
+                                  }))
+                                }
+                                min="0"
+                                className="w-20 text-right ml-auto"
+                                keypadLabel={l.product.name}
+                                forceKeypad
+                              />
+                            </TableCell>
+                            <TableCell className="text-right text-sm">{l.stock.toFixed(2)} {l.product.unit}</TableCell>
+                            <TableCell className="text-right font-semibold text-sm">${l.totalCost.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setSelectedProductIds((prev) => { const next = new Set(prev); next.delete(l.product.id); return next; });
+                                  setSvcQuantities((prev) => { const next = { ...prev }; delete next[l.product.id]; return next; });
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                <div className="space-y-2">
+                  <Label>Notas (opcional)</Label>
+                  <KioskTextInput value={notes} onChange={setNotes} placeholder="Observaciones..." keyboardLabel="Notas" />
+                </div>
+
+                {svcHasInsufficient && (
+                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                    <span>⚠️</span> Stock insuficiente en uno o más productos
                   </div>
-                  <div className="space-y-2">
-                    <Label>Notas (opcional)</Label>
-                    <KioskTextInput value={notes} onChange={setNotes} placeholder="Observaciones..." keyboardLabel="Notas" />
-                  </div>
-                  <div className="rounded-md bg-muted p-4 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Servicio</span>
-                      <span className="font-medium">{selectedService?.name}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Producto</span>
-                      <span className="font-medium">{selectedProduct.name}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Cantidad</span>
-                      <span className="font-medium">{quantity} {svcEffectiveUnit}{svcEffectiveUnit !== selectedProduct.unit ? ` (${svcConvertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}</span>
-                    </div>
-                    <div className="border-t border-border pt-2 flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Costo estimado</span>
-                      <span className="font-heading text-2xl font-bold">${estimatedCost.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  {!hasStock && quantity > 0 && <p className="text-sm text-destructive text-center font-medium">⚠️ Stock insuficiente</p>}
-                  <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" onClick={() => { setServiceStep("product"); setSelectedProductId(null); }}>Cancelar</Button>
-                    <Button className="flex-1 h-14 text-lg" disabled={!canConfirmService || confirmServiceMutation.isPending} onClick={() => confirmServiceMutation.mutate()}>
-                      {confirmServiceMutation.isPending ? "Registrando..." : <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Confirmar</span>}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+
+                <div className="rounded-md bg-muted p-4 flex justify-between items-center">
+                  <span className="text-muted-foreground">Costo total estimado</span>
+                  <span className="font-heading font-bold text-2xl">${svcGrandTotal.toFixed(2)}</span>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => setServiceStep("products")}>Atrás</Button>
+                  <Button
+                    className="flex-1 h-14 text-lg"
+                    disabled={!canConfirmService || confirmServiceMutation.isPending}
+                    onClick={() => confirmServiceMutation.mutate()}
+                  >
+                    {confirmServiceMutation.isPending ? "Registrando..." : <span className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Confirmar Consumo</span>}
+                  </Button>
+                </div>
+              </>
             )}
           </>
         )}
