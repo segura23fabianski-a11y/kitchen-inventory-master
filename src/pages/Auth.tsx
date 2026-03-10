@@ -46,18 +46,25 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border-border/50 shadow-xl">
+    <div
+      className="flex min-h-screen items-center justify-center bg-background p-4"
+      style={branding.login_background_url ? { backgroundImage: `url(${branding.login_background_url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+    >
+      <Card className={cn("w-full max-w-md border-border/50 shadow-xl", branding.login_background_url && "bg-background/90 backdrop-blur-sm")}>
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Package className="h-7 w-7 text-primary-foreground" />
-          </div>
+          {branding.logo_url ? (
+            <img src={branding.logo_url} alt="Logo" className="mx-auto h-14 w-auto object-contain" />
+          ) : (
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
+              <Package className="h-7 w-7 text-primary-foreground" />
+            </div>
+          )}
           <div>
             <CardTitle className="font-heading text-2xl">
               {isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
             </CardTitle>
             <CardDescription>
-              Sistema de control de inventarios
+              {branding.app_name || "Sistema de control de inventarios"}
             </CardDescription>
           </div>
         </CardHeader>
