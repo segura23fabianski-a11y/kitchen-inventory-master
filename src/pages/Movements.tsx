@@ -120,7 +120,9 @@ export default function Movements() {
   const addMovement = useMutation({
     mutationFn: async () => {
       const uc = Number(unitCost) || 0;
-      const qty = Number(quantity);
+      const rawQty = Number(quantity);
+      const prod = products?.find((p) => p.id === productId);
+      const qty = prod ? convertToProductUnit(rawQty, effectiveUnit, prod.unit) : rawQty;
       const mDate = buildMovementDate();
 
       // Validate backdating notes
@@ -135,7 +137,9 @@ export default function Movements() {
         quantity: qty,
         unit_cost: uc,
         total_cost: qty * uc,
-        notes,
+        notes: effectiveUnit !== prod?.unit
+          ? `${notes ? notes + " | " : ""}Ingresado: ${rawQty} ${effectiveUnit} → ${qty.toFixed(4)} ${prod?.unit}`
+          : notes,
         restaurant_id: restaurantId!,
       };
       if (mDate) insertData.movement_date = mDate;
