@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
