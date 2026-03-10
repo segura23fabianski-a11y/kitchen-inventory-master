@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star } from "lucide-react";
+import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star, Shirt, SprayCan } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
