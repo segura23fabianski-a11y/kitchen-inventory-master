@@ -168,6 +168,7 @@ export default function Movements() {
     setProductId("");
     setType(allowedTypes[0]);
     setQuantity("");
+    setInputUnit("");
     setUnitCost("");
     setNotes("");
     setMovementDate(undefined);
