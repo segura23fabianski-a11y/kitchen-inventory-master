@@ -1,0 +1,306 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { useAudit } from "@/hooks/use-audit";
+import { useRestaurantId } from "@/hooks/use-restaurant";
+import { useAuth } from "@/lib/auth";
+import { Plus, Trash2, Save } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+
+interface OrderLine {
+  product_id: string;
+  quantity: number;
+  unit_cost: number | null;
+}
+
+interface NewOrderDialogProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}
+
+export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogProps) {
+  const restaurantId = useRestaurantId();
+  const { user } = useAuth();
+  const { logAudit } = useAudit();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [supplierId, setSupplierId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<OrderLine[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const { data: suppliers } = useQuery({
+    queryKey: ["suppliers-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products-list-simple"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, unit, last_unit_cost")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Get supplier-specific costs
+  const { data: supplierProducts } = useQuery({
+    queryKey: ["product-suppliers-for", supplierId],
+    queryFn: async () => {
+      if (!supplierId) return [];
+      const { data, error } = await supabase
+        .from("product_suppliers")
+        .select("product_id, last_unit_cost")
+        .eq("supplier_id", supplierId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!supplierId,
+  });
+
+  const supplierCostMap = useMemo(() => {
+    const map = new Map<string, number | null>();
+    supplierProducts?.forEach((sp) => {
+      map.set(sp.product_id, sp.last_unit_cost ? Number(sp.last_unit_cost) : null);
+    });
+    return map;
+  }, [supplierProducts]);
+
+  const addLine = () => {
+    setLines((prev) => [...prev, { product_id: "", quantity: 0, unit_cost: null }]);
+  };
+
+  const removeLine = (idx: number) => {
+    setLines((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateLine = (idx: number, field: keyof OrderLine, value: any) => {
+    setLines((prev) => prev.map((l, i) => {
+      if (i !== idx) return l;
+      const updated = { ...l, [field]: value };
+      // Auto-fill cost when product is selected
+      if (field === "product_id" && value) {
+        const supplierCost = supplierCostMap.get(value);
+        const productCost = products?.find((p) => p.id === value)?.last_unit_cost;
+        updated.unit_cost = supplierCost ?? (productCost ? Number(productCost) : null);
+      }
+      return updated;
+    }));
+  };
+
+  const estimatedTotal = useMemo(() => {
+    return lines.reduce((acc, l) => acc + (l.quantity * (l.unit_cost || 0)), 0);
+  }, [lines]);
+
+  const canSave = supplierId && lines.length > 0 && lines.every((l) => l.product_id && l.quantity > 0);
+
+  const handleSave = async () => {
+    if (!restaurantId || !user || !canSave) return;
+    setSaving(true);
+    try {
+      const { data: order, error } = await supabase
+        .from("purchase_orders")
+        .insert({
+          restaurant_id: restaurantId,
+          supplier_id: supplierId,
+          order_date: new Date().toISOString().slice(0, 10),
+          created_by: user.id,
+          notes: notes || null,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      const items = lines.map((l) => ({
+        restaurant_id: restaurantId,
+        purchase_order_id: order.id,
+        product_id: l.product_id,
+        quantity: l.quantity,
+        unit_cost: l.unit_cost,
+      }));
+      const { error: itemErr } = await supabase.from("purchase_order_items").insert(items);
+      if (itemErr) throw itemErr;
+
+      await logAudit({
+        entityType: "purchase_order",
+        entityId: order.id,
+        action: "CREATE",
+        after: { supplier_id: supplierId, items_count: items.length },
+        metadata: { source: "manual" },
+      });
+
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({ title: "Pedido creado exitosamente" });
+      resetAndClose();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetAndClose = () => {
+    setSupplierId("");
+    setNotes("");
+    setLines([]);
+    onOpenChange(false);
+  };
+
+  // Products not yet added
+  const availableProducts = useMemo(() => {
+    const usedIds = new Set(lines.map((l) => l.product_id));
+    return products?.filter((p) => !usedIds.has(p.id)) || [];
+  }, [products, lines]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v ? resetAndClose() : onOpenChange(v)}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Nuevo Pedido de Compra</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <Label>Proveedor *</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Notas</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notas opcionales..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold">Productos</Label>
+            <Button size="sm" variant="outline" onClick={addLine} disabled={!supplierId}>
+              <Plus className="h-4 w-4 mr-1" />
+              Agregar producto
+            </Button>
+          </div>
+
+          {lines.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Producto</TableHead>
+                  <TableHead className="w-28">Cantidad</TableHead>
+                  <TableHead className="w-32">Costo Unit.</TableHead>
+                  <TableHead className="w-28 text-right">Subtotal</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line, idx) => {
+                  const product = products?.find((p) => p.id === line.product_id);
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell>
+                        <Select value={line.product_id} onValueChange={(v) => updateLine(idx, "product_id", v)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Seleccionar..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {/* Show current selection + available */}
+                            {line.product_id && product && (
+                              <SelectItem value={product.id}>{product.name} ({product.unit})</SelectItem>
+                            )}
+                            {availableProducts.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.quantity || ""}
+                          onChange={(e) => updateLine(idx, "quantity", Number(e.target.value))}
+                          className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.unit_cost ?? ""}
+                          onChange={(e) => updateLine(idx, "unit_cost", e.target.value ? Number(e.target.value) : null)}
+                          className="h-8"
+                          placeholder="$0.00"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ${(line.quantity * (line.unit_cost || 0)).toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" onClick={() => removeLine(idx)} className="h-8 w-8">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+
+          {lines.length > 0 && (
+            <div className="text-right text-sm font-semibold">
+              Total estimado: <span className="text-primary">${estimatedTotal.toFixed(2)}</span>
+            </div>
+          )}
+
+          {lines.length === 0 && supplierId && (
+            <p className="text-center text-muted-foreground text-sm py-4">
+              Agregue productos al pedido usando el botón de arriba.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={resetAndClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={!canSave || saving}>
+            <Save className="h-4 w-4 mr-1" />
+            {saving ? "Guardando..." : "Guardar Pedido"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
