@@ -31,6 +31,7 @@ import OperationalReports from "./pages/OperationalReports";
 import PriceHistory from "./pages/PriceHistory";
 import MealPlanning from "./pages/MealPlanning";
 import Branding from "./pages/Branding";
+import UserManual from "./pages/UserManual";
 
 import NotFound from "./pages/NotFound";
 
