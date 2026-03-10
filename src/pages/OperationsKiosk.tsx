@@ -233,27 +233,27 @@ export default function OperationsKiosk() {
 
   const confirmServiceMutation = useMutation({
     mutationFn: async () => {
-      const unitCost = Number(selectedProduct!.average_cost);
-      const totalCost = svcConvertedQty * unitCost;
-      const { error } = await supabase.from("inventory_movements").insert({
-        product_id: selectedProductId!,
-        user_id: user!.id,
-        type: "operational_consumption",
-        quantity: svcConvertedQty,
-        unit_cost: unitCost,
-        total_cost: totalCost,
-        service_id: selectedServiceId!,
-        notes: svcEffectiveUnit !== selectedProduct?.unit
-          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${svcEffectiveUnit} → ${svcConvertedQty.toFixed(4)} ${selectedProduct?.unit}`
-          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${svcConvertedQty} ${selectedProduct?.unit}`,
-        restaurant_id: restaurantId!,
-      } as any);
-      if (error) throw error;
+      for (const line of svcLines) {
+        if (line.qty <= 0) continue;
+        const { error } = await supabase.from("inventory_movements").insert({
+          product_id: line.product.id,
+          user_id: user!.id,
+          type: "operational_consumption",
+          quantity: line.qty,
+          unit_cost: line.unitCost,
+          total_cost: line.totalCost,
+          service_id: selectedServiceId!,
+          notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.qty} ${line.product.unit}`,
+          restaurant_id: restaurantId!,
+        } as any);
+        if (error) throw error;
+      }
+      const validLines = svcLines.filter((l) => l.qty > 0);
       await logAudit({
         entityType: "operational_consumption",
-        entityId: selectedProductId!,
+        entityId: selectedServiceId!,
         action: "CREATE",
-        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity: svcConvertedQty, input_quantity: quantity, input_unit: svcEffectiveUnit, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
+        after: { service: selectedService?.name, products: validLines.map((l) => ({ name: l.product.name, qty: l.qty, unit: l.product.unit, cost: l.totalCost })), total_cost: svcGrandTotal },
         canRollback: false,
       });
     },
@@ -261,7 +261,8 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
-      toast({ title: "✅ Consumo registrado", description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — $${estimatedCost.toFixed(2)}` });
+      const count = svcLines.filter((l) => l.qty > 0).length;
+      toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — $${svcGrandTotal.toFixed(2)}` });
       goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
