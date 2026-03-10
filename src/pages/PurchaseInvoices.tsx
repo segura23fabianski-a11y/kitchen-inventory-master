@@ -285,7 +285,7 @@ export default function PurchaseInvoices() {
           invoice_id: newInv.id,
           restaurant_id: restaurantId!,
           product_id: i.product_id,
-          quantity: Number(i.quantity),
+          quantity: convertToProductUnit(Number(i.quantity), i.input_unit, i.product_unit),
           unit_cost: Number(i.unit_cost),
         }));
         const { error: iErr } = await supabase.from("purchase_invoice_items" as any).insert(itemRows as any);
