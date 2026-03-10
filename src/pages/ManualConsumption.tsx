@@ -121,17 +121,19 @@ export default function ManualConsumption() {
   const confirmMutation = useMutation({
     mutationFn: async () => {
       const unitCost = Number(selectedProduct!.average_cost);
-      const totalCost = quantity * unitCost;
+      const totalCost = convertedQty * unitCost;
 
       const { error } = await supabase.from("inventory_movements").insert({
         product_id: selectedProductId!,
         user_id: user!.id,
         type: "operational_consumption",
-        quantity,
+        quantity: convertedQty,
         unit_cost: unitCost,
         total_cost: totalCost,
         service_id: selectedServiceId!,
-        notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${quantity} ${selectedProduct?.unit}`,
+        notes: effectiveUnit !== selectedProduct?.unit
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → ${convertedQty.toFixed(4)} ${selectedProduct?.unit}`
+          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${convertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
       if (error) throw error;
