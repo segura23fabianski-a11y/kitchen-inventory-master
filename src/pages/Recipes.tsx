@@ -95,6 +95,17 @@ export default function Recipes() {
   const calcRecipeCost = (items: { product_id: string; quantity: number; unit: string }[]) =>
     items.reduce((sum, item) => sum + calcLineCost(item), 0);
 
+  const formatCost = (cost: number) => {
+    if (cost === 0) return "$0.00";
+    if (cost < 0.01) return `$${cost.toFixed(4)}`;
+    return `$${cost.toFixed(2)}`;
+  };
+
+  const productHasCost = (productId: string) => {
+    const prod = productMap.get(productId);
+    return prod ? Number(prod.average_cost) > 0 : false;
+  };
+
   const addIngredientLine = () => setIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
   const removeIngredientLine = (i: number) => setIngredients((prev) => prev.filter((_, idx) => idx !== i));
 
