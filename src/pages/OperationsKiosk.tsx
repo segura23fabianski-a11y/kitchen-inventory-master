@@ -185,8 +185,12 @@ export default function OperationsKiosk() {
   // ── Service helpers ──
   const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
   const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
-  const estimatedCost = selectedProduct && quantity > 0 ? quantity * Number(selectedProduct.average_cost) : 0;
-  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= quantity : false;
+  const svcEffectiveUnit = serviceInputUnit || selectedProduct?.unit || "unidad";
+  const svcConvertedQty = selectedProduct
+    ? convertToProductUnit(quantity, svcEffectiveUnit, selectedProduct.unit)
+    : quantity;
+  const estimatedCost = selectedProduct && svcConvertedQty > 0 ? svcConvertedQty * Number(selectedProduct.average_cost) : 0;
+  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= svcConvertedQty : false;
   const canConfirmService = selectedProductId && quantity > 0 && selectedServiceId && hasStock;
 
   // ── Mutations ──
