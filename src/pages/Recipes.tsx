@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
@@ -40,6 +40,11 @@ interface IngredientLine {
 export default function Recipes() {
   const [open, setOpen] = useState(false);
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editRecipeType, setEditRecipeType] = useState<RecipeType>("food");
+  const [editIngredients, setEditIngredients] = useState<(IngredientLine & { id?: string })[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [recipeType, setRecipeType] = useState<RecipeType>("food");
@@ -157,6 +162,93 @@ export default function Recipes() {
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const startEdit = (recipe: any) => {
+    setEditName(recipe.name);
+    setEditDescription(recipe.description || "");
+    setEditRecipeType((recipe.recipe_type ?? "food") as RecipeType);
+    setEditIngredients(
+      (recipe.recipe_ingredients ?? []).map((ri: any) => ({
+        id: ri.id,
+        product_id: ri.product_id,
+        quantity: Number(ri.quantity),
+        unit: ri.unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
+        yield_per_portion: Number(ri.yield_per_portion ?? 0),
+      }))
+    );
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => setEditMode(false);
+
+  const addEditIngredient = () =>
+    setEditIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
+
+  const removeEditIngredient = (i: number) =>
+    setEditIngredients((prev) => prev.filter((_, idx) => idx !== i));
+
+  const updateEditIngredient = (i: number, field: keyof IngredientLine, value: string) =>
+    setEditIngredients((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== i) return item;
+        if (field === "quantity" || field === "yield_per_portion") return { ...item, [field]: Number(value) };
+        if (field === "product_id") {
+          const prod = productMap.get(value);
+          const defaultUnit = prod ? getDefaultRecipeUnit(prod.unit) : "unidad";
+          return { ...item, product_id: value, unit: defaultUnit };
+        }
+        return { ...item, [field]: value };
+      })
+    );
+
+  const saveRecipe = useMutation({
+    mutationFn: async () => {
+      const recipeId = viewRecipeId!;
+      const { data: prev } = await supabase.from("recipes").select("*").eq("id", recipeId).single();
+      const { error } = await supabase
+        .from("recipes")
+        .update({ name: editName, description: editDescription, recipe_type: editRecipeType } as any)
+        .eq("id", recipeId);
+      if (error) throw error;
+
+      // Delete old ingredients and re-insert
+      const { error: delErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+      if (delErr) throw delErr;
+
+      const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
+      if (validIngredients.length > 0) {
+        const { error: insErr } = await supabase.from("recipe_ingredients").insert(
+          validIngredients.map((i) => ({
+            recipe_id: recipeId,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            unit: i.unit,
+            yield_per_portion: i.yield_per_portion,
+            restaurant_id: restaurantId!,
+          }))
+        );
+        if (insErr) throw insErr;
+      }
+
+      await logAudit({
+        entityType: "recipe",
+        entityId: recipeId,
+        action: "UPDATE",
+        before: prev,
+        after: { name: editName, description: editDescription, recipe_type: editRecipeType, ingredients: validIngredients },
+        canRollback: false,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recipes"] });
+      setEditMode(false);
+      toast({ title: "Receta actualizada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const editIsValid = editName.trim().length > 0 && editIngredients.some((i) => i.product_id && i.quantity > 0);
+  const editCost = calcRecipeCost(editIngredients);
 
   const newCost = calcRecipeCost(ingredients);
   const isValid = name.trim().length > 0 && ingredients.some((i) => i.product_id && i.quantity > 0);
@@ -359,9 +451,14 @@ export default function Recipes() {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setViewRecipeId(recipe.id)}>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
                         <Eye className="mr-1 h-3 w-3" /> Ver detalle
                       </Button>
+                      {canUpdate && (
+                        <Button variant="outline" size="sm" onClick={() => { setViewRecipeId(recipe.id); startEdit(recipe); }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {canDelete && (
                         <Button variant="ghost" size="sm" onClick={() => deleteRecipe.mutate(recipe.id)} disabled={deleteRecipe.isPending}>
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -375,25 +472,135 @@ export default function Recipes() {
           )}
         </div>
 
-        {/* Detail dialog */}
-        <Dialog open={!!viewRecipeId} onOpenChange={(o) => { if (!o) setViewRecipeId(null); }}>
-          <DialogContent className="max-w-lg">
+        {/* Detail / Edit dialog */}
+        <Dialog open={!!viewRecipeId} onOpenChange={(o) => { if (!o) { setViewRecipeId(null); setEditMode(false); } }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-heading flex items-center gap-2">
                 {(() => {
-                  const rType = ((viewedRecipe as any)?.recipe_type ?? "food") as RecipeType;
+                  const rType = (editMode ? editRecipeType : ((viewedRecipe as any)?.recipe_type ?? "food")) as RecipeType;
                   const Icon = RECIPE_TYPE_CONFIG[rType].icon;
                   return <Icon className="h-5 w-5 text-primary" />;
                 })()}
-                {viewedRecipe?.name}
-                {viewedRecipe && (
+                {editMode ? "Editar Receta" : viewedRecipe?.name}
+                {!editMode && viewedRecipe && (
                   <Badge variant="outline" className={RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].color}>
                     {RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].label}
                   </Badge>
                 )}
               </DialogTitle>
             </DialogHeader>
-            {viewedRecipe && (() => {
+
+            {/* === EDIT MODE === */}
+            {editMode && viewedRecipe && (
+              <form onSubmit={(e) => { e.preventDefault(); if (editIsValid) saveRecipe.mutate(); }} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Tipo de receta *</Label>
+                  <Select value={editRecipeType} onValueChange={(v) => setEditRecipeType(v as RecipeType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(RECIPE_TYPE_CONFIG).map(([key, cfg]) => {
+                        const Icon = cfg.icon;
+                        return (
+                          <SelectItem key={key} value={key}>
+                            <span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {cfg.label}</span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nombre *</Label>
+                  <KioskTextInput value={editName} onChange={setEditName} placeholder="Nombre de la receta" keyboardLabel="Nombre de la receta" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descripción</Label>
+                  <KioskTextInput value={editDescription} onChange={setEditDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción" />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold">{editRecipeType === "food" ? "Ingredientes" : "Insumos"}</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addEditIngredient}>
+                      <Plus className="mr-1 h-3 w-3" /> Agregar
+                    </Button>
+                  </div>
+
+                  {editIngredients.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-4 text-center">Sin ingredientes</p>
+                  )}
+
+                  {editIngredients.map((ing, i) => {
+                    const prod = productMap.get(ing.product_id);
+                    const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
+                    const lineCost = calcLineCost(ing);
+                    return (
+                      <div key={i} className="flex items-end gap-2">
+                        <div className="flex-1 space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
+                          <Select value={ing.product_id} onValueChange={(v) => updateEditIngredient(i, "product_id", v)}>
+                            <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                            <SelectContent>
+                              {products?.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="w-24 space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
+                          <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateEditIngredient(i, "quantity", v)} min="0.01" keypadLabel="Cantidad" />
+                        </div>
+                        <div className="w-20 space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
+                          {availableUnits.length > 1 ? (
+                            <Select value={ing.unit} onValueChange={(v) => updateEditIngredient(i, "unit", v)}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {availableUnits.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
+                          )}
+                        </div>
+                        <div className="w-20 space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
+                          <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateEditIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
+                        </div>
+                        <div className="w-24 text-right space-y-1">
+                          {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
+                          <p className="h-10 flex items-center justify-end text-sm font-medium">${lineCost.toFixed(2)}</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeEditIngredient(i)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+
+                  {editIngredients.length > 0 && (
+                    <div className="rounded-md bg-muted p-3 flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4" /> Costo teórico total</span>
+                      <span className="font-heading text-lg font-bold">${editCost.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" className="flex-1" onClick={cancelEdit}>
+                    <X className="mr-1 h-4 w-4" /> Cancelar
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={saveRecipe.isPending || !editIsValid}>
+                    <Save className="mr-1 h-4 w-4" /> {saveRecipe.isPending ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* === VIEW MODE === */}
+            {!editMode && viewedRecipe && (() => {
               const ings = (viewedRecipe.recipe_ingredients ?? []).map((ri) => ({
                 ...ri,
                 unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
@@ -423,7 +630,7 @@ export default function Recipes() {
                             <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
                             <TableCell className="text-right">
                               {canManage ? (
-                              <NumericKeypadInput
+                                <NumericKeypadInput
                                   mode="decimal"
                                   className="w-20 h-8 text-right inline-block"
                                   value={Number((ing as any).yield_per_portion) || ""}
@@ -448,6 +655,11 @@ export default function Recipes() {
                       ${calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))).toFixed(2)}
                     </span>
                   </div>
+                  {canUpdate && (
+                    <Button className="w-full" variant="outline" onClick={() => startEdit(viewedRecipe)}>
+                      <Pencil className="mr-2 h-4 w-4" /> Editar receta
+                    </Button>
+                  )}
                 </div>
               );
             })()}
