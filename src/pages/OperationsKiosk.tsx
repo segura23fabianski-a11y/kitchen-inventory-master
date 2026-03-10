@@ -112,7 +112,7 @@ export default function OperationsKiosk() {
         _recipe_id: selectedRecipeId!,
         _user_id: user!.id,
         _portions: portions,
-        _notes: `Registro operativo: ${SERVICE_CONFIG[serviceType!].label} — ${selectedRecipe?.name} x${portions}`,
+        _notes: `Registro operativo: ${SERVICE_CONFIG[serviceType!].label} — ${selectedRecipe?.name} x${portions} ${portionLabel}`,
       });
       if (error) throw error;
       await logAudit({
