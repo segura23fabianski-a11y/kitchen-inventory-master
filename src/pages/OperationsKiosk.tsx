@@ -795,24 +795,36 @@ export default function OperationsKiosk() {
                       <TableBody>
                         {svcLines.map((l) => (
                           <TableRow key={l.product.id}>
-                            <TableCell className="font-medium text-sm">{l.product.name}
+                             <TableCell className="font-medium text-sm">{l.product.name}
                               <span className="block text-xs text-muted-foreground">{l.product.unit}</span>
                             </TableCell>
                             <TableCell className="text-right">
-                              <NumericKeypadInput
-                                mode="decimal"
-                                value={l.qty || ""}
-                                onChange={(v) =>
-                                  setSvcQuantities((prev) => ({
-                                    ...prev,
-                                    [l.product.id]: Math.max(0, Number(v) || 0),
-                                  }))
-                                }
-                                min="0"
-                                className="w-20 text-right ml-auto"
-                                keypadLabel={l.product.name}
-                                forceKeypad
-                              />
+                              <div className="flex items-center gap-1 justify-end">
+                                <NumericKeypadInput
+                                  mode="decimal"
+                                  value={l.inputQty || ""}
+                                  onChange={(v) =>
+                                    setSvcQuantities((prev) => ({
+                                      ...prev,
+                                      [l.product.id]: Math.max(0, Number(v) || 0),
+                                    }))
+                                  }
+                                  min="0"
+                                  className="w-20 text-right"
+                                  keypadLabel={l.product.name}
+                                  forceKeypad
+                                />
+                                <div className="w-16">
+                                  <UnitSelector
+                                    productUnit={l.product.unit}
+                                    value={l.inputUnit}
+                                    onChange={(u) => setSvcUnits((prev) => ({ ...prev, [l.product.id]: u }))}
+                                  />
+                                </div>
+                              </div>
+                              {l.inputUnit !== l.product.unit && l.inputQty > 0 && (
+                                <p className="text-[10px] text-muted-foreground text-right mt-0.5">= {l.convertedQty.toFixed(4)} {l.product.unit}</p>
+                              )}
                             </TableCell>
                             <TableCell className="text-right text-sm">{l.stock.toFixed(2)} {l.product.unit}</TableCell>
                             <TableCell className="text-right font-semibold text-sm">${l.totalCost.toFixed(2)}</TableCell>
@@ -824,6 +836,7 @@ export default function OperationsKiosk() {
                                 onClick={() => {
                                   setSelectedProductIds((prev) => { const next = new Set(prev); next.delete(l.product.id); return next; });
                                   setSvcQuantities((prev) => { const next = { ...prev }; delete next[l.product.id]; return next; });
+                                  setSvcUnits((prev) => { const next = { ...prev }; delete next[l.product.id]; return next; });
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
