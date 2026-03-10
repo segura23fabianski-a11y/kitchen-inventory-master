@@ -955,6 +955,7 @@ export type Database = {
           received_date: string
           restaurant_id: string
           status: string
+          supplier_id: string | null
           supplier_name: string | null
           total_amount: number
           updated_at: string
@@ -970,6 +971,7 @@ export type Database = {
           received_date?: string
           restaurant_id: string
           status?: string
+          supplier_id?: string | null
           supplier_name?: string | null
           total_amount?: number
           updated_at?: string
@@ -985,6 +987,7 @@ export type Database = {
           received_date?: string
           restaurant_id?: string
           status?: string
+          supplier_id?: string | null
           supplier_name?: string | null
           total_amount?: number
           updated_at?: string
@@ -995,6 +998,13 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
