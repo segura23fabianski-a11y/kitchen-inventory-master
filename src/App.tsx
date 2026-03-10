@@ -27,6 +27,7 @@ import Kardex from "./pages/Kardex";
 import PhysicalInventory from "./pages/PhysicalInventory";
 import WasteControl from "./pages/WasteControl";
 import OperationalReports from "./pages/OperationalReports";
+import PriceHistory from "./pages/PriceHistory";
 
 import NotFound from "./pages/NotFound";
 
