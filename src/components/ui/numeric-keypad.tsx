@@ -27,7 +27,7 @@ export function NumericKeypad({
   onOpenChange,
   value: initialValue,
   onConfirm,
-  maxDecimals = 3,
+  maxDecimals = 6,
   maxValue = Infinity,
   label,
   quickButtons = DEFAULT_QUICK,
