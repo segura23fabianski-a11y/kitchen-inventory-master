@@ -23,6 +23,7 @@ import PurchaseInvoices from "./pages/PurchaseInvoices";
 import Suppliers from "./pages/Suppliers";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import OperationsKiosk from "./pages/OperationsKiosk";
+import ManualConsumption from "./pages/ManualConsumption";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
