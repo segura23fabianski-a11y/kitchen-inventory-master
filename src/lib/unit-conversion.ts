@@ -1,12 +1,13 @@
-// Unit conversion utilities for recipe ingredients
-// Products are stored in macro units (kg, l, unidad, caja, bolsa, paquete)
-// Recipes may use smaller units (g, ml) or the same macro units
+// Unit conversion utilities
+// Products store quantities in base units (kg, litro, unidad, etc.)
+// Users may input in smaller/larger compatible units (g, ml)
 
 type UnitGroup = "weight" | "volume" | "discrete";
 
 const unitGroups: Record<string, UnitGroup> = {
   kg: "weight",
   g: "weight",
+  litro: "volume",
   l: "volume",
   ml: "volume",
   unidad: "discrete",
@@ -15,10 +16,11 @@ const unitGroups: Record<string, UnitGroup> = {
   paquete: "discrete",
 };
 
-// Conversion to base unit (g for weight, ml for volume, 1 for discrete)
+// Conversion factor to the smallest unit in each group (g for weight, ml for volume)
 const toBase: Record<string, number> = {
   kg: 1000,
   g: 1,
+  litro: 1000,
   l: 1000,
   ml: 1,
   unidad: 1,
@@ -28,38 +30,56 @@ const toBase: Record<string, number> = {
 };
 
 /**
- * Get compatible recipe units for a product unit.
- * e.g. product in "kg" → recipe can use "kg" or "g"
+ * Normalize unit aliases (e.g. "l" → "litro")
+ */
+export function normalizeUnit(unit: string): string {
+  if (unit === "l") return "litro";
+  return unit;
+}
+
+/**
+ * Get compatible units for a given product base unit.
+ * e.g. "kg" → ["kg", "g"], "litro" → ["litro", "ml"]
+ */
+export function getCompatibleUnits(productUnit: string): string[] {
+  const norm = normalizeUnit(productUnit);
+  const group = unitGroups[norm];
+  if (group === "weight") return ["kg", "g"];
+  if (group === "volume") return ["litro", "ml"];
+  return [norm]; // discrete units only allow themselves
+}
+
+/**
+ * Get compatible recipe units for a product unit (same as getCompatibleUnits).
  */
 export function getRecipeUnits(productUnit: string): string[] {
-  const group = unitGroups[productUnit];
-  if (group === "weight") return ["kg", "g"];
-  if (group === "volume") return ["l", "ml"];
-  return [productUnit]; // discrete units stay the same
+  return getCompatibleUnits(productUnit);
 }
 
 /**
- * Get the default recipe unit (smaller unit for weight/volume).
+ * Get the default (smaller) recipe unit for a product.
  */
 export function getDefaultRecipeUnit(productUnit: string): string {
-  const group = unitGroups[productUnit];
+  const norm = normalizeUnit(productUnit);
+  const group = unitGroups[norm];
   if (group === "weight") return "g";
   if (group === "volume") return "ml";
-  return productUnit;
+  return norm;
 }
 
 /**
- * Convert a recipe quantity to the product's unit for cost calculation.
- * e.g. 200g with product in kg → 0.2 kg
+ * Convert a quantity from one unit to the product's base unit.
+ * e.g. 500g with product in kg → 0.5 kg
+ *      250ml with product in litro → 0.25 litro
  */
 export function convertToProductUnit(
-  recipeQty: number,
-  recipeUnit: string,
+  qty: number,
+  fromUnit: string,
   productUnit: string
 ): number {
-  const recipeBase = toBase[recipeUnit] ?? 1;
-  const productBase = toBase[productUnit] ?? 1;
-  return (recipeQty * recipeBase) / productBase;
+  const fromBase = toBase[normalizeUnit(fromUnit)] ?? 1;
+  const prodBase = toBase[normalizeUnit(productUnit)] ?? 1;
+  return (qty * fromBase) / prodBase;
 }
 
 /**
