@@ -52,6 +52,7 @@ export default function OperationsKiosk() {
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [svcQuantities, setSvcQuantities] = useState<Record<string, number>>({});
+  const [svcUnits, setSvcUnits] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [productSearch, setProductSearch] = useState("");
 
