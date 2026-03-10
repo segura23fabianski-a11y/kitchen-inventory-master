@@ -359,6 +359,7 @@ export default function OperationsKiosk() {
     setSelectedServiceId(null);
     setSelectedProductIds(new Set());
     setSvcQuantities({});
+    setSvcUnits({});
     setNotes("");
     setProductSearch("");
     setShowHistory(false);
