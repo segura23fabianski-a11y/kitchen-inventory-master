@@ -302,16 +302,29 @@ export default function Movements() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad *</Label>
-                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.01" required keypadLabel="Cantidad" data-mov-qty-input />
+                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.001" required keypadLabel="Cantidad" data-mov-qty-input />
                   </div>
                   <div className="space-y-2">
-                    <Label>Costo Unitario</Label>
+                    <Label>Unidad</Label>
+                    {selectedProduct ? (
+                      <UnitSelector productUnit={selectedProduct.unit} value={effectiveUnit} onChange={setInputUnit} />
+                    ) : (
+                      <p className="h-10 flex items-center text-sm text-muted-foreground">—</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Costo Unitario ({selectedProduct?.unit ?? ""})</Label>
                     <NumericKeypadInput mode="decimal" value={unitCost} onChange={setUnitCost} min="0" keypadLabel="Costo unitario" quickButtons={[1, 5, 10]} />
                   </div>
                 </div>
+                {effectiveUnit !== selectedProduct?.unit && Number(quantity) > 0 && (
+                  <div className="rounded-md bg-accent/50 p-2 text-xs text-muted-foreground">
+                    {quantity} {effectiveUnit} = <span className="font-semibold">{convertedQty.toFixed(4)} {selectedProduct?.unit}</span>
+                  </div>
+                )}
                 {computedTotal > 0 && (
                   <div className="rounded-md bg-muted p-3 text-sm">
                     <span className="text-muted-foreground">Costo total:</span>{" "}
