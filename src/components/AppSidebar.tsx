@@ -2,7 +2,8 @@ import {
   Package, LayoutDashboard, Archive, ArrowRightLeft, Tag, LogOut, Users,
   ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History,
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
-  AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush
+  AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush,
+  HelpCircle
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
