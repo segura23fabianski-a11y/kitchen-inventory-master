@@ -231,6 +231,7 @@ export default function WasteControl() {
       setSelectedProductId("");
       setQuantity("");
       setReason("");
+      setCustomReason(false);
       setNotes("");
       setEvidenceFile(null);
       setDialogOpen(false);
