@@ -236,26 +236,29 @@ export default function OperationsKiosk() {
   const confirmServiceMutation = useMutation({
     mutationFn: async () => {
       for (const line of svcLines) {
-        if (line.qty <= 0) continue;
+        if (line.inputQty <= 0) continue;
+        const noteText = line.inputUnit !== line.product.unit
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name}`} | ${line.inputQty} ${line.inputUnit} → ${line.convertedQty.toFixed(4)} ${line.product.unit}`
+          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.convertedQty} ${line.product.unit}`;
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: line.product.id,
           user_id: user!.id,
           type: "operational_consumption",
-          quantity: line.qty,
+          quantity: line.convertedQty,
           unit_cost: line.unitCost,
           total_cost: line.totalCost,
           service_id: selectedServiceId!,
-          notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.qty} ${line.product.unit}`,
+          notes: noteText,
           restaurant_id: restaurantId!,
         } as any);
         if (error) throw error;
       }
-      const validLines = svcLines.filter((l) => l.qty > 0);
+      const validLines = svcLines.filter((l) => l.inputQty > 0);
       await logAudit({
         entityType: "operational_consumption",
         entityId: selectedServiceId!,
         action: "CREATE",
-        after: { service: selectedService?.name, products: validLines.map((l) => ({ name: l.product.name, qty: l.qty, unit: l.product.unit, cost: l.totalCost })), total_cost: svcGrandTotal },
+        after: { service: selectedService?.name, products: validLines.map((l) => ({ name: l.product.name, qty: l.convertedQty, inputQty: l.inputQty, inputUnit: l.inputUnit, unit: l.product.unit, cost: l.totalCost })), total_cost: svcGrandTotal },
         canRollback: false,
       });
     },
@@ -263,7 +266,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
-      const count = svcLines.filter((l) => l.qty > 0).length;
+      const count = svcLines.filter((l) => l.inputQty > 0).length;
       toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — $${svcGrandTotal.toFixed(2)}` });
       goHome();
     },
