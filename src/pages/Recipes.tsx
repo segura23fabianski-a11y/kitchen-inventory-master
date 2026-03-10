@@ -399,9 +399,6 @@ export default function Recipes() {
                               {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
                             </p>
                           )}
-                              {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
-                            </p>
-                          )}
                         </div>
                       );
                     })}
