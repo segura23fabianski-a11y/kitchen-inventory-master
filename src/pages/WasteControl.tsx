@@ -104,7 +104,24 @@ export default function WasteControl() {
     },
   });
 
-  const { data: wasteMovements, isLoading } = useQuery({
+  const { data: reasonCatalog } = useQuery({
+    queryKey: ["waste-reason-catalog"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("waste_reason_catalog" as any)
+        .select("id, waste_type, reason, active")
+        .eq("active", true)
+        .order("reason");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const catalogReasonsForType = useMemo(
+    () => (reasonCatalog ?? []).filter((r: any) => r.waste_type === wasteType),
+    [reasonCatalog, wasteType]
+  );
+
     queryKey: ["waste-movements"],
     queryFn: async () => {
       const { data, error } = await supabase
