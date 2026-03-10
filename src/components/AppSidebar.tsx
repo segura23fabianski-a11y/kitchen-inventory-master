@@ -19,6 +19,7 @@ const allNavItems: NavItem[] = [
   { to: "/warehouses", icon: Warehouse, label: "Almacenes", permKey: "warehouses" },
   { to: "/purchases", icon: FileText, label: "Compras / Facturas", permKey: "purchases" },
   { to: "/suppliers", icon: Truck, label: "Proveedores", permKey: "suppliers" },
+  { to: "/price-history", icon: TrendingUp, label: "Histórico Precios", permKey: "purchases" },
   { to: "/purchase-orders", icon: ShoppingCart, label: "Pedidos de Compra", permKey: "purchase_orders" },
   { to: "/kardex", icon: BookOpen, label: "Kardex", permKey: "movements" },
   { to: "/physical-inventory", icon: ClipboardCheck, label: "Inventario Físico", permKey: "physical_inventory" },

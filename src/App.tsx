@@ -77,6 +77,7 @@ const AppRoutes = () => (
     <Route path="/warehouses" element={<ProtectedRoute roles={["admin", "bodega"]}><Warehouses /></ProtectedRoute>} />
     <Route path="/purchases" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseInvoices /></ProtectedRoute>} />
     <Route path="/suppliers" element={<ProtectedRoute roles={["admin", "bodega"]}><Suppliers /></ProtectedRoute>} />
+    <Route path="/price-history" element={<ProtectedRoute roles={["admin", "bodega"]}><PriceHistory /></ProtectedRoute>} />
     <Route path="/purchase-orders" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseOrders /></ProtectedRoute>} />
     <Route path="/kardex" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/kardex/:productId" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
