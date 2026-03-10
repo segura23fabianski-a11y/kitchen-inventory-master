@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAudit } from "@/hooks/use-audit";
 import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
@@ -52,6 +53,7 @@ export default function OperationsKiosk() {
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
+  const [serviceInputUnit, setServiceInputUnit] = useState("");
   const [notes, setNotes] = useState("");
   const [productSearch, setProductSearch] = useState("");
 
@@ -183,8 +185,12 @@ export default function OperationsKiosk() {
   // ── Service helpers ──
   const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
   const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
-  const estimatedCost = selectedProduct && quantity > 0 ? quantity * Number(selectedProduct.average_cost) : 0;
-  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= quantity : false;
+  const svcEffectiveUnit = serviceInputUnit || selectedProduct?.unit || "unidad";
+  const svcConvertedQty = selectedProduct
+    ? convertToProductUnit(quantity, svcEffectiveUnit, selectedProduct.unit)
+    : quantity;
+  const estimatedCost = selectedProduct && svcConvertedQty > 0 ? svcConvertedQty * Number(selectedProduct.average_cost) : 0;
+  const hasStock = selectedProduct ? Number(selectedProduct.current_stock) >= svcConvertedQty : false;
   const canConfirmService = selectedProductId && quantity > 0 && selectedServiceId && hasStock;
 
   // ── Mutations ──
@@ -218,16 +224,18 @@ export default function OperationsKiosk() {
   const confirmServiceMutation = useMutation({
     mutationFn: async () => {
       const unitCost = Number(selectedProduct!.average_cost);
-      const totalCost = quantity * unitCost;
+      const totalCost = svcConvertedQty * unitCost;
       const { error } = await supabase.from("inventory_movements").insert({
         product_id: selectedProductId!,
         user_id: user!.id,
         type: "operational_consumption",
-        quantity,
+        quantity: svcConvertedQty,
         unit_cost: unitCost,
         total_cost: totalCost,
         service_id: selectedServiceId!,
-        notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${quantity} ${selectedProduct?.unit}`,
+        notes: svcEffectiveUnit !== selectedProduct?.unit
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${svcEffectiveUnit} → ${svcConvertedQty.toFixed(4)} ${selectedProduct?.unit}`
+          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${svcConvertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
       if (error) throw error;
@@ -235,7 +243,7 @@ export default function OperationsKiosk() {
         entityType: "operational_consumption",
         entityId: selectedProductId!,
         action: "CREATE",
-        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
+        after: { product_id: selectedProductId, product_name: selectedProduct?.name, quantity: svcConvertedQty, input_quantity: quantity, input_unit: svcEffectiveUnit, unit: selectedProduct?.unit, service: selectedService?.name, total_cost: totalCost },
         canRollback: false,
       });
     },
@@ -335,6 +343,7 @@ export default function OperationsKiosk() {
     setSelectedServiceId(null);
     setSelectedProductId(null);
     setQuantity(0);
+    setServiceInputUnit("");
     setNotes("");
     setProductSearch("");
     setShowHistory(false);
@@ -735,15 +744,23 @@ export default function OperationsKiosk() {
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="space-y-2">
-                    <Label>Cantidad ({selectedProduct.unit}) *</Label>
-                    <NumericKeypadInput
-                      mode="decimal"
-                      value={quantity || ""}
-                      onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
-                      min="0.001"
-                      keypadLabel={`Cantidad en ${selectedProduct.unit}`}
-                      className="text-center text-2xl font-bold h-14"
-                    />
+                    <Label>Cantidad *</Label>
+                    <div className="flex gap-2">
+                      <NumericKeypadInput
+                        mode="decimal"
+                        value={quantity || ""}
+                        onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
+                        min="0.001"
+                        keypadLabel="Cantidad"
+                        className="text-center text-2xl font-bold h-14 flex-1"
+                      />
+                      <div className="w-24">
+                        <UnitSelector productUnit={selectedProduct.unit} value={svcEffectiveUnit} onChange={setServiceInputUnit} />
+                      </div>
+                    </div>
+                    {svcEffectiveUnit !== selectedProduct.unit && quantity > 0 && (
+                      <p className="text-xs text-muted-foreground text-center">= {svcConvertedQty.toFixed(4)} {selectedProduct.unit}</p>
+                    )}
                     <p className="text-xs text-muted-foreground text-center">Stock: {Number(selectedProduct.current_stock).toFixed(2)} {selectedProduct.unit}</p>
                   </div>
                   <div className="space-y-2">
@@ -761,7 +778,7 @@ export default function OperationsKiosk() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Cantidad</span>
-                      <span className="font-medium">{quantity} {selectedProduct.unit}</span>
+                      <span className="font-medium">{quantity} {svcEffectiveUnit}{svcEffectiveUnit !== selectedProduct.unit ? ` (${svcConvertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}</span>
                     </div>
                     <div className="border-t border-border pt-2 flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Costo estimado</span>

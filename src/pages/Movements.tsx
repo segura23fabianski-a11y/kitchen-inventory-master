@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useBackdate } from "@/hooks/use-backdate";
+import { convertToProductUnit, getCompatibleUnits } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,6 +34,7 @@ export default function Movements() {
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [inputUnit, setInputUnit] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
@@ -97,7 +100,12 @@ export default function Movements() {
     },
   });
 
-  const computedTotal = (Number(quantity) || 0) * (Number(unitCost) || 0);
+  const selectedProduct = products?.find((p) => p.id === productId);
+  const effectiveUnit = inputUnit || selectedProduct?.unit || "unidad";
+  const convertedQty = selectedProduct
+    ? convertToProductUnit(Number(quantity) || 0, effectiveUnit, selectedProduct.unit)
+    : Number(quantity) || 0;
+  const computedTotal = convertedQty * (Number(unitCost) || 0);
 
   const isBackdating = backdatingAllowed && movementDate != null;
 
@@ -112,7 +120,9 @@ export default function Movements() {
   const addMovement = useMutation({
     mutationFn: async () => {
       const uc = Number(unitCost) || 0;
-      const qty = Number(quantity);
+      const rawQty = Number(quantity);
+      const prod = products?.find((p) => p.id === productId);
+      const qty = prod ? convertToProductUnit(rawQty, effectiveUnit, prod.unit) : rawQty;
       const mDate = buildMovementDate();
 
       // Validate backdating notes
@@ -127,7 +137,9 @@ export default function Movements() {
         quantity: qty,
         unit_cost: uc,
         total_cost: qty * uc,
-        notes,
+        notes: effectiveUnit !== prod?.unit
+          ? `${notes ? notes + " | " : ""}Ingresado: ${rawQty} ${effectiveUnit} → ${qty.toFixed(4)} ${prod?.unit}`
+          : notes,
         restaurant_id: restaurantId!,
       };
       if (mDate) insertData.movement_date = mDate;
@@ -165,6 +177,7 @@ export default function Movements() {
     setProductId("");
     setType(allowedTypes[0]);
     setQuantity("");
+    setInputUnit("");
     setUnitCost("");
     setNotes("");
     setMovementDate(undefined);
@@ -174,7 +187,10 @@ export default function Movements() {
   const handleProductChange = (id: string) => {
     setProductId(id);
     const prod = products?.find((p) => p.id === id);
-    if (prod) setUnitCost(String(prod.average_cost));
+    if (prod) {
+      setUnitCost(String(prod.average_cost));
+      setInputUnit(prod.unit); // default to product's base unit
+    }
     setProductPopoverOpen(false);
     setTimeout(() => {
       const qtyInput = document.querySelector<HTMLInputElement>('[data-mov-qty-input]');
@@ -286,16 +302,29 @@ export default function Movements() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad *</Label>
-                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.01" required keypadLabel="Cantidad" data-mov-qty-input />
+                    <NumericKeypadInput mode="decimal" value={quantity} onChange={setQuantity} min="0.001" required keypadLabel="Cantidad" data-mov-qty-input />
                   </div>
                   <div className="space-y-2">
-                    <Label>Costo Unitario</Label>
+                    <Label>Unidad</Label>
+                    {selectedProduct ? (
+                      <UnitSelector productUnit={selectedProduct.unit} value={effectiveUnit} onChange={setInputUnit} />
+                    ) : (
+                      <p className="h-10 flex items-center text-sm text-muted-foreground">—</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Costo Unitario ({selectedProduct?.unit ?? ""})</Label>
                     <NumericKeypadInput mode="decimal" value={unitCost} onChange={setUnitCost} min="0" keypadLabel="Costo unitario" quickButtons={[1, 5, 10]} />
                   </div>
                 </div>
+                {effectiveUnit !== selectedProduct?.unit && Number(quantity) > 0 && (
+                  <div className="rounded-md bg-accent/50 p-2 text-xs text-muted-foreground">
+                    {quantity} {effectiveUnit} = <span className="font-semibold">{convertedQty.toFixed(4)} {selectedProduct?.unit}</span>
+                  </div>
+                )}
                 {computedTotal > 0 && (
                   <div className="rounded-md bg-muted p-3 text-sm">
                     <span className="text-muted-foreground">Costo total:</span>{" "}

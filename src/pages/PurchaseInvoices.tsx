@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
@@ -55,6 +57,7 @@ type DraftItem = {
   product_id: string;
   product_name: string;
   product_unit: string;
+  input_unit: string;
   quantity: string;
   unit_cost: string;
 };
@@ -79,6 +82,7 @@ export default function PurchaseInvoices() {
   const [addProductId, setAddProductId] = useState("");
   const [addQuantity, setAddQuantity] = useState("");
   const [addUnitCost, setAddUnitCost] = useState("");
+  const [addInputUnit, setAddInputUnit] = useState("");
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
 
   const { user } = useAuth();
@@ -152,6 +156,7 @@ export default function PurchaseInvoices() {
     setAddProductId("");
     setAddQuantity("");
     setAddUnitCost("");
+    setAddInputUnit("");
     setEditingInvoice(null);
   };
 
@@ -180,6 +185,7 @@ export default function PurchaseInvoices() {
         product_id: it.product_id,
         product_name: prod?.name ?? "?",
         product_unit: prod?.unit ?? "",
+        input_unit: prod?.unit ?? "",
         quantity: String(it.quantity),
         unit_cost: String(it.unit_cost),
       };
@@ -208,6 +214,7 @@ export default function PurchaseInvoices() {
         product_id: addProductId,
         product_name: prod.name,
         product_unit: prod.unit,
+        input_unit: addInputUnit || prod.unit,
         quantity: addQuantity,
         unit_cost: addUnitCost,
       },
@@ -215,11 +222,12 @@ export default function PurchaseInvoices() {
     setAddProductId("");
     setAddQuantity("");
     setAddUnitCost("");
+    setAddInputUnit("");
   };
 
   const removeItem = (tempId: string) => setItems((prev) => prev.filter((i) => i.tempId !== tempId));
 
-  const formTotal = items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unit_cost) || 0), 0);
+  const formTotal = items.reduce((sum, i) => sum + convertToProductUnit(Number(i.quantity) || 0, i.input_unit, i.product_unit) * (Number(i.unit_cost) || 0), 0);
 
   const saveInvoice = useMutation({
     mutationFn: async () => {
@@ -244,7 +252,7 @@ export default function PurchaseInvoices() {
           invoice_id: editingInvoice.id,
           restaurant_id: restaurantId!,
           product_id: i.product_id,
-          quantity: Number(i.quantity),
+          quantity: convertToProductUnit(Number(i.quantity), i.input_unit, i.product_unit),
           unit_cost: Number(i.unit_cost),
         }));
         const { error: iErr } = await supabase.from("purchase_invoice_items" as any).insert(itemRows as any);
@@ -277,7 +285,7 @@ export default function PurchaseInvoices() {
           invoice_id: newInv.id,
           restaurant_id: restaurantId!,
           product_id: i.product_id,
-          quantity: Number(i.quantity),
+          quantity: convertToProductUnit(Number(i.quantity), i.input_unit, i.product_unit),
           unit_cost: Number(i.unit_cost),
         }));
         const { error: iErr } = await supabase.from("purchase_invoice_items" as any).insert(itemRows as any);

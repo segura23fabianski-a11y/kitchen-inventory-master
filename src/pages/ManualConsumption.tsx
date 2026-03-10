@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useToast } from "@/hooks/use-toast";
+import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +34,7 @@ export default function ManualConsumption() {
   const [step, setStep] = useState<Step>("product");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
+  const [inputUnit, setInputUnit] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
@@ -91,13 +94,17 @@ export default function ManualConsumption() {
   const serviceMap = new Map(services?.map((s) => [s.id, s]) ?? []);
   const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null;
   const selectedService = selectedServiceId ? serviceMap.get(selectedServiceId) : null;
+  const effectiveUnit = inputUnit || selectedProduct?.unit || "unidad";
+  const convertedQty = selectedProduct
+    ? convertToProductUnit(quantity, effectiveUnit, selectedProduct.unit)
+    : quantity;
 
-  const estimatedCost = selectedProduct && quantity > 0
-    ? quantity * Number(selectedProduct.average_cost)
+  const estimatedCost = selectedProduct && convertedQty > 0
+    ? convertedQty * Number(selectedProduct.average_cost)
     : 0;
 
   const hasStock = selectedProduct
-    ? Number(selectedProduct.current_stock) >= quantity
+    ? Number(selectedProduct.current_stock) >= convertedQty
     : false;
 
   const canConfirm =
@@ -114,17 +121,19 @@ export default function ManualConsumption() {
   const confirmMutation = useMutation({
     mutationFn: async () => {
       const unitCost = Number(selectedProduct!.average_cost);
-      const totalCost = quantity * unitCost;
+      const totalCost = convertedQty * unitCost;
 
       const { error } = await supabase.from("inventory_movements").insert({
         product_id: selectedProductId!,
         user_id: user!.id,
         type: "operational_consumption",
-        quantity,
+        quantity: convertedQty,
         unit_cost: unitCost,
         total_cost: totalCost,
         service_id: selectedServiceId!,
-        notes: notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${quantity} ${selectedProduct?.unit}`,
+        notes: effectiveUnit !== selectedProduct?.unit
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → ${convertedQty.toFixed(4)} ${selectedProduct?.unit}`
+          : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${convertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
       if (error) throw error;
@@ -181,6 +190,7 @@ export default function ManualConsumption() {
     setStep("product");
     setSelectedProductId(null);
     setQuantity(0);
+    setInputUnit("");
     setSelectedServiceId(null);
     setNotes("");
     setSearch("");
@@ -307,19 +317,31 @@ export default function ManualConsumption() {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* Quantity */}
+              {/* Quantity + Unit */}
               <div className="space-y-2">
-                <Label>
-                  Cantidad ({selectedProduct.unit}) *
-                </Label>
-                <NumericKeypadInput
-                  mode="decimal"
-                  value={quantity || ""}
-                  onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
-                  min="0.001"
-                  keypadLabel={`Cantidad en ${selectedProduct.unit}`}
-                  className="text-center text-2xl font-bold h-14"
-                />
+                <Label>Cantidad *</Label>
+                <div className="flex gap-2">
+                  <NumericKeypadInput
+                    mode="decimal"
+                    value={quantity || ""}
+                    onChange={(v) => setQuantity(Math.max(0, Number(v) || 0))}
+                    min="0.001"
+                    keypadLabel={`Cantidad`}
+                    className="text-center text-2xl font-bold h-14 flex-1"
+                  />
+                  <div className="w-24">
+                    <UnitSelector
+                      productUnit={selectedProduct.unit}
+                      value={effectiveUnit}
+                      onChange={setInputUnit}
+                    />
+                  </div>
+                </div>
+                {effectiveUnit !== selectedProduct.unit && quantity > 0 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    = {convertedQty.toFixed(4)} {selectedProduct.unit}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
                   Stock disponible:{" "}
                   {Number(selectedProduct.current_stock).toFixed(2)}{" "}
@@ -372,7 +394,7 @@ export default function ManualConsumption() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cantidad</span>
                   <span className="font-medium">
-                    {quantity} {selectedProduct.unit}
+                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` (${convertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
