@@ -163,6 +163,93 @@ export default function Recipes() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const startEdit = (recipe: any) => {
+    setEditName(recipe.name);
+    setEditDescription(recipe.description || "");
+    setEditRecipeType((recipe.recipe_type ?? "food") as RecipeType);
+    setEditIngredients(
+      (recipe.recipe_ingredients ?? []).map((ri: any) => ({
+        id: ri.id,
+        product_id: ri.product_id,
+        quantity: Number(ri.quantity),
+        unit: ri.unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
+        yield_per_portion: Number(ri.yield_per_portion ?? 0),
+      }))
+    );
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => setEditMode(false);
+
+  const addEditIngredient = () =>
+    setEditIngredients((prev) => [...prev, { product_id: "", quantity: 0, unit: "g", yield_per_portion: 0 }]);
+
+  const removeEditIngredient = (i: number) =>
+    setEditIngredients((prev) => prev.filter((_, idx) => idx !== i));
+
+  const updateEditIngredient = (i: number, field: keyof IngredientLine, value: string) =>
+    setEditIngredients((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== i) return item;
+        if (field === "quantity" || field === "yield_per_portion") return { ...item, [field]: Number(value) };
+        if (field === "product_id") {
+          const prod = productMap.get(value);
+          const defaultUnit = prod ? getDefaultRecipeUnit(prod.unit) : "unidad";
+          return { ...item, product_id: value, unit: defaultUnit };
+        }
+        return { ...item, [field]: value };
+      })
+    );
+
+  const saveRecipe = useMutation({
+    mutationFn: async () => {
+      const recipeId = viewRecipeId!;
+      const { data: prev } = await supabase.from("recipes").select("*").eq("id", recipeId).single();
+      const { error } = await supabase
+        .from("recipes")
+        .update({ name: editName, description: editDescription, recipe_type: editRecipeType } as any)
+        .eq("id", recipeId);
+      if (error) throw error;
+
+      // Delete old ingredients and re-insert
+      const { error: delErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+      if (delErr) throw delErr;
+
+      const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
+      if (validIngredients.length > 0) {
+        const { error: insErr } = await supabase.from("recipe_ingredients").insert(
+          validIngredients.map((i) => ({
+            recipe_id: recipeId,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            unit: i.unit,
+            yield_per_portion: i.yield_per_portion,
+            restaurant_id: restaurantId!,
+          }))
+        );
+        if (insErr) throw insErr;
+      }
+
+      await logAudit({
+        entityType: "recipe",
+        entityId: recipeId,
+        action: "UPDATE",
+        before: prev,
+        after: { name: editName, description: editDescription, recipe_type: editRecipeType, ingredients: validIngredients },
+        canRollback: false,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recipes"] });
+      setEditMode(false);
+      toast({ title: "Receta actualizada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const editIsValid = editName.trim().length > 0 && editIngredients.some((i) => i.product_id && i.quantity > 0);
+  const editCost = calcRecipeCost(editIngredients);
+
   const newCost = calcRecipeCost(ingredients);
   const isValid = name.trim().length > 0 && ingredients.some((i) => i.product_id && i.quantity > 0);
 
