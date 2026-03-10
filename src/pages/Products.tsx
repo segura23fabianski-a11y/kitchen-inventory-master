@@ -647,9 +647,9 @@ export default function Products() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={canManage ? 10 : 9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 11 : 10} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
                 ) : !filtered?.length ? (
-                  <TableRow><TableCell colSpan={canManage ? 10 : 9} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={canManage ? 11 : 10} className="text-center py-8 text-muted-foreground">Sin productos</TableCell></TableRow>
                 ) : (
                   filtered.map((p) => {
                     const pCodes = getProductCodesDisplay(p.id);
