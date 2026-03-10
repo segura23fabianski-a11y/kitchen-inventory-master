@@ -412,6 +412,7 @@ export type Database = {
           daily_consumption: number | null
           id: string
           image_url: string | null
+          last_unit_cost: number | null
           min_stock: number
           name: string
           reorder_mode: string
@@ -430,6 +431,7 @@ export type Database = {
           daily_consumption?: number | null
           id?: string
           image_url?: string | null
+          last_unit_cost?: number | null
           min_stock?: number
           name: string
           reorder_mode?: string
@@ -448,6 +450,7 @@ export type Database = {
           daily_consumption?: number | null
           id?: string
           image_url?: string | null
+          last_unit_cost?: number | null
           min_stock?: number
           name?: string
           reorder_mode?: string
