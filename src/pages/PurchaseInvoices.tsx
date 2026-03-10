@@ -222,6 +222,7 @@ export default function PurchaseInvoices() {
     setAddProductId("");
     setAddQuantity("");
     setAddUnitCost("");
+    setAddInputUnit("");
   };
 
   const removeItem = (tempId: string) => setItems((prev) => prev.filter((i) => i.tempId !== tempId));
