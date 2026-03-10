@@ -352,9 +352,8 @@ export default function OperationsKiosk() {
     setSelectedRecipeId(null);
     setPortions(1);
     setSelectedServiceId(null);
-    setSelectedProductId(null);
-    setQuantity(0);
-    setServiceInputUnit("");
+    setSelectedProductIds(new Set());
+    setSvcQuantities({});
     setNotes("");
     setProductSearch("");
     setShowHistory(false);
