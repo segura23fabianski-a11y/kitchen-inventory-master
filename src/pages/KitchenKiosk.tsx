@@ -412,9 +412,13 @@ export default function KitchenKiosk() {
               <Select value={recipeId} onValueChange={setRecipeId}>
                 <SelectTrigger><SelectValue placeholder="Elegir receta..." /></SelectTrigger>
                 <SelectContent>
-                  {filteredRecipes?.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
+                  {filteredRecipes?.map((r) => {
+                    const rType = (r as any).recipe_type ?? "food";
+                    const icon = rType === "laundry" ? "🧺" : rType === "housekeeping" ? "🧹" : "👨‍🍳";
+                    return (
+                      <SelectItem key={r.id} value={r.id}>{icon} {r.name}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <div className="flex gap-2">
