@@ -23,6 +23,7 @@ export default function OrdersList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewOrder, setViewOrder] = useState<any>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const { data: pdfSettings } = usePdfSettings();
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
