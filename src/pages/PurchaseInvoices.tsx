@@ -181,6 +181,7 @@ export default function PurchaseInvoices() {
         product_id: it.product_id,
         product_name: prod?.name ?? "?",
         product_unit: prod?.unit ?? "",
+        input_unit: prod?.unit ?? "",
         quantity: String(it.quantity),
         unit_cost: String(it.unit_cost),
       };
