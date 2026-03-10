@@ -26,6 +26,7 @@ import OperationsKiosk from "./pages/OperationsKiosk";
 import Kardex from "./pages/Kardex";
 import PhysicalInventory from "./pages/PhysicalInventory";
 import WasteControl from "./pages/WasteControl";
+import WasteControl from "./pages/WasteControl";
 
 import NotFound from "./pages/NotFound";
 
