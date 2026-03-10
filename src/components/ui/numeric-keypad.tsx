@@ -10,7 +10,7 @@ interface NumericKeypadProps {
   onOpenChange: (open: boolean) => void;
   value: string;
   onConfirm: (value: string) => void;
-  /** Max decimal places (default 3) */
+/** Max decimal places (default 6) */
   maxDecimals?: number;
   /** Max value allowed (default Infinity) */
   maxValue?: number;
