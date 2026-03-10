@@ -323,7 +323,15 @@ export default function PurchaseInvoices() {
       const invoiceItems = itemsData as unknown as InvoiceItem[];
       if (!invoiceItems.length) throw new Error("La factura no tiene ítems");
 
-      // 3) Create inventory_movements for each item
+      // 3) Snapshot product costs BEFORE movements
+      const productIds = [...new Set(invoiceItems.map((i) => i.product_id))];
+      const { data: productsBefore } = await supabase
+        .from("products")
+        .select("id, average_cost, last_unit_cost, current_stock")
+        .in("id", productIds);
+      const beforeMap = new Map((productsBefore ?? []).map((p) => [p.id, { average_cost: Number(p.average_cost), last_unit_cost: Number((p as any).last_unit_cost ?? 0), current_stock: Number(p.current_stock) }]));
+
+      // 4) Create inventory_movements for each item
       const movements = invoiceItems.map((item) => ({
         product_id: item.product_id,
         user_id: user!.id,
@@ -339,7 +347,7 @@ export default function PurchaseInvoices() {
       const { error: movErr } = await supabase.from("inventory_movements").insert(movements);
       if (movErr) throw movErr;
 
-      // 4) Update invoice status
+      // 5) Update invoice status
       const { error: upErr } = await supabase
         .from("purchase_invoices" as any)
         .update({
@@ -350,7 +358,36 @@ export default function PurchaseInvoices() {
         .eq("id", invoiceId);
       if (upErr) throw upErr;
 
-      // 5) Audit
+      // 6) Snapshot product costs AFTER and audit cost changes
+      const { data: productsAfter } = await supabase
+        .from("products")
+        .select("id, average_cost, last_unit_cost")
+        .in("id", productIds);
+      const afterMap = new Map((productsAfter ?? []).map((p) => [p.id, { average_cost: Number(p.average_cost), last_unit_cost: Number((p as any).last_unit_cost ?? 0) }]));
+
+      for (const item of invoiceItems) {
+        const before = beforeMap.get(item.product_id);
+        const after = afterMap.get(item.product_id);
+        if (before && after && (before.average_cost !== after.average_cost || before.last_unit_cost !== after.last_unit_cost)) {
+          await logAudit({
+            entityType: "product",
+            entityId: item.product_id,
+            action: "COST_CHANGE",
+            before: { average_cost: before.average_cost, last_unit_cost: before.last_unit_cost },
+            after: { average_cost: after.average_cost, last_unit_cost: after.last_unit_cost },
+            canRollback: false,
+            metadata: {
+              trigger: "INVOICE_COST_APPLIED",
+              invoice_id: invoiceId,
+              invoice_number: invoice.invoice_number,
+              quantity: item.quantity,
+              unit_cost: item.unit_cost,
+            },
+          });
+        }
+      }
+
+      // 7) Audit invoice posting
       await logAudit({
         entityType: "purchase_invoice",
         entityId: invoiceId,
