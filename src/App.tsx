@@ -24,6 +24,7 @@ import Suppliers from "./pages/Suppliers";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import OperationsKiosk from "./pages/OperationsKiosk";
 import Kardex from "./pages/Kardex";
+import PhysicalInventory from "./pages/PhysicalInventory";
 
 import NotFound from "./pages/NotFound";
 
