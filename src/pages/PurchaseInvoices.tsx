@@ -560,6 +560,12 @@ export default function PurchaseInvoices() {
                   <div><span className="text-muted-foreground">Posteada por:</span> {profileMap.get(viewingInvoice.posted_by) || "—"}</div>
                 )}
               </div>
+              {viewingInvoice.status === "posted" && (
+                <div className="rounded-md bg-success/10 border border-success/30 p-3 text-sm text-success flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  <span>Costos aplicados al inventario — los productos fueron actualizados con el costo unitario de esta factura.</span>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
