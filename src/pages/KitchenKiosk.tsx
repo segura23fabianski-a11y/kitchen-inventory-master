@@ -452,14 +452,24 @@ export default function KitchenKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Get relevant recipes for a product (fixed only)
+  // Get relevant recipes for a product (fixed recipes that use it + all combo recipes)
   const getProductRecipes = (productId: string) => {
+    const result: { id: string; name: string; isCombo: boolean }[] = [];
+    // Fixed recipes that contain this product
     const recipeIds = recipesForProduct.get(productId);
-    if (!recipeIds || recipeIds.size === 0) return [];
-    return [...recipeIds]
-      .map((id) => ({ id, name: recipeMap.get(id) ?? "" }))
-      .filter((r) => r.name)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    if (recipeIds) {
+      for (const id of recipeIds) {
+        const recipe = recipes?.find(r => r.id === id);
+        if (recipe && (recipe as any).recipe_mode !== "variable_combo") {
+          result.push({ id, name: recipe.name, isCombo: false });
+        }
+      }
+    }
+    // All combo recipes (any product can fill any component)
+    for (const r of comboRecipes) {
+      result.push({ id: r.id, name: `🔲 ${r.name}`, isCombo: true });
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   };
 
   const renderProductButton = (p: any) => {
