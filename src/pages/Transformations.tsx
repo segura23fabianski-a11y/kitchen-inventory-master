@@ -211,7 +211,7 @@ export default function Transformations() {
         throw new Error(`Stock insuficiente de ${inputProduct.name}. Disponible: ${inputProduct.current_stock} ${inputProduct.unit}`);
       }
 
-      const unitCostInput = inputProduct.average_cost || 0;
+      const unitCostInput = inputProduct.average_cost > 0 ? inputProduct.average_cost : (inputProduct.last_unit_cost || 0);
       const totalCostInput = inputQtyNum * unitCostInput;
 
       // 1. SALIDA del producto de entrada
