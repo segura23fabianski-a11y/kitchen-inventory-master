@@ -356,8 +356,11 @@ export default function KitchenKiosk() {
       components: comps.map((c: any) => ({
         componentId: c.id,
         componentName: c.component_name,
+        componentMode: (c.component_mode ?? "product") as "product" | "recipe",
         quantityPerService: Number(c.quantity_per_service),
         selectedProductId: "",
+        selectedRecipeId: "",
+        recipeIngredients: [],
       })),
     });
   };
@@ -374,17 +377,97 @@ export default function KitchenKiosk() {
     });
   };
 
+  // When a recipe is selected for a recipe-type component, load its ingredients
+  const updateComboRecipeComponent = (componentId: string, recipeId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      const ings = ingredientsByRecipe.get(recipeId) ?? [];
+      return {
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.componentId !== componentId) return c;
+          const recipeIngs = ings.map((ri: any) => {
+            const prod = products?.find(p => p.id === ri.product_id);
+            const qtyPerService = Number(ri.quantity);
+            const totalQty = qtyPerService * prev.servings;
+            return {
+              ingredientId: ri.product_id + "_" + recipeId,
+              productId: ri.product_id,
+              productName: prod?.name ?? "?",
+              productUnit: ri.unit ?? prod?.unit ?? "unidad",
+              theoreticalQty: totalQty,
+              actualQty: totalQty,
+              unitCost: Number(prod?.average_cost ?? 0),
+            };
+          });
+          return { ...c, selectedRecipeId: recipeId, recipeIngredients: recipeIngs };
+        }),
+      };
+    });
+  };
+
+  // Recalculate theoretical quantities when servings change
+  const updateComboServings = (newServings: number) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        servings: newServings,
+        components: prev.components.map((c) => {
+          if (c.componentMode !== "recipe" || !c.selectedRecipeId) return c;
+          const ings = ingredientsByRecipe.get(c.selectedRecipeId) ?? [];
+          return {
+            ...c,
+            recipeIngredients: c.recipeIngredients.map((ri) => {
+              const origIng = ings.find((i: any) => i.product_id === ri.productId);
+              const qtyPerService = origIng ? Number((origIng as any).quantity) : 0;
+              const newTheoretical = qtyPerService * newServings;
+              return { ...ri, theoreticalQty: newTheoretical, actualQty: newTheoretical };
+            }),
+          };
+        }),
+      };
+    });
+  };
+
+  const updateRecipeIngredientActualQty = (componentId: string, productId: string, actualQty: number) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.componentId !== componentId) return c;
+          return {
+            ...c,
+            recipeIngredients: c.recipeIngredients.map((ri) =>
+              ri.productId === productId ? { ...ri, actualQty } : ri
+            ),
+          };
+        }),
+      };
+    });
+  };
+
   const comboIsValid = useMemo(() => {
     if (!comboExecution) return false;
     if (comboExecution.servings <= 0) return false;
-    const allSelected = comboExecution.components.every((c) => c.selectedProductId);
-    if (!allSelected) return false;
-    // Check stock
     for (const comp of comboExecution.components) {
-      const prod = products?.find((p) => p.id === comp.selectedProductId);
-      if (!prod) return false;
-      const needed = comboExecution.servings * comp.quantityPerService;
-      if (needed > Number(prod.current_stock ?? 0)) return false;
+      if (comp.componentMode === "product") {
+        if (!comp.selectedProductId) return false;
+        const prod = products?.find((p) => p.id === comp.selectedProductId);
+        if (!prod) return false;
+        const needed = comboExecution.servings * comp.quantityPerService;
+        if (needed > Number(prod.current_stock ?? 0)) return false;
+      } else {
+        // recipe mode
+        if (!comp.selectedRecipeId) return false;
+        if (comp.recipeIngredients.length === 0) return false;
+        for (const ri of comp.recipeIngredients) {
+          const prod = products?.find((p) => p.id === ri.productId);
+          if (!prod) return false;
+          if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+        }
+      }
     }
     return true;
   }, [comboExecution, products]);
@@ -392,10 +475,15 @@ export default function KitchenKiosk() {
   const comboTotalCost = useMemo(() => {
     if (!comboExecution) return 0;
     return comboExecution.components.reduce((sum, comp) => {
-      const prod = products?.find((p) => p.id === comp.selectedProductId);
-      if (!prod) return sum;
-      const cost = Number(prod.average_cost ?? 0);
-      return sum + (cost * comp.quantityPerService * comboExecution.servings);
+      if (comp.componentMode === "product") {
+        const prod = products?.find((p) => p.id === comp.selectedProductId);
+        if (!prod) return sum;
+        const cost = Number(prod.average_cost ?? 0);
+        return sum + (cost * comp.quantityPerService * comboExecution.servings);
+      } else {
+        // recipe mode: sum actual ingredient costs
+        return sum + comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+      }
     }, 0);
   }, [comboExecution, products]);
 
@@ -446,32 +534,67 @@ export default function KitchenKiosk() {
     mutationFn: async () => {
       if (!comboExecution) throw new Error("No combo");
 
-      // Calculate total cost
       let totalCost = 0;
-      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number }[] = [];
+      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number; isRecipeComponent: boolean; selectedRecipeId: string | null; theoreticalQty: number | null; actualQty: number | null }[] = [];
 
       for (const comp of comboExecution.components) {
-        const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
-        const qty = comp.quantityPerService * comboExecution.servings;
-        const cost = Number(prod.average_cost ?? 0);
-        const lineCost = qty * cost;
-        totalCost += lineCost;
-        itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost });
+        if (comp.componentMode === "product") {
+          // Direct product component
+          const prod = products?.find((p) => p.id === comp.selectedProductId);
+          if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
+          const qty = comp.quantityPerService * comboExecution.servings;
+          const cost = Number(prod.average_cost ?? 0);
+          const lineCost = qty * cost;
+          totalCost += lineCost;
+          itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null });
 
-        // Insert inventory movement
-        const { error } = await supabase.from("inventory_movements").insert({
-          product_id: comp.selectedProductId,
-          user_id: user!.id,
-          type: "salida",
-          quantity: qty,
-          unit_cost: cost,
-          total_cost: lineCost,
-          notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
-          restaurant_id: restaurantId!,
-          recipe_id: comboExecution.recipeId,
-        });
-        if (error) throw error;
+          const { error } = await supabase.from("inventory_movements").insert({
+            product_id: comp.selectedProductId,
+            user_id: user!.id,
+            type: "salida",
+            quantity: qty,
+            unit_cost: cost,
+            total_cost: lineCost,
+            notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
+            restaurant_id: restaurantId!,
+            recipe_id: comboExecution.recipeId,
+          });
+          if (error) throw error;
+        } else {
+          // Recipe component - deduct each ingredient with actual quantities
+          const selectedRecipeName = recipeMap.get(comp.selectedRecipeId) ?? "Receta";
+          for (const ri of comp.recipeIngredients) {
+            const prod = products?.find((p) => p.id === ri.productId);
+            if (!prod) continue;
+            const cost = Number(prod.average_cost ?? 0);
+            const lineCost = ri.actualQty * cost;
+            totalCost += lineCost;
+            itemsForLog.push({
+              componentName: comp.componentName,
+              productId: ri.productId,
+              qty: ri.actualQty,
+              unitCost: cost,
+              lineCost,
+              isRecipeComponent: true,
+              selectedRecipeId: comp.selectedRecipeId,
+              theoreticalQty: ri.theoreticalQty,
+              actualQty: ri.actualQty,
+            });
+
+            const { error } = await supabase.from("inventory_movements").insert({
+              product_id: ri.productId,
+              user_id: user!.id,
+              type: "salida",
+              quantity: ri.actualQty,
+              unit_cost: cost,
+              total_cost: lineCost,
+              notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
+              restaurant_id: restaurantId!,
+              recipe_id: comboExecution.recipeId,
+            });
+            if (error) throw error;
+          }
+        }
       }
 
       // Save combo execution log
@@ -501,6 +624,10 @@ export default function KitchenKiosk() {
             quantity: item.qty,
             unit_cost: item.unitCost,
             line_cost: item.lineCost,
+            is_recipe_component: item.isRecipeComponent,
+            selected_recipe_id: item.selectedRecipeId,
+            theoretical_quantity: item.theoreticalQty,
+            actual_quantity: item.actualQty,
           })) as any
         );
       if (itemsError) throw itemsError;
