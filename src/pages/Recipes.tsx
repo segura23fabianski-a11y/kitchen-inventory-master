@@ -898,6 +898,9 @@ export default function Recipes() {
                                 {i + 1}
                               </Badge>
                               <span className="flex-1 font-medium">{c.component_name}</span>
+                              <Badge variant="outline" className="text-xs gap-1">
+                                {(c.component_mode ?? "product") === "recipe" ? <><ChefHat className="h-3 w-3" /> Receta</> : <><Package className="h-3 w-3" /> Producto</>}
+                              </Badge>
                               <span className="text-sm text-muted-foreground">{Number(c.quantity_per_service)} c/u</span>
                             </div>
                           ))}
