@@ -63,6 +63,7 @@ export default function KitchenKiosk() {
   const [productSearch, setProductSearch] = useState("");
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const [comboExecution, setComboExecution] = useState<ComboExecution | null>(null);
+  const [productionRunOpen, setProductionRunOpen] = useState(false);
   const barcodeBufferRef = useRef("");
   const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
