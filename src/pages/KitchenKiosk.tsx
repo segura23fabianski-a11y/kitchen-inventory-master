@@ -156,6 +156,7 @@ export default function KitchenKiosk() {
     return map;
   }, [todayProductionRuns]);
 
+  const componentsByRecipe = useMemo(() => {
     const map = new Map<string, any[]>();
     variableComponents?.forEach((c: any) => {
       const arr = map.get(c.recipe_id) || [];
