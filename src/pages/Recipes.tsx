@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -19,9 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
+import { format } from "date-fns";
 
 type RecipeType = "food" | "laundry" | "housekeeping";
 type RecipeMode = "fixed" | "variable_combo";
@@ -112,12 +113,57 @@ export default function Recipes() {
     },
   });
 
+  // Fetch combo execution logs
+  const { data: comboExecutionLogs } = useQuery({
+    queryKey: ["combo-execution-logs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combo_execution_logs" as any)
+        .select("*")
+        .order("executed_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Fetch combo execution items
+  const { data: comboExecutionItems } = useQuery({
+    queryKey: ["combo-execution-items"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combo_execution_items" as any)
+        .select("*");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const componentsByRecipe = new Map<string, any[]>();
   allVariableComponents?.forEach((c: any) => {
     const arr = componentsByRecipe.get(c.recipe_id) || [];
     arr.push(c);
     componentsByRecipe.set(c.recipe_id, arr);
   });
+
+  const executionItemsByLog = useMemo(() => {
+    const map = new Map<string, any[]>();
+    comboExecutionItems?.forEach((item: any) => {
+      const arr = map.get(item.execution_id) || [];
+      arr.push(item);
+      map.set(item.execution_id, arr);
+    });
+    return map;
+  }, [comboExecutionItems]);
+
+  const getComboStats = (recipeId: string) => {
+    const logs = comboExecutionLogs?.filter((l: any) => l.recipe_id === recipeId) ?? [];
+    if (logs.length === 0) return null;
+    const costs = logs.map((l: any) => Number(l.unit_cost));
+    const avg = costs.reduce((a: number, b: number) => a + b, 0) / costs.length;
+    const min = Math.min(...costs);
+    const max = Math.max(...costs);
+    return { logs, avg, min, max, count: logs.length };
+  };
 
   const getProductCost = (productId: string): number => {
     const prod = productMap.get(productId);
@@ -814,6 +860,9 @@ export default function Recipes() {
 
               if (rMode === "variable_combo") {
                 const comps = componentsByRecipe.get(viewedRecipe.id) ?? [];
+                const stats = getComboStats(viewedRecipe.id);
+                const recentLogs = stats?.logs.slice(0, 10) ?? [];
+
                 return (
                   <div className="space-y-4">
                     {viewedRecipe.description && (
@@ -839,9 +888,78 @@ export default function Recipes() {
                         </div>
                       )}
                     </div>
-                    <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                      El costo se calcula dinámicamente al ejecutar, según los productos seleccionados para cada componente.
-                    </div>
+
+                    {/* Cost statistics */}
+                    {stats ? (
+                      <div className="space-y-3">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" /> Costos históricos del servicio
+                        </Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="rounded-md border p-3 text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Promedio</p>
+                            <p className="font-heading font-bold text-lg">${stats.avg.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">por servicio</p>
+                          </div>
+                          <div className="rounded-md border p-3 text-center">
+                            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Mínimo</p>
+                            <p className="font-heading font-bold text-lg text-primary">${stats.min.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">por servicio</p>
+                          </div>
+                          <div className="rounded-md border p-3 text-center">
+                            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Máximo</p>
+                            <p className="font-heading font-bold text-lg">${stats.max.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">por servicio</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">{stats.count} ejecución(es) registrada(s)</p>
+
+                        {/* Recent executions */}
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <Calendar className="h-4 w-4" /> Últimas ejecuciones
+                        </Label>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {recentLogs.map((log: any) => {
+                            const items = executionItemsByLog.get(log.id) ?? [];
+                            return (
+                              <div key={log.id} className="rounded-md border p-3 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">
+                                    {format(new Date(log.executed_at), "dd/MM/yyyy HH:mm")}
+                                  </span>
+                                  <Badge variant="outline">{Number(log.servings)} servicios</Badge>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Costo unitario</span>
+                                  <span className="font-semibold">${Number(log.unit_cost).toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Costo total</span>
+                                  <span className="font-semibold">${Number(log.total_cost).toFixed(2)}</span>
+                                </div>
+                                {items.length > 0 && (
+                                  <div className="pt-1 border-t space-y-0.5">
+                                    {items.map((item: any) => {
+                                      const prod = productMap.get(item.product_id);
+                                      return (
+                                        <div key={item.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                                          <span><span className="capitalize font-medium">{item.component_name}</span> → {prod?.name ?? "?"}</span>
+                                          <span>${Number(item.line_cost).toFixed(2)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                        El costo se calculará dinámicamente al ejecutar, según los productos seleccionados para cada componente. Aún no hay ejecuciones registradas.
+                      </div>
+                    )}
                     {canUpdate && (
                       <Button className="w-full" variant="outline" onClick={() => startEdit(viewedRecipe)}>
                         <Pencil className="mr-2 h-4 w-4" /> Editar receta

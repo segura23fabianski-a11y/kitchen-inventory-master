@@ -423,31 +423,72 @@ export default function KitchenKiosk() {
   const confirmComboConsumption = useMutation({
     mutationFn: async () => {
       if (!comboExecution) throw new Error("No combo");
+
+      // Calculate total cost
+      let totalCost = 0;
+      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number }[] = [];
+
       for (const comp of comboExecution.components) {
         const prod = products?.find((p) => p.id === comp.selectedProductId);
         if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
         const qty = comp.quantityPerService * comboExecution.servings;
         const cost = Number(prod.average_cost ?? 0);
-        const totalCost = qty * cost;
+        const lineCost = qty * cost;
+        totalCost += lineCost;
+        itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost });
+
+        // Insert inventory movement
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: comp.selectedProductId,
           user_id: user!.id,
           type: "salida",
           quantity: qty,
           unit_cost: cost,
-          total_cost: totalCost,
+          total_cost: lineCost,
           notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
           restaurant_id: restaurantId!,
           recipe_id: comboExecution.recipeId,
         });
         if (error) throw error;
       }
+
+      // Save combo execution log
+      const unitCost = comboExecution.servings > 0 ? totalCost / comboExecution.servings : 0;
+      const { data: execLog, error: logError } = await supabase
+        .from("combo_execution_logs" as any)
+        .insert({
+          restaurant_id: restaurantId!,
+          recipe_id: comboExecution.recipeId,
+          executed_by: user!.id,
+          servings: comboExecution.servings,
+          total_cost: totalCost,
+          unit_cost: unitCost,
+        } as any)
+        .select("id")
+        .single();
+      if (logError) throw logError;
+
+      // Save combo execution items
+      const { error: itemsError } = await supabase
+        .from("combo_execution_items" as any)
+        .insert(
+          itemsForLog.map((item) => ({
+            execution_id: (execLog as any).id,
+            component_name: item.componentName,
+            product_id: item.productId,
+            quantity: item.qty,
+            unit_cost: item.unitCost,
+            line_cost: item.lineCost,
+          })) as any
+        );
+      if (itemsError) throw itemsError;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["recent-products"] });
       qc.invalidateQueries({ queryKey: ["frequent-products"] });
+      qc.invalidateQueries({ queryKey: ["combo-execution-logs"] });
       toast({
         title: "Combo registrado",
         description: `${comboExecution!.recipeName} — ${comboExecution!.servings} servicios descontados`,
