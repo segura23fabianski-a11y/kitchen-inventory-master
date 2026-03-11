@@ -565,28 +565,19 @@ export default function KitchenKiosk() {
 
                             {/* Show recipe dropdown when toggled to "Con receta" */}
                             {hasRecipe && (
-                              <Select
+                              <SearchableSelect
+                                options={availableRecipes.length > 0
+                                  ? availableRecipes.map((r) => ({ value: r.id, label: r.name }))
+                                  : []}
                                 value={item.recipeId === "__pending" ? "" : (item.recipeId ?? "")}
                                 onValueChange={(v) =>
                                   updateCartItem(item.productId, { recipeId: v || null })
                                 }
-                              >
-                                <SelectTrigger className="h-8 text-xs">
-                                  <UtensilsCrossed className="h-3 w-3 mr-1 shrink-0" />
-                                  <SelectValue placeholder="Seleccionar receta..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableRecipes.length > 0 ? (
-                                    availableRecipes.map((r) => (
-                                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                                    ))
-                                  ) : (
-                                    <SelectItem value="__no_recipes" disabled>
-                                      No hay recetas con este producto
-                                    </SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
+                                placeholder="Seleccionar receta..."
+                                searchPlaceholder="Buscar receta..."
+                                emptyMessage={availableRecipes.length === 0 ? "No hay recetas con este producto" : "Sin resultados."}
+                                triggerClassName="h-8 text-xs"
+                              />
                             )}
                           </div>
 
