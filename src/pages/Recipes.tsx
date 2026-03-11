@@ -215,7 +215,7 @@ export default function Recipes() {
     );
 
   // Component operations for create form
-  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length }]);
   const removeComponent = (i: number) => setComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
   const updateComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
