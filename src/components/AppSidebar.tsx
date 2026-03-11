@@ -3,7 +3,7 @@ import {
   ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History,
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush,
-  HelpCircle
+  HelpCircle, Calculator
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -90,6 +90,7 @@ const navGroups: NavGroup[] = [
       { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
       { to: "/branding", icon: Paintbrush, label: "Configuración Visual", permKey: "users" },
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
+      { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "audit" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "audit" },
       { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "dashboard" },
     ],

@@ -32,6 +32,7 @@ import PriceHistory from "./pages/PriceHistory";
 import MealPlanning from "./pages/MealPlanning";
 import Branding from "./pages/Branding";
 import UserManual from "./pages/UserManual";
+import RecalculateInventory from "./pages/RecalculateInventory";
 
 import NotFound from "./pages/NotFound";
 
@@ -90,6 +91,7 @@ const AppRoutes = () => (
     <Route path="/meal-planning" element={<ProtectedRoute roles={["admin", "bodega"]}><MealPlanning /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
     <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
+    <Route path="/recalculate-inventory" element={<ProtectedRoute roles={["admin"]}><RecalculateInventory /></ProtectedRoute>} />
     <Route path="/branding" element={<ProtectedRoute roles={["admin"]}><Branding /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute><UserManual /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
