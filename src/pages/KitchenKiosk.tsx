@@ -708,7 +708,7 @@ export default function KitchenKiosk() {
               <Layers className="h-8 w-8 text-primary" />
               {comboExecution.recipeName}
             </h1>
-            <p className="text-muted-foreground text-sm">Selecciona un producto para cada componente</p>
+            <p className="text-muted-foreground text-sm">Selecciona un producto o receta para cada componente</p>
           </div>
 
           <Card>
@@ -721,7 +721,10 @@ export default function KitchenKiosk() {
               <NumericKeypadInput
                 mode="integer"
                 value={comboExecution.servings || ""}
-                onChange={(v) => setComboExecution((prev) => prev ? { ...prev, servings: Math.max(1, Number(v) || 1) } : null)}
+                onChange={(v) => {
+                  const newVal = Math.max(1, Number(v) || 1);
+                  updateComboServings(newVal);
+                }}
                 min="1"
                 className="w-32 text-center text-lg"
                 keypadLabel="Cantidad de servicios"
@@ -732,46 +735,118 @@ export default function KitchenKiosk() {
 
           <div className="space-y-3">
             {comboExecution.components.map((comp) => {
-              const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
-              const needed = comp.quantityPerService * comboExecution.servings;
-              const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
-              const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
-              const lineCost = unitCost * needed;
+              if (comp.componentMode === "product") {
+                // ── Product component ──
+                const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
+                const needed = comp.quantityPerService * comboExecution.servings;
+                const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
+                const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
+                const lineCost = unitCost * needed;
 
-              return (
-                <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
-                  <CardContent className="pt-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="font-semibold capitalize">{comp.componentName}</Label>
-                      <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
-                    </div>
-                    <SearchableSelect
-                      options={products?.map((p) => ({
-                        value: p.id,
-                        label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
-                        searchTerms: p.name + " " + (p.barcode || ""),
-                      })) ?? []}
-                      value={comp.selectedProductId}
-                      onValueChange={(v) => updateComboComponent(comp.componentId, v)}
-                      placeholder="Buscar y seleccionar producto..."
-                      searchPlaceholder="Buscar producto..."
-                    />
-                    {selectedProd && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
-                        </span>
-                        <span className="font-medium">${lineCost.toFixed(2)}</span>
+                return (
+                  <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-semibold capitalize flex items-center gap-1.5">
+                          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                          {comp.componentName}
+                        </Label>
+                        <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
                       </div>
-                    )}
-                    {insufficient && (
-                      <p className="text-xs text-destructive flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
+                      <SearchableSelect
+                        options={products?.map((p) => ({
+                          value: p.id,
+                          label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+                          searchTerms: p.name + " " + (p.barcode || ""),
+                        })) ?? []}
+                        value={comp.selectedProductId}
+                        onValueChange={(v) => updateComboComponent(comp.componentId, v)}
+                        placeholder="Buscar y seleccionar producto..."
+                        searchPlaceholder="Buscar producto..."
+                      />
+                      {selectedProd && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
+                          </span>
+                          <span className="font-medium">${lineCost.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {insufficient && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              } else {
+                // ── Recipe component ──
+                const selectedRecipeName = comp.selectedRecipeId ? recipeMap.get(comp.selectedRecipeId) : null;
+                const compIngCost = comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+
+                return (
+                  <Card key={comp.componentId}>
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-semibold capitalize flex items-center gap-1.5">
+                          <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
+                          {comp.componentName}
+                          <Badge variant="outline" className="text-[10px] ml-1">Receta</Badge>
+                        </Label>
+                      </div>
+                      <SearchableSelect
+                        options={fixedRecipes.map((r) => ({
+                          value: r.id,
+                          label: r.name,
+                          searchTerms: r.name,
+                        }))}
+                        value={comp.selectedRecipeId}
+                        onValueChange={(v) => updateComboRecipeComponent(comp.componentId, v)}
+                        placeholder="Buscar y seleccionar receta..."
+                        searchPlaceholder="Buscar receta..."
+                      />
+                      {selectedRecipeName && comp.recipeIngredients.length > 0 && (
+                        <div className="space-y-1.5 rounded-md border p-3 bg-muted/30">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            Ingredientes de "{selectedRecipeName}" × {comboExecution.servings} servicios
+                          </p>
+                          <div className="space-y-1">
+                            {comp.recipeIngredients.map((ri) => {
+                              const prod = products?.find(p => p.id === ri.productId);
+                              const stock = prod ? Number(prod.current_stock ?? 0) : 0;
+                              const insuf = ri.actualQty > stock;
+                              return (
+                                <div key={ri.productId} className="flex items-center gap-2 text-sm">
+                                  <span className="flex-1 truncate">{ri.productName}</span>
+                                  <span className="text-xs text-muted-foreground shrink-0">
+                                    Teórico: {ri.theoreticalQty.toFixed(2)} {ri.productUnit}
+                                  </span>
+                                  <NumericKeypadInput
+                                    mode="decimal"
+                                    value={ri.actualQty || ""}
+                                    onChange={(v) => updateRecipeIngredientActualQty(comp.componentId, ri.productId, Math.max(0, Number(v) || 0))}
+                                    min="0"
+                                    className="w-20 text-right text-sm h-8"
+                                    keypadLabel={`${ri.productName} (real)`}
+                                    forceKeypad
+                                  />
+                                  <span className="text-xs text-muted-foreground shrink-0 w-10">{ri.productUnit}</span>
+                                  {insuf && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex justify-between text-xs pt-1 border-t">
+                            <span className="text-muted-foreground">Costo ingredientes</span>
+                            <span className="font-medium">${compIngCost.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              }
             })}
           </div>
 
