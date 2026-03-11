@@ -314,7 +314,6 @@ export default function KitchenKiosk() {
         description: `${cartLines.filter((l) => l.quantity > 0).length} productos descontados`,
       });
       setCart([]);
-      setServiceId("");
       setProductSearch("");
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
