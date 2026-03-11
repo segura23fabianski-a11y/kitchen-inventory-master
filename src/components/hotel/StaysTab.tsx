@@ -58,13 +58,29 @@ export default function StaysTab() {
 
   const { data: guests } = useQuery({
     queryKey: ["hotel-guests"],
-    queryFn: async () => { const { data, error } = await supabase.from("hotel_guests" as any).select("id, first_name, last_name, document_number").order("last_name"); if (error) throw error; return data as any[]; },
+    queryFn: async () => { const { data, error } = await supabase.from("hotel_guests" as any).select("id, first_name, last_name, document_number, document_type").order("last_name"); if (error) throw error; return data as any[]; },
   });
 
   const { data: companies } = useQuery({
     queryKey: ["hotel-companies-active"],
-    queryFn: async () => { const { data, error } = await supabase.from("hotel_companies" as any).select("id, name").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
+    queryFn: async () => { const { data, error } = await supabase.from("hotel_companies" as any).select("id, name, nit").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
   });
+
+  // Build searchable options
+  const guestOptions: SearchableSelectOption[] = (guests || []).map((g: any) => ({
+    value: g.id,
+    label: `${g.first_name} ${g.last_name} (${g.document_type || ""} ${g.document_number})`,
+    searchTerms: `${g.document_number} ${g.first_name} ${g.last_name}`,
+  }));
+
+  const companyOptions: SearchableSelectOption[] = [
+    { value: "none", label: "Ninguna" },
+    ...(companies || []).map((c: any) => ({
+      value: c.id,
+      label: `${c.name}${c.nit ? ` (NIT: ${c.nit})` : ""}`,
+      searchTerms: `${c.nit || ""} ${c.name}`,
+    })),
+  ];
 
   const { data: allCompanyRates } = useQuery({
     queryKey: ["all-company-rates"],
