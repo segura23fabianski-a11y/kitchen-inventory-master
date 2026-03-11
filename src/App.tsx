@@ -33,6 +33,7 @@ import MealPlanning from "./pages/MealPlanning";
 import Branding from "./pages/Branding";
 import UserManual from "./pages/UserManual";
 import RecalculateInventory from "./pages/RecalculateInventory";
+import Transformations from "./pages/Transformations";
 
 import NotFound from "./pages/NotFound";
 
