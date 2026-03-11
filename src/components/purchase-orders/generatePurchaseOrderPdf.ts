@@ -359,11 +359,22 @@ export async function generatePurchaseOrderPdf(
   }
 
   // Output
+  const sanitize = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9 ]/g, "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .toUpperCase();
+
+  const orderNum = order.order_id.slice(0, 8).toUpperCase();
+  const supplierClean = sanitize(order.supplier_name);
+  const fileName = `ORDEN_COMPRA_${orderNum}_${supplierClean}.pdf`;
+
   if (action === "preview") {
     const blob = doc.output("blob");
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
   } else {
-    doc.save(`OC-${order.order_id.slice(0, 8).toUpperCase()}.pdf`);
+    doc.save(fileName);
   }
 }
