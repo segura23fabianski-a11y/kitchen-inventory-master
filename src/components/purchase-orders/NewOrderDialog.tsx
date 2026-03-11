@@ -227,20 +227,17 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
                   return (
                     <TableRow key={idx}>
                       <TableCell>
-                        <Select value={line.product_id} onValueChange={(v) => updateLine(idx, "product_id", v)}>
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Seleccionar..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {/* Show current selection + available */}
-                            {line.product_id && product && (
-                              <SelectItem value={product.id}>{product.name} ({product.unit})</SelectItem>
-                            )}
-                            {availableProducts.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={[
+                            ...(line.product_id && product ? [{ value: product.id, label: `${product.name} (${product.unit})` }] : []),
+                            ...availableProducts.map((p) => ({ value: p.id, label: `${p.name} (${p.unit})` })),
+                          ]}
+                          value={line.product_id}
+                          onValueChange={(v) => updateLine(idx, "product_id", v)}
+                          placeholder="Seleccionar..."
+                          searchPlaceholder="Buscar producto..."
+                          triggerClassName="h-8"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input
