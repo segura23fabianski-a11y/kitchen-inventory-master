@@ -12,7 +12,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign } from "lucide-react";
+import CostRevaluationDialog from "@/components/CostRevaluationDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
@@ -66,6 +67,7 @@ export default function Products() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [revalProduct, setRevalProduct] = useState<any>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -698,6 +700,11 @@ export default function Products() {
                           <TableCell>
                             <div className="flex gap-1">
                               {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
+                              {hasRole("admin") && (
+                                <Button variant="ghost" size="icon" onClick={() => setRevalProduct(p)} title="Corregir costo">
+                                  <DollarSign className="h-4 w-4 text-amber-600" />
+                                </Button>
+                              )}
                               {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                             </div>
                           </TableCell>
@@ -710,6 +717,12 @@ export default function Products() {
             </Table>
           </CardContent>
         </Card>
+
+        <CostRevaluationDialog
+          product={revalProduct}
+          open={!!revalProduct}
+          onOpenChange={(v) => { if (!v) setRevalProduct(null); }}
+        />
       </div>
     </AppLayout>
   );
