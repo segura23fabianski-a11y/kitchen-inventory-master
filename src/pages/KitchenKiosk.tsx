@@ -130,7 +130,32 @@ export default function KitchenKiosk() {
     },
   });
 
-  const componentsByRecipe = useMemo(() => {
+  // Fetch today's production runs to use real costs in combos
+  const today = format(new Date(), "yyyy-MM-dd");
+  const { data: todayProductionRuns } = useQuery({
+    queryKey: ["production-runs-today", today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_production_runs" as any)
+        .select("*")
+        .eq("production_date", today)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Map recipe_id → latest production run of today
+  const todayRunByRecipe = useMemo(() => {
+    const map = new Map<string, any>();
+    todayProductionRuns?.forEach((run: any) => {
+      if (!map.has(run.recipe_id)) {
+        map.set(run.recipe_id, run);
+      }
+    });
+    return map;
+  }, [todayProductionRuns]);
+
     const map = new Map<string, any[]>();
     variableComponents?.forEach((c: any) => {
       const arr = map.get(c.recipe_id) || [];
