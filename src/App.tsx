@@ -32,6 +32,7 @@ import PriceHistory from "./pages/PriceHistory";
 import MealPlanning from "./pages/MealPlanning";
 import Branding from "./pages/Branding";
 import UserManual from "./pages/UserManual";
+import RecalculateInventory from "./pages/RecalculateInventory";
 
 import NotFound from "./pages/NotFound";
 
