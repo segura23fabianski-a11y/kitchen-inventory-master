@@ -6,11 +6,12 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import {
   ChefHat, CheckCircle2, AlertTriangle, Package, Search,
-  Clock, Star, Trash2, ScanBarcode, UtensilsCrossed,
+  Clock, Star, Trash2, ScanBarcode, UtensilsCrossed, Layers,
 } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
@@ -31,10 +32,23 @@ interface CartItem {
   recipeId: string | null;
 }
 
+interface ComboExecution {
+  recipeId: string;
+  recipeName: string;
+  servings: number;
+  components: {
+    componentId: string;
+    componentName: string;
+    quantityPerService: number;
+    selectedProductId: string;
+  }[];
+}
+
 export default function KitchenKiosk() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+  const [comboExecution, setComboExecution] = useState<ComboExecution | null>(null);
   const barcodeBufferRef = useRef("");
   const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
@@ -64,17 +78,16 @@ export default function KitchenKiosk() {
     },
   });
 
-
   const { data: recipes } = useQuery({
     queryKey: ["recipes-food"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name")
+        .select("id, name, recipe_mode")
         .eq("recipe_type", "food")
         .order("name");
       if (error) throw error;
-      return data;
+      return data as (typeof data[0] & { recipe_mode?: string })[];
     },
   });
 
@@ -88,6 +101,29 @@ export default function KitchenKiosk() {
       return data;
     },
   });
+
+  // Fetch variable components for combo recipes
+  const { data: variableComponents } = useQuery({
+    queryKey: ["recipe-variable-components"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_variable_components" as any)
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const componentsByRecipe = useMemo(() => {
+    const map = new Map<string, any[]>();
+    variableComponents?.forEach((c: any) => {
+      const arr = map.get(c.recipe_id) || [];
+      arr.push(c);
+      map.set(c.recipe_id, arr);
+    });
+    return map;
+  }, [variableComponents]);
 
   // Map product → recipes that use it
   const recipesForProduct = useMemo(() => {
@@ -104,6 +140,10 @@ export default function KitchenKiosk() {
     recipes?.forEach((r) => map.set(r.id, r.name));
     return map;
   }, [recipes]);
+
+  // Split recipes into fixed and combo
+  const fixedRecipes = useMemo(() => recipes?.filter(r => (r as any).recipe_mode !== "variable_combo") ?? [], [recipes]);
+  const comboRecipes = useMemo(() => recipes?.filter(r => (r as any).recipe_mode === "variable_combo") ?? [], [recipes]);
 
   const { data: recentProductIds } = useQuery({
     queryKey: ["recent-products"],
@@ -282,7 +322,60 @@ export default function KitchenKiosk() {
   const grandTotal = cartLines.reduce((s, l) => s + l.totalCost, 0);
   const isValid = cart.length > 0 && hasQuantities && !hasInsufficient;
 
-  // ──── Confirm mutation ────
+  // ──── Combo execution helpers ────
+  const startComboExecution = (recipe: any) => {
+    const comps = componentsByRecipe.get(recipe.id) ?? [];
+    setComboExecution({
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      servings: 1,
+      components: comps.map((c: any) => ({
+        componentId: c.id,
+        componentName: c.component_name,
+        quantityPerService: Number(c.quantity_per_service),
+        selectedProductId: "",
+      })),
+    });
+  };
+
+  const updateComboComponent = (componentId: string, productId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) =>
+          c.componentId === componentId ? { ...c, selectedProductId: productId } : c
+        ),
+      };
+    });
+  };
+
+  const comboIsValid = useMemo(() => {
+    if (!comboExecution) return false;
+    if (comboExecution.servings <= 0) return false;
+    const allSelected = comboExecution.components.every((c) => c.selectedProductId);
+    if (!allSelected) return false;
+    // Check stock
+    for (const comp of comboExecution.components) {
+      const prod = products?.find((p) => p.id === comp.selectedProductId);
+      if (!prod) return false;
+      const needed = comboExecution.servings * comp.quantityPerService;
+      if (needed > Number(prod.current_stock ?? 0)) return false;
+    }
+    return true;
+  }, [comboExecution, products]);
+
+  const comboTotalCost = useMemo(() => {
+    if (!comboExecution) return 0;
+    return comboExecution.components.reduce((sum, comp) => {
+      const prod = products?.find((p) => p.id === comp.selectedProductId);
+      if (!prod) return sum;
+      const cost = Number(prod.average_cost ?? 0);
+      return sum + (cost * comp.quantityPerService * comboExecution.servings);
+    }, 0);
+  }, [comboExecution, products]);
+
+  // ──── Confirm mutation (individual products) ────
   const confirmConsumption = useMutation({
     mutationFn: async () => {
       for (const line of cartLines) {
@@ -319,7 +412,45 @@ export default function KitchenKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Get relevant recipes for a product
+  // ──── Confirm combo mutation ────
+  const confirmComboConsumption = useMutation({
+    mutationFn: async () => {
+      if (!comboExecution) throw new Error("No combo");
+      for (const comp of comboExecution.components) {
+        const prod = products?.find((p) => p.id === comp.selectedProductId);
+        if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
+        const qty = comp.quantityPerService * comboExecution.servings;
+        const cost = Number(prod.average_cost ?? 0);
+        const totalCost = qty * cost;
+        const { error } = await supabase.from("inventory_movements").insert({
+          product_id: comp.selectedProductId,
+          user_id: user!.id,
+          type: "salida",
+          quantity: qty,
+          unit_cost: cost,
+          total_cost: totalCost,
+          notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
+          restaurant_id: restaurantId!,
+          recipe_id: comboExecution.recipeId,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["movements"] });
+      qc.invalidateQueries({ queryKey: ["recent-products"] });
+      qc.invalidateQueries({ queryKey: ["frequent-products"] });
+      toast({
+        title: "Combo registrado",
+        description: `${comboExecution!.recipeName} — ${comboExecution!.servings} servicios descontados`,
+      });
+      setComboExecution(null);
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // Get relevant recipes for a product (fixed only)
   const getProductRecipes = (productId: string) => {
     const recipeIds = recipesForProduct.get(productId);
     if (!recipeIds || recipeIds.size === 0) return [];
@@ -360,6 +491,117 @@ export default function KitchenKiosk() {
     );
   };
 
+  // ──── Combo execution dialog ────
+  if (comboExecution) {
+    return (
+      <AppLayout>
+        <div className="mx-auto max-w-2xl space-y-4">
+          <div className="text-center">
+            <h1 className="font-heading text-3xl font-bold flex items-center justify-center gap-2">
+              <Layers className="h-8 w-8 text-primary" />
+              {comboExecution.recipeName}
+            </h1>
+            <p className="text-muted-foreground text-sm">Selecciona un producto para cada componente</p>
+          </div>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Cantidad de servicios</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NumericKeypadInput
+                mode="integer"
+                value={comboExecution.servings || ""}
+                onChange={(v) => setComboExecution((prev) => prev ? { ...prev, servings: Math.max(1, Number(v) || 1) } : null)}
+                min="1"
+                className="w-32 text-center text-lg"
+                keypadLabel="Cantidad de servicios"
+                forceKeypad
+              />
+            </CardContent>
+          </Card>
+
+          <div className="space-y-3">
+            {comboExecution.components.map((comp) => {
+              const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
+              const needed = comp.quantityPerService * comboExecution.servings;
+              const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
+              const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
+              const lineCost = unitCost * needed;
+
+              return (
+                <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
+                  <CardContent className="pt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-semibold capitalize">{comp.componentName}</Label>
+                      <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
+                    </div>
+                    <SearchableSelect
+                      options={products?.map((p) => ({
+                        value: p.id,
+                        label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+                        searchTerms: p.name + " " + (p.barcode || ""),
+                      })) ?? []}
+                      value={comp.selectedProductId}
+                      onValueChange={(v) => updateComboComponent(comp.componentId, v)}
+                      placeholder="Buscar y seleccionar producto..."
+                      searchPlaceholder="Buscar producto..."
+                    />
+                    {selectedProd && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
+                        </span>
+                        <span className="font-medium">${lineCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {insufficient && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <div className="rounded-md bg-muted p-4 flex justify-between items-center">
+            <span className="text-muted-foreground text-sm">Costo total del combo</span>
+            <div className="text-right">
+              <span className="font-heading font-bold text-2xl">${comboTotalCost.toFixed(2)}</span>
+              {comboExecution.servings > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  ${(comboTotalCost / comboExecution.servings).toFixed(2)} / servicio
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setComboExecution(null)}>
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 h-14 text-lg"
+              disabled={!comboIsValid || confirmComboConsumption.isPending}
+              onClick={() => confirmComboConsumption.mutate()}
+            >
+              {confirmComboConsumption.isPending ? "Registrando..." : (
+                <>
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  Confirmar ({comboExecution.servings} servicios)
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="mx-auto max-w-4xl space-y-4">
@@ -384,6 +626,46 @@ export default function KitchenKiosk() {
             <ScanBarcode className="h-4 w-4 inline mr-2" />
             {scanFeedback}
           </div>
+        )}
+
+        {/* Combo recipes quick access */}
+        {comboRecipes.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Layers className="h-4 w-4 text-primary" /> Combos / Servicios variables
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {comboRecipes.map((r) => {
+                  const comps = componentsByRecipe.get(r.id) ?? [];
+                  return (
+                    <Tooltip key={r.id}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => startComboExecution(r)}
+                        >
+                          <Layers className="h-3.5 w-3.5" />
+                          {r.name}
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{comps.length}</Badge>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">{r.name}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {comps.map((c: any) => c.component_name).join(", ")}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -475,7 +757,6 @@ export default function KitchenKiosk() {
                     {cartLines.map((item) => {
                       const availableRecipes = getProductRecipes(item.productId);
                       const hasRecipe = !!item.recipeId;
-                      const useRecipe = item.recipeId !== null; // null = undecided/no, string = selected
                       return (
                         <div
                           key={item.productId}
