@@ -419,13 +419,15 @@ export default function Products() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Categoría</Label>
-                        <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
-                          <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                          <SelectContent>
-                            {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                      <Label>Categoría</Label>
+                        <SearchableSelect
+                          options={categories?.map((c) => ({ value: c.id, label: c.name })) ?? []}
+                          value={form.categoryId}
+                          onValueChange={(v) => setForm({ ...form, categoryId: v })}
+                          placeholder="Seleccionar categoría..."
+                          searchPlaceholder="Buscar categoría..."
+                          clearable
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
