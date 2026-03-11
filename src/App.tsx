@@ -35,6 +35,7 @@ import Branding from "./pages/Branding";
 import UserManual from "./pages/UserManual";
 import RecalculateInventory from "./pages/RecalculateInventory";
 import Transformations from "./pages/Transformations";
+import Hotel from "./pages/Hotel";
 
 import NotFound from "./pages/NotFound";
 
