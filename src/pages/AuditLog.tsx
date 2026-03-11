@@ -220,7 +220,7 @@ export default function AuditLog() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-10" placeholder="Buscar por usuario o entidad..." value={search} onChange={(e) => handleSearch(e.target.value)} />
           </div>
-          <Select value={entityFilter} onValueChange={setEntityFilter}>
+          <Select value={entityFilter} onValueChange={handleEntityFilter}>
             <SelectTrigger className="w-[160px]">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Entidad" />
