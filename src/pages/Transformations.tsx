@@ -597,6 +597,11 @@ export default function Transformations() {
                               <Badge variant="destructive" className="text-xs">ENTRADA</Badge>
                               <span className="font-medium">{pMap[run.input_product_id]?.name ?? "—"}</span>
                               <span>{run.input_quantity} {pMap[run.input_product_id]?.unit}</span>
+                              {run.input_unit_cost > 0 && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  (${parseFloat(run.input_unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })} / {pMap[run.input_product_id]?.unit})
+                                </span>
+                              )}
                             </div>
                             <div className="ml-4 border-l-2 border-primary/20 pl-3 space-y-1">
                               {outs.map((o: any) => (
@@ -607,6 +612,11 @@ export default function Transformations() {
                                   <span>{pMap[o.output_product_id]?.name ?? "—"}</span>
                                   <span className="text-muted-foreground">{o.quantity} {pMap[o.output_product_id]?.unit}</span>
                                   <span className="text-xs text-muted-foreground">({parseFloat(o.yield_percent).toFixed(1)}%)</span>
+                                  {o.calculated_unit_cost > 0 && o.output_type !== "waste" && (
+                                    <span className="text-xs text-primary font-medium ml-1">
+                                      → ${parseFloat(o.calculated_unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })} / {pMap[o.output_product_id]?.unit}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                             </div>
