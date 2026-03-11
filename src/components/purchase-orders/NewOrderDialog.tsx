@@ -216,10 +216,10 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
-                  <TableHead className="w-28">Cantidad</TableHead>
-                  <TableHead className="w-32">Costo Unit.</TableHead>
-                  <TableHead className="w-28 text-right">Subtotal</TableHead>
-                  <TableHead className="w-10" />
+                   <TableHead className="w-28">Cantidad</TableHead>
+                   <TableHead className="w-36">Costo Unit.</TableHead>
+                   <TableHead className="w-32 text-right">Subtotal</TableHead>
+                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
