@@ -381,6 +381,7 @@ export default function Recipes() {
             validComponents.map((c, i) => ({
               recipe_id: recipeId,
               component_name: c.component_name.trim(),
+              component_mode: c.component_mode,
               quantity_per_service: c.quantity_per_service,
               required: c.required,
               sort_order: i,
