@@ -605,21 +605,6 @@ export default function KitchenKiosk() {
 
             {cart.length > 0 && (
               <>
-                {/* Service selector */}
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-foreground">Servicio (opcional)</label>
-                  <Select value={serviceId} onValueChange={setServiceId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sin servicio" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin servicio</SelectItem>
-                      {services?.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 {hasInsufficient && (
                   <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
