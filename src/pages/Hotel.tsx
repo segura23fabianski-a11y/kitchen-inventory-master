@@ -1,11 +1,12 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck } from "lucide-react";
+import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles } from "lucide-react";
 import RoomTypesTab from "@/components/hotel/RoomTypesTab";
 import RoomsTab from "@/components/hotel/RoomsTab";
 import GuestsTab from "@/components/hotel/GuestsTab";
 import CompaniesTab from "@/components/hotel/CompaniesTab";
 import StaysTab from "@/components/hotel/StaysTab";
+import HousekeepingTab from "@/components/hotel/HousekeepingTab";
 
 export default function Hotel() {
   return (
@@ -17,12 +18,14 @@ export default function Hotel() {
           <TabsTrigger value="room-types" className="gap-1.5"><HotelIcon className="h-4 w-4" />Tipos</TabsTrigger>
           <TabsTrigger value="guests" className="gap-1.5"><Users className="h-4 w-4" />Huéspedes</TabsTrigger>
           <TabsTrigger value="companies" className="gap-1.5"><Building2 className="h-4 w-4" />Empresas</TabsTrigger>
+          <TabsTrigger value="housekeeping" className="gap-1.5"><Sparkles className="h-4 w-4" />Housekeeping</TabsTrigger>
         </TabsList>
         <TabsContent value="stays"><StaysTab /></TabsContent>
         <TabsContent value="rooms"><RoomsTab /></TabsContent>
         <TabsContent value="room-types"><RoomTypesTab /></TabsContent>
         <TabsContent value="guests"><GuestsTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
+        <TabsContent value="housekeeping"><HousekeepingTab /></TabsContent>
       </Tabs>
     </AppLayout>
   );
