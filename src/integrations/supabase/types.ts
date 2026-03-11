@@ -445,6 +445,58 @@ export type Database = {
           },
         ]
       }
+      guest_signatures: {
+        Row: {
+          created_at: string
+          document_photo_url: string | null
+          guest_id: string
+          id: string
+          restaurant_id: string
+          signature_url: string | null
+          stay_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_photo_url?: string | null
+          guest_id: string
+          id?: string
+          restaurant_id: string
+          signature_url?: string | null
+          stay_id: string
+        }
+        Update: {
+          created_at?: string
+          document_photo_url?: string | null
+          guest_id?: string
+          id?: string
+          restaurant_id?: string
+          signature_url?: string | null
+          stay_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_signatures_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signatures_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signatures_stay_id_fkey"
+            columns: ["stay_id"]
+            isOneToOne: false
+            referencedRelation: "stays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hotel_companies: {
         Row: {
           active: boolean
@@ -559,6 +611,70 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      housekeeping_tasks: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          priority: string | null
+          restaurant_id: string
+          room_id: string
+          status: string
+          stay_id: string | null
+          task_type: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          restaurant_id: string
+          room_id: string
+          status?: string
+          stay_id?: string | null
+          task_type?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          restaurant_id?: string
+          room_id?: string
+          status?: string
+          stay_id?: string | null
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housekeeping_tasks_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "housekeeping_tasks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "housekeeping_tasks_stay_id_fkey"
+            columns: ["stay_id"]
+            isOneToOne: false
+            referencedRelation: "stays"
             referencedColumns: ["id"]
           },
         ]
