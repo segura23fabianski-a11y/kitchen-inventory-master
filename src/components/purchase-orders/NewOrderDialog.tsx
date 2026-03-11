@@ -183,16 +183,13 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
           <div className="grid grid-cols-1 gap-4">
             <div>
               <Label>Proveedor *</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proveedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers?.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={suppliers?.map((s) => ({ value: s.id, label: s.name })) ?? []}
+                value={supplierId}
+                onValueChange={setSupplierId}
+                placeholder="Seleccionar proveedor"
+                searchPlaceholder="Buscar proveedor..."
+              />
             </div>
             <div>
               <Label>Notas</Label>
