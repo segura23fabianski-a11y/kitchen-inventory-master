@@ -313,33 +313,45 @@ export type Database = {
       }
       combo_execution_items: {
         Row: {
+          actual_quantity: number | null
           component_name: string
           created_at: string
           execution_id: string
           id: string
+          is_recipe_component: boolean
           line_cost: number
           product_id: string
           quantity: number
+          selected_recipe_id: string | null
+          theoretical_quantity: number | null
           unit_cost: number
         }
         Insert: {
+          actual_quantity?: number | null
           component_name: string
           created_at?: string
           execution_id: string
           id?: string
+          is_recipe_component?: boolean
           line_cost?: number
           product_id: string
           quantity: number
+          selected_recipe_id?: string | null
+          theoretical_quantity?: number | null
           unit_cost?: number
         }
         Update: {
+          actual_quantity?: number | null
           component_name?: string
           created_at?: string
           execution_id?: string
           id?: string
+          is_recipe_component?: boolean
           line_cost?: number
           product_id?: string
           quantity?: number
+          selected_recipe_id?: string | null
+          theoretical_quantity?: number | null
           unit_cost?: number
         }
         Relationships: [
@@ -355,6 +367,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_execution_items_selected_recipe_id_fkey"
+            columns: ["selected_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
         ]
@@ -1465,6 +1484,7 @@ export type Database = {
       }
       recipe_variable_components: {
         Row: {
+          component_mode: string
           component_name: string
           created_at: string
           id: string
@@ -1475,6 +1495,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          component_mode?: string
           component_name: string
           created_at?: string
           id?: string
@@ -1485,6 +1506,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          component_mode?: string
           component_name?: string
           created_at?: string
           id?: string
