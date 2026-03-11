@@ -40,8 +40,19 @@ interface ComboExecution {
   components: {
     componentId: string;
     componentName: string;
+    componentMode: "product" | "recipe";
     quantityPerService: number;
-    selectedProductId: string;
+    selectedProductId: string; // for product mode
+    selectedRecipeId: string; // for recipe mode
+    recipeIngredients: {
+      ingredientId: string;
+      productId: string;
+      productName: string;
+      productUnit: string;
+      theoreticalQty: number; // per service × servings
+      actualQty: number; // editable real quantity
+      unitCost: number;
+    }[];
   }[];
 }
 
