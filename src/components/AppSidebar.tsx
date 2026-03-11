@@ -40,6 +40,7 @@ const navGroups: NavGroup[] = [
       { to: "/kardex", icon: BookOpen, label: "Kardex", permKey: "movements" },
       { to: "/physical-inventory", icon: ClipboardCheck, label: "Inventario Físico", permKey: "physical_inventory" },
       { to: "/waste", icon: AlertTriangle, label: "Desperdicios", permKey: "waste_control" },
+      { to: "/transformations", icon: FlaskConical, label: "Transformaciones", permKey: "transformations" },
     ],
   },
   {
