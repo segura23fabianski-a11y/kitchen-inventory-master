@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
-import { AlertTriangle, ShoppingCart, PackageCheck } from "lucide-react";
+import { AlertTriangle, ShoppingCart, PackageCheck, Info } from "lucide-react";
 
 export interface SuggestedItem {
   product_id: string;
@@ -39,8 +41,9 @@ export default function SuggestedPurchases() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // Track supplier overrides per product
   const [supplierOverrides, setSupplierOverrides] = useState<Record<string, string>>({});
+  const [qtyOverrides, setQtyOverrides] = useState<Record<string, number>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const { data: products } = useQuery({
     queryKey: ["products-for-reorder"],
@@ -81,7 +84,6 @@ export default function SuggestedPurchases() {
   const suggestions: SuggestedItem[] = useMemo(() => {
     if (!products) return [];
     return products.map((p: any) => {
-      // Find all suppliers for this product
       const allPS = productSuppliers?.filter((r: any) => r.product_id === p.id) || [];
       const available_suppliers = allPS.map((ps: any) => ({
         id: ps.supplier_id,
@@ -107,9 +109,7 @@ export default function SuggestedPurchases() {
         const stock_target = daily * targetDays;
         suggested_qty = Math.max(stock_target - stock, 0);
       } else {
-        if (daily && daily > 0) {
-          days_coverage = stock / daily;
-        }
+        if (daily && daily > 0) days_coverage = stock / daily;
         suggested_qty = Math.max(minStock - stock, 0);
       }
 
@@ -132,90 +132,107 @@ export default function SuggestedPurchases() {
     }).filter((s) => s.suggested_qty > 0);
   }, [products, productSuppliers]);
 
-  // Apply overrides to get effective supplier per product
+  // Apply overrides
   const effectiveSuggestions = useMemo(() => {
     return suggestions.map((s) => {
+      const qty = qtyOverrides[s.product_id] ?? s.suggested_qty;
       const overrideId = supplierOverrides[s.product_id];
+      let result = { ...s, suggested_qty: qty };
       if (overrideId && overrideId !== s.supplier_id) {
         const found = s.available_suppliers.find((sup) => sup.id === overrideId);
         if (found) {
-          return { ...s, supplier_id: found.id, supplier_name: found.name, last_unit_cost: found.last_unit_cost };
-        }
-        // Could be from allSuppliers (not linked)
-        const globalSup = allSuppliers?.find((sup) => sup.id === overrideId);
-        if (globalSup) {
-          return { ...s, supplier_id: globalSup.id, supplier_name: globalSup.name, last_unit_cost: null };
+          result = { ...result, supplier_id: found.id, supplier_name: found.name, last_unit_cost: found.last_unit_cost };
+        } else {
+          const globalSup = allSuppliers?.find((sup) => sup.id === overrideId);
+          if (globalSup) {
+            result = { ...result, supplier_id: globalSup.id, supplier_name: globalSup.name, last_unit_cost: null };
+          }
         }
       }
-      return s;
+      return result;
     });
-  }, [suggestions, supplierOverrides, allSuppliers]);
+  }, [suggestions, supplierOverrides, qtyOverrides, allSuppliers]);
 
-  const grouped = useMemo(() => {
+  // Selection helpers
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === effectiveSuggestions.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(effectiveSuggestions.map((s) => s.product_id)));
+    }
+  };
+
+  const allSelected = effectiveSuggestions.length > 0 && selected.size === effectiveSuggestions.length;
+
+  // Selected items grouped by supplier for preview
+  const selectedGroups = useMemo(() => {
+    const items = effectiveSuggestions.filter((s) => selected.has(s.product_id));
     const map = new Map<string, { supplier_id: string; supplier_name: string; items: SuggestedItem[] }>();
     const noSupplier: SuggestedItem[] = [];
-    effectiveSuggestions.forEach((s) => {
+    items.forEach((s) => {
       if (!s.supplier_id) {
         noSupplier.push(s);
         return;
       }
-      const key = s.supplier_id;
-      if (!map.has(key)) map.set(key, { supplier_id: key, supplier_name: s.supplier_name || "Sin nombre", items: [] });
-      map.get(key)!.items.push(s);
+      if (!map.has(s.supplier_id)) map.set(s.supplier_id, { supplier_id: s.supplier_id, supplier_name: s.supplier_name || "Sin nombre", items: [] });
+      map.get(s.supplier_id)!.items.push(s);
     });
     const groups = Array.from(map.values());
-    if (noSupplier.length) groups.push({ supplier_id: "", supplier_name: "Sin proveedor asignado", items: noSupplier });
-    return groups;
-  }, [effectiveSuggestions]);
+    return { valid: groups, invalid: noSupplier };
+  }, [effectiveSuggestions, selected]);
 
-  const generateOrder = useMutation({
-    mutationFn: async (group: { supplier_id: string; items: SuggestedItem[] }) => {
-      if (!restaurantId || !user) throw new Error("Sin contexto");
-      const { data: order, error } = await supabase
-        .from("purchase_orders")
-        .insert({
-          restaurant_id: restaurantId,
-          supplier_id: group.supplier_id,
-          order_date: new Date().toISOString().slice(0, 10),
-          created_by: user.id,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      const items = group.items.map((item) => ({
-        restaurant_id: restaurantId,
-        purchase_order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.suggested_qty,
-        unit_cost: item.last_unit_cost,
-      }));
-      const { error: itemErr } = await supabase.from("purchase_order_items").insert(items);
-      if (itemErr) throw itemErr;
-      await logAudit({
-        entityType: "purchase_order",
-        entityId: order.id,
-        action: "CREATE",
-        after: { supplier_id: group.supplier_id, items_count: items.length },
-        metadata: { source: "suggested_purchases" },
-      });
-      return order.id;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
-      toast({ title: "Pedido de compra generado" });
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const generateAll = useMutation({
+  const generateOrders = useMutation({
     mutationFn: async () => {
-      const validGroups = grouped.filter((g) => g.supplier_id);
-      for (const group of validGroups) {
-        await generateOrder.mutateAsync(group);
+      if (!restaurantId || !user) throw new Error("Sin contexto");
+      const groups = selectedGroups.valid;
+      if (!groups.length) throw new Error("No hay productos con proveedor seleccionados");
+      const createdIds: string[] = [];
+      for (const group of groups) {
+        const { data: order, error } = await supabase
+          .from("purchase_orders")
+          .insert({
+            restaurant_id: restaurantId,
+            supplier_id: group.supplier_id,
+            order_date: new Date().toISOString().slice(0, 10),
+            created_by: user.id,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        const items = group.items.map((item) => ({
+          restaurant_id: restaurantId,
+          purchase_order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.suggested_qty,
+          unit_cost: item.last_unit_cost,
+        }));
+        const { error: itemErr } = await supabase.from("purchase_order_items").insert(items);
+        if (itemErr) throw itemErr;
+        await logAudit({
+          entityType: "purchase_order",
+          entityId: order.id,
+          action: "CREATE",
+          after: { supplier_id: group.supplier_id, items_count: items.length },
+          metadata: { source: "suggested_purchases" },
+        });
+        createdIds.push(order.id);
       }
+      return createdIds;
     },
-    onSuccess: () => {
-      toast({ title: "Todos los pedidos generados" });
+    onSuccess: (ids) => {
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      setSelected(new Set());
+      setQtyOverrides({});
+      setSupplierOverrides({});
+      toast({ title: `${ids.length} pedido(s) creado(s) exitosamente` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -232,107 +249,154 @@ export default function SuggestedPurchases() {
     );
   }
 
-  const hasValidGroups = grouped.some((g) => g.supplier_id);
+  const hasInvalidSelected = selectedGroups.invalid.length > 0;
+  const validSelectedCount = selectedGroups.valid.reduce((acc, g) => acc + g.items.length, 0);
 
   return (
     <div className="space-y-4">
-      {canCreate && hasValidGroups && (
-        <div className="flex justify-end">
-          <Button onClick={() => generateAll.mutate()} disabled={generateAll.isPending}>
-            <ShoppingCart className="h-4 w-4 mr-1" />
-            Generar todos los pedidos
-          </Button>
-        </div>
-      )}
-
-      {grouped.map((group) => (
-        <Card key={group.supplier_id || "none"}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                {group.supplier_name}
-                <Badge variant="secondary">{group.items.length} productos</Badge>
-              </CardTitle>
-              {canCreate && group.supplier_id && (
-                <Button
-                  size="sm"
-                  onClick={() => generateOrder.mutate(group)}
-                  disabled={generateOrder.isPending}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-1" />
-                  Generar Pedido
-                </Button>
-              )}
+      {/* Action bar */}
+      {canCreate && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{selected.size}</span> de{" "}
+                <span className="font-medium text-foreground">{effectiveSuggestions.length}</span> productos seleccionados
+                {selected.size > 0 && selectedGroups.valid.length > 0 && (
+                  <span className="ml-2">
+                    → <span className="font-semibold text-primary">{selectedGroups.valid.length} pedido(s)</span> para:{" "}
+                    {selectedGroups.valid.map((g) => g.supplier_name).join(", ")}
+                  </span>
+                )}
+              </div>
+              <Button
+                onClick={() => generateOrders.mutate()}
+                disabled={validSelectedCount === 0 || generateOrders.isPending}
+              >
+                <ShoppingCart className="h-4 w-4 mr-1" />
+                {generateOrders.isPending ? "Generando..." : `Generar pedidos (${selectedGroups.valid.length})`}
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead className="text-right">Stock actual</TableHead>
-                  <TableHead className="text-right">Stock mínimo</TableHead>
-                  <TableHead className="text-right">Cant. Sugerida</TableHead>
-                  <TableHead>Proveedor</TableHead>
-                  <TableHead className="text-right">Últ. Costo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {group.items.map((item) => {
-                  const effectiveItem = effectiveSuggestions.find((s) => s.product_id === item.product_id) || item;
-                  const supplierOptions = item.available_suppliers.length > 0 ? item.available_suppliers : [];
-                  const hasMultiple = supplierOptions.length > 1 || (allSuppliers && allSuppliers.length > 0);
-
-                  return (
-                    <TableRow key={item.product_id}>
-                      <TableCell className="font-medium">
-                        {item.product_name} <span className="text-muted-foreground text-xs">({item.unit})</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={item.current_stock < item.min_stock ? "text-destructive font-semibold" : ""}>{item.current_stock}</span>
-                      </TableCell>
-                      <TableCell className="text-right">{item.min_stock}</TableCell>
-                      <TableCell className="text-right font-semibold text-primary">{effectiveItem.suggested_qty}</TableCell>
-                      <TableCell>
-                        {canCreate && hasMultiple ? (
-                          <Select
-                            value={supplierOverrides[item.product_id] || effectiveItem.supplier_id || ""}
-                            onValueChange={(v) => setSupplierOverrides((prev) => ({ ...prev, [item.product_id]: v }))}
-                          >
-                            <SelectTrigger className="h-8 w-44">
-                              <SelectValue placeholder="Sin proveedor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {/* Linked suppliers first */}
-                              {supplierOptions.map((sup) => (
-                                <SelectItem key={sup.id} value={sup.id}>
-                                  {sup.name} {sup.last_unit_cost != null ? `($${sup.last_unit_cost.toFixed(2)})` : ""}
-                                </SelectItem>
-                              ))}
-                              {/* Other suppliers */}
-                              {allSuppliers
-                                ?.filter((s) => !supplierOptions.some((so) => so.id === s.id))
-                                .map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>
-                                    {s.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className="text-sm">{effectiveItem.supplier_name || "—"}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">{effectiveItem.last_unit_cost != null ? `$${effectiveItem.last_unit_cost.toFixed(2)}` : "—"}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            {hasInvalidSelected && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-amber-600">
+                <Info className="h-3.5 w-3.5" />
+                {selectedGroups.invalid.length} producto(s) sin proveedor no serán incluidos. Asigne un proveedor primero.
+              </div>
+            )}
           </CardContent>
         </Card>
-      ))}
+      )}
+
+      {/* Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Productos que necesitan reposición
+            <Badge variant="secondary">{effectiveSuggestions.length}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {canCreate && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={selectAll}
+                      aria-label="Seleccionar todos"
+                    />
+                  </TableHead>
+                )}
+                <TableHead>Producto</TableHead>
+                <TableHead className="text-right">Stock actual</TableHead>
+                <TableHead className="text-right">Stock mín.</TableHead>
+                <TableHead className="text-right w-28">Cant. sugerida</TableHead>
+                <TableHead className="w-48">Proveedor</TableHead>
+                <TableHead className="text-right">Últ. Costo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {effectiveSuggestions.map((item) => {
+                const isSelected = selected.has(item.product_id);
+                const supplierOptions = item.available_suppliers.length > 0 ? item.available_suppliers : [];
+                const hasMultiple = supplierOptions.length > 1 || (allSuppliers && allSuppliers.length > 0);
+                const noSupplier = !item.supplier_id && !supplierOverrides[item.product_id];
+
+                return (
+                  <TableRow key={item.product_id} className={isSelected ? "bg-primary/5" : ""}>
+                    {canCreate && (
+                      <TableCell>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(item.product_id)}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium">
+                      {item.product_name}{" "}
+                      <span className="text-muted-foreground text-xs">({item.unit})</span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={item.current_stock < item.min_stock ? "text-destructive font-semibold" : ""}>
+                        {item.current_stock}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">{item.min_stock}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={qtyOverrides[item.product_id] ?? item.suggested_qty}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setQtyOverrides((prev) => ({ ...prev, [item.product_id]: val > 0 ? val : 0 }));
+                        }}
+                        className="h-8 w-24 text-right ml-auto"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {canCreate && hasMultiple ? (
+                        <Select
+                          value={supplierOverrides[item.product_id] || item.supplier_id || ""}
+                          onValueChange={(v) => setSupplierOverrides((prev) => ({ ...prev, [item.product_id]: v }))}
+                        >
+                          <SelectTrigger className={`h-8 w-44 ${noSupplier ? "border-amber-400" : ""}`}>
+                            <SelectValue placeholder="Sin proveedor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {supplierOptions.map((sup) => (
+                              <SelectItem key={sup.id} value={sup.id}>
+                                {sup.name} {sup.last_unit_cost != null ? `($${sup.last_unit_cost.toFixed(2)})` : ""}
+                              </SelectItem>
+                            ))}
+                            {allSuppliers
+                              ?.filter((s) => !supplierOptions.some((so) => so.id === s.id))
+                              .map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className={`text-sm ${noSupplier ? "text-amber-600 italic" : ""}`}>
+                          {item.supplier_name || "Sin proveedor"}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {item.last_unit_cost != null ? `$${item.last_unit_cost.toFixed(2)}` : "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
