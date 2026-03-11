@@ -59,7 +59,7 @@ export default function Transformations() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, unit, current_stock, average_cost")
+        .select("id, name, unit, current_stock, average_cost, last_unit_cost")
         .order("name");
       return data ?? [];
     },
