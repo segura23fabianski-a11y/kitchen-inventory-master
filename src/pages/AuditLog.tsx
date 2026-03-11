@@ -232,7 +232,7 @@ export default function AuditLog() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={actionFilter} onValueChange={setActionFilter}>
+          <Select value={actionFilter} onValueChange={handleActionFilter}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Acción" />
             </SelectTrigger>
