@@ -59,7 +59,7 @@ export default function Transformations() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, unit, current_stock, average_cost")
+        .select("id, name, unit, current_stock, average_cost, last_unit_cost")
         .order("name");
       return data ?? [];
     },
@@ -211,7 +211,7 @@ export default function Transformations() {
         throw new Error(`Stock insuficiente de ${inputProduct.name}. Disponible: ${inputProduct.current_stock} ${inputProduct.unit}`);
       }
 
-      const unitCostInput = inputProduct.average_cost || 0;
+      const unitCostInput = inputProduct.average_cost > 0 ? inputProduct.average_cost : (inputProduct.last_unit_cost || 0);
       const totalCostInput = inputQtyNum * unitCostInput;
 
       // 1. SALIDA del producto de entrada
@@ -255,6 +255,7 @@ export default function Transformations() {
         transformation_definition_id: selDefId || null,
         input_product_id: execInputId,
         input_quantity: inputQtyNum,
+        input_unit_cost: unitCostInput,
         total_output: totalOutputQty,
         total_waste: totalWasteQty + impliedWaste,
         overall_yield: yieldPct,
@@ -264,13 +265,18 @@ export default function Transformations() {
       if (e3) throw e3;
 
       // 4. Log run outputs
-      const runOutputs = validOutputs.map((o) => ({
-        transformation_run_id: (run as any).id,
-        output_product_id: o.productId,
-        output_type: o.outputType,
-        quantity: Math.abs(parseFloat(o.quantity)),
-        yield_percent: inputQtyNum > 0 ? (Math.abs(parseFloat(o.quantity)) / inputQtyNum) * 100 : 0,
-      }));
+      const runOutputs = validOutputs.map((o) => {
+        const qty = Math.abs(parseFloat(o.quantity));
+        const calcCost = o.outputType === "waste" ? 0 : (totalOutputQty > 0 ? (totalCostInput * (qty / totalOutputQty)) / qty : 0);
+        return {
+          transformation_run_id: (run as any).id,
+          output_product_id: o.productId,
+          output_type: o.outputType,
+          quantity: qty,
+          yield_percent: inputQtyNum > 0 ? (qty / inputQtyNum) * 100 : 0,
+          calculated_unit_cost: calcCost,
+        };
+      });
       const { error: e4 } = await supabase.from("transformation_run_outputs" as any).insert(runOutputs as any);
       if (e4) throw e4;
 
@@ -490,26 +496,66 @@ export default function Transformations() {
                 </Card>
 
                 {/* Summary metrics */}
-                {inputQtyNum > 0 && execOutputs.some((o) => parseFloat(o.quantity) > 0) && (
-                  <div className="flex gap-3 flex-wrap items-center">
-                    <Badge variant="secondary" className="text-sm py-1 px-3">
-                      Total salidas: {totalAllOutputs.toFixed(2)} / {inputQtyNum}
-                    </Badge>
-                    {impliedWaste > 0.001 && (
-                      <Badge variant="outline" className="text-sm py-1 px-3">
-                        Merma implícita: {impliedWaste.toFixed(2)}
-                      </Badge>
-                    )}
-                    <Badge variant={parseFloat(overallYield) >= 70 ? "default" : "destructive"} className="text-sm py-1 px-3">
-                      Rendimiento: {overallYield}%
-                    </Badge>
-                    {overTotal && (
-                      <Badge variant="destructive" className="text-sm py-1 px-3">
-                        ⚠ Suma supera la entrada
-                      </Badge>
-                    )}
-                  </div>
-                )}
+                {inputQtyNum > 0 && execOutputs.some((o) => parseFloat(o.quantity) > 0) && (() => {
+                  const inputP = pMap[execInputId];
+                  const costOrigin = inputP ? (inputP.average_cost > 0 ? inputP.average_cost : (inputP.last_unit_cost || 0)) : 0;
+                  const totalCost = inputQtyNum * costOrigin;
+                  const calcOutputCosts = execOutputs
+                    .filter((o) => o.productId && parseFloat(o.quantity) > 0 && o.outputType !== "waste")
+                    .map((o) => {
+                      const q = parseFloat(o.quantity);
+                      const newUnitCost = totalOutputQty > 0 ? (totalCost * (q / totalOutputQty)) / q : 0;
+                      return { name: pMap[o.productId]?.name || "—", unit: pMap[o.productId]?.unit || "", newUnitCost, qty: q };
+                    });
+
+                  return (
+                    <Card className="border border-accent/40 bg-accent/5">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex gap-3 flex-wrap items-center">
+                          <Badge variant="secondary" className="text-sm py-1 px-3">
+                            Total salidas: {totalAllOutputs.toFixed(2)} / {inputQtyNum}
+                          </Badge>
+                          {impliedWaste > 0.001 && (
+                            <Badge variant="outline" className="text-sm py-1 px-3">
+                              Merma implícita: {impliedWaste.toFixed(2)}
+                            </Badge>
+                          )}
+                          <Badge variant={parseFloat(overallYield) >= 70 ? "default" : "destructive"} className="text-sm py-1 px-3">
+                            Rendimiento: {overallYield}%
+                          </Badge>
+                          {overTotal && (
+                            <Badge variant="destructive" className="text-sm py-1 px-3">
+                              ⚠ Suma supera la entrada
+                            </Badge>
+                          )}
+                        </div>
+
+                        {costOrigin > 0 && (
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-4 text-muted-foreground">
+                              <span>Costo origen: <strong className="text-foreground">${costOrigin.toLocaleString("es-CO", { minimumFractionDigits: 2 })}</strong> / {inputP?.unit}</span>
+                              <span>Costo total entrada: <strong className="text-foreground">${totalCost.toLocaleString("es-CO", { minimumFractionDigits: 2 })}</strong></span>
+                            </div>
+                            {calcOutputCosts.length > 0 && (
+                              <div className="border-t border-border pt-2 space-y-1">
+                                <span className="text-xs font-medium text-muted-foreground">Nuevo costo calculado por producto de salida:</span>
+                                {calcOutputCosts.map((c, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <ArrowRight className="h-3 w-3 text-primary" />
+                                    <span className="font-medium">{c.name}</span>
+                                    <span className="text-primary font-semibold">
+                                      ${c.newUnitCost.toLocaleString("es-CO", { minimumFractionDigits: 2 })} / {c.unit}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
 
                 <div>
                   <Label>Notas (opcional)</Label>
@@ -557,6 +603,11 @@ export default function Transformations() {
                               <Badge variant="destructive" className="text-xs">ENTRADA</Badge>
                               <span className="font-medium">{pMap[run.input_product_id]?.name ?? "—"}</span>
                               <span>{run.input_quantity} {pMap[run.input_product_id]?.unit}</span>
+                              {run.input_unit_cost > 0 && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  (${parseFloat(run.input_unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })} / {pMap[run.input_product_id]?.unit})
+                                </span>
+                              )}
                             </div>
                             <div className="ml-4 border-l-2 border-primary/20 pl-3 space-y-1">
                               {outs.map((o: any) => (
@@ -567,6 +618,11 @@ export default function Transformations() {
                                   <span>{pMap[o.output_product_id]?.name ?? "—"}</span>
                                   <span className="text-muted-foreground">{o.quantity} {pMap[o.output_product_id]?.unit}</span>
                                   <span className="text-xs text-muted-foreground">({parseFloat(o.yield_percent).toFixed(1)}%)</span>
+                                  {o.calculated_unit_cost > 0 && o.output_type !== "waste" && (
+                                    <span className="text-xs text-primary font-medium ml-1">
+                                      → ${parseFloat(o.calculated_unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })} / {pMap[o.output_product_id]?.unit}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                             </div>
