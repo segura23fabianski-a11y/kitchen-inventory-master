@@ -252,6 +252,7 @@ export default function KitchenKiosk() {
         currentStock: Number(p.current_stock ?? 0),
         averageCost: Number(p.average_cost ?? 0),
         recipeId: null,
+        comboComponentId: null,
       },
     ]);
     setScanFeedback(`✓ ${p.name} agregado`);
