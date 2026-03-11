@@ -120,6 +120,14 @@ export default function AuditLog() {
     },
   });
 
+  const { data: profiles } = useQuery({
+    queryKey: ["all-profiles"],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("user_id, full_name");
+      return data ?? [];
+    },
+  });
+
   const profileMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) ?? []);
 
   const rollbackMutation = useMutation({
