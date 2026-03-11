@@ -584,99 +584,80 @@ export default function KitchenKiosk() {
       if (!comboExecution) throw new Error("No combo");
 
       let totalCost = 0;
-      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number; isRecipeComponent: boolean; selectedRecipeId: string | null; theoreticalQty: number | null; actualQty: number | null }[] = [];
+      const itemsForLog: any[] = [];
 
       for (const comp of comboExecution.components) {
         if (comp.componentMode === "product") {
-          // Direct product component
           const prod = products?.find((p) => p.id === comp.selectedProductId);
           if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
           const qty = comp.quantityPerService * comboExecution.servings;
           const cost = Number(prod.average_cost ?? 0);
           const lineCost = qty * cost;
           totalCost += lineCost;
-          itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null });
+          itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null, productionRunId: null, costSource: "theoretical" });
 
           const { error } = await supabase.from("inventory_movements").insert({
-            product_id: comp.selectedProductId,
-            user_id: user!.id,
-            type: "salida",
-            quantity: qty,
-            unit_cost: cost,
-            total_cost: lineCost,
+            product_id: comp.selectedProductId, user_id: user!.id, type: "salida", quantity: qty, unit_cost: cost, total_cost: lineCost,
             notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
-            restaurant_id: restaurantId!,
-            recipe_id: comboExecution.recipeId,
+            restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
           });
           if (error) throw error;
         } else {
-          // Recipe component - deduct each ingredient with actual quantities
           const selectedRecipeName = recipeMap.get(comp.selectedRecipeId) ?? "Receta";
-          for (const ri of comp.recipeIngredients) {
-            const prod = products?.find((p) => p.id === ri.productId);
-            if (!prod) continue;
-            const cost = Number(prod.average_cost ?? 0);
-            const lineCost = ri.actualQty * cost;
+
+          if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
+            // Use production run cost — no ingredient-level deduction (already deducted during production)
+            const qty = comp.quantityPerService * comboExecution.servings;
+            const lineCost = comp.productionRunUnitCost * qty;
             totalCost += lineCost;
             itemsForLog.push({
-              componentName: comp.componentName,
-              productId: ri.productId,
-              qty: ri.actualQty,
-              unitCost: cost,
-              lineCost,
-              isRecipeComponent: true,
-              selectedRecipeId: comp.selectedRecipeId,
-              theoreticalQty: ri.theoreticalQty,
-              actualQty: ri.actualQty,
+              componentName: comp.componentName, productId: comp.selectedRecipeId, qty, unitCost: comp.productionRunUnitCost, lineCost,
+              isRecipeComponent: true, selectedRecipeId: comp.selectedRecipeId,
+              theoreticalQty: qty, actualQty: qty,
+              productionRunId: comp.productionRunId, costSource: "production_run",
             });
+          } else {
+            // Deduct each ingredient with actual quantities
+            for (const ri of comp.recipeIngredients) {
+              const prod = products?.find((p) => p.id === ri.productId);
+              if (!prod) continue;
+              const cost = Number(prod.average_cost ?? 0);
+              const lineCost = ri.actualQty * cost;
+              totalCost += lineCost;
+              itemsForLog.push({
+                componentName: comp.componentName, productId: ri.productId, qty: ri.actualQty, unitCost: cost, lineCost,
+                isRecipeComponent: true, selectedRecipeId: comp.selectedRecipeId,
+                theoreticalQty: ri.theoreticalQty, actualQty: ri.actualQty,
+                productionRunId: null, costSource: "theoretical",
+              });
 
-            const { error } = await supabase.from("inventory_movements").insert({
-              product_id: ri.productId,
-              user_id: user!.id,
-              type: "salida",
-              quantity: ri.actualQty,
-              unit_cost: cost,
-              total_cost: lineCost,
-              notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
-              restaurant_id: restaurantId!,
-              recipe_id: comboExecution.recipeId,
-            });
-            if (error) throw error;
+              const { error } = await supabase.from("inventory_movements").insert({
+                product_id: ri.productId, user_id: user!.id, type: "salida", quantity: ri.actualQty, unit_cost: cost, total_cost: lineCost,
+                notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
+                restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
+              });
+              if (error) throw error;
+            }
           }
         }
       }
 
-      // Save combo execution log
       const unitCost = comboExecution.servings > 0 ? totalCost / comboExecution.servings : 0;
       const { data: execLog, error: logError } = await supabase
         .from("combo_execution_logs" as any)
-        .insert({
-          restaurant_id: restaurantId!,
-          recipe_id: comboExecution.recipeId,
-          executed_by: user!.id,
-          servings: comboExecution.servings,
-          total_cost: totalCost,
-          unit_cost: unitCost,
-        } as any)
-        .select("id")
-        .single();
+        .insert({ restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId, executed_by: user!.id, servings: comboExecution.servings, total_cost: totalCost, unit_cost: unitCost } as any)
+        .select("id").single();
       if (logError) throw logError;
 
-      // Save combo execution items
       const { error: itemsError } = await supabase
         .from("combo_execution_items" as any)
         .insert(
           itemsForLog.map((item) => ({
-            execution_id: (execLog as any).id,
-            component_name: item.componentName,
-            product_id: item.productId,
-            quantity: item.qty,
-            unit_cost: item.unitCost,
-            line_cost: item.lineCost,
-            is_recipe_component: item.isRecipeComponent,
-            selected_recipe_id: item.selectedRecipeId,
-            theoretical_quantity: item.theoreticalQty,
-            actual_quantity: item.actualQty,
+            execution_id: (execLog as any).id, component_name: item.componentName, product_id: item.productId,
+            quantity: item.qty, unit_cost: item.unitCost, line_cost: item.lineCost,
+            is_recipe_component: item.isRecipeComponent, selected_recipe_id: item.selectedRecipeId,
+            theoretical_quantity: item.theoreticalQty, actual_quantity: item.actualQty,
+            production_run_id: item.productionRunId, cost_source: item.costSource,
           })) as any
         );
       if (itemsError) throw itemsError;
