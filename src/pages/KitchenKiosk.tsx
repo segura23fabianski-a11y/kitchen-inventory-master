@@ -855,7 +855,9 @@ export default function KitchenKiosk() {
                               </button>
                               {hasRecipe && item.recipeId && item.recipeId !== "__pending" && (
                                 <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
-                                  <UtensilsCrossed className="h-2.5 w-2.5" />
+                                  {comboRecipes.some(r => r.id === item.recipeId)
+                                    ? <Layers className="h-2.5 w-2.5" />
+                                    : <UtensilsCrossed className="h-2.5 w-2.5" />}
                                   {recipeMap.get(item.recipeId) ?? "Receta"}
                                 </Badge>
                               )}
