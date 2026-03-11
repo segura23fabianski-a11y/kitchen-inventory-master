@@ -147,7 +147,7 @@ export async function generatePurchaseOrderPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(60, 60, 60);
-  const orderNum = order.order_id.slice(0, 8).toUpperCase();
+  const orderNum = order.order_number || order.order_id.slice(0, 8).toUpperCase();
   const metaRight = [
     `N.º ${orderNum}`,
     `Fecha: ${order.order_date}`,
