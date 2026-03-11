@@ -159,6 +159,7 @@ export default function OrdersList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>N.º Orden</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Estado</TableHead>
