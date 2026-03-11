@@ -573,14 +573,13 @@ export default function Recipes() {
                         <div className="flex items-end gap-2">
                           <div className="flex-1 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                            <Select value={ing.product_id} onValueChange={(v) => updateEditIngredient(i, "product_id", v)}>
-                              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                              <SelectContent>
-                                {products?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${getProductCost(p.id).toFixed(2)}/{p.unit}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                              options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
+                              value={ing.product_id}
+                              onValueChange={(v) => updateEditIngredient(i, "product_id", v)}
+                              placeholder="Seleccionar..."
+                              searchPlaceholder="Buscar producto..."
+                            />
                           </div>
                           <div className="w-24 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
