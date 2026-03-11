@@ -735,6 +735,70 @@ export type Database = {
           },
         ]
       }
+      hotel_linen_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_location: string
+          id: string
+          linen_id: string
+          notes: string | null
+          quantity: number
+          restaurant_id: string
+          room_id: string | null
+          stay_id: string | null
+          to_location: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_location: string
+          id?: string
+          linen_id: string
+          notes?: string | null
+          quantity: number
+          restaurant_id: string
+          room_id?: string | null
+          stay_id?: string | null
+          to_location: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_location?: string
+          id?: string
+          linen_id?: string
+          notes?: string | null
+          quantity?: number
+          restaurant_id?: string
+          room_id?: string | null
+          stay_id?: string | null
+          to_location?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotel_linen_movements_linen_id_fkey"
+            columns: ["linen_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_linen_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotel_linen_movements_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotel_linen_movements_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hotel_linen_room_assignments: {
         Row: {
           assigned_at: string
