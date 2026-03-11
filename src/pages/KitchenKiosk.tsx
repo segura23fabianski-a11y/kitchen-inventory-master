@@ -392,6 +392,9 @@ export default function KitchenKiosk() {
         quantityPerService: Number(c.quantity_per_service),
         selectedProductId: "",
         selectedRecipeId: "",
+        productionRunId: null,
+        costSource: "theoretical" as const,
+        productionRunUnitCost: 0,
         recipeIngredients: [],
       })),
     });
