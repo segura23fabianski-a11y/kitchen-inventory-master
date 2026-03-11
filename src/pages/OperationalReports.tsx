@@ -310,15 +310,14 @@ export default function OperationalReports() {
           </div>
           <div>
             <Label className="text-xs">Área / Servicio</Label>
-            <Select value={filterService} onValueChange={setFilterService}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las áreas</SelectItem>
-                {allAreas.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[{ value: "all", label: "Todas las áreas" }, ...allAreas.map((a) => ({ value: a, label: a }))]}
+              value={filterService}
+              onValueChange={setFilterService}
+              placeholder="Todas las áreas"
+              searchPlaceholder="Buscar área..."
+              triggerClassName="w-[180px]"
+            />
           </div>
           <div>
             <Label className="text-xs">Categoría</Label>
