@@ -64,6 +64,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "hotel",
+    label: "Hotel",
+    icon: Hotel,
+    items: [
+      { to: "/hotel", icon: Hotel, label: "Módulo Hotelero", permKey: "hotel" },
+    ],
+  },
+  {
     id: "operacion",
     label: "Operación",
     icon: Monitor,

@@ -100,6 +100,7 @@ const AppRoutes = () => (
     <Route path="/recalculate-inventory" element={<ProtectedRoute permKey="recalculate_inventory"><RecalculateInventory /></ProtectedRoute>} />
     <Route path="/branding" element={<ProtectedRoute permKey="branding"><Branding /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute permKey="user_manual"><UserManual /></ProtectedRoute>} />
+    <Route path="/hotel" element={<ProtectedRoute permKey="hotel"><Hotel /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
