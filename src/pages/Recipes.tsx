@@ -19,11 +19,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 type RecipeType = "food" | "laundry" | "housekeeping";
+type RecipeMode = "fixed" | "variable_combo";
 
 const RECIPE_TYPE_CONFIG: Record<RecipeType, { label: string; icon: typeof ChefHat; color: string }> = {
   food: { label: "Cocina", icon: ChefHat, color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
@@ -38,6 +39,14 @@ interface IngredientLine {
   yield_per_portion: number;
 }
 
+interface ComponentLine {
+  id?: string;
+  component_name: string;
+  quantity_per_service: number;
+  required: boolean;
+  sort_order: number;
+}
+
 export default function Recipes() {
   const [open, setOpen] = useState(false);
   const [viewRecipeId, setViewRecipeId] = useState<string | null>(null);
@@ -45,11 +54,15 @@ export default function Recipes() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editRecipeType, setEditRecipeType] = useState<RecipeType>("food");
+  const [editRecipeMode, setEditRecipeMode] = useState<RecipeMode>("fixed");
   const [editIngredients, setEditIngredients] = useState<(IngredientLine & { id?: string })[]>([]);
+  const [editComponents, setEditComponents] = useState<ComponentLine[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [recipeType, setRecipeType] = useState<RecipeType>("food");
+  const [recipeMode, setRecipeMode] = useState<RecipeMode>("fixed");
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
+  const [components, setComponents] = useState<ComponentLine[]>([]);
   const [filterType, setFilterType] = useState<RecipeType | "all">("all");
   const { hasRole } = useAuth();
   const { logAudit } = useAudit();
@@ -84,6 +97,26 @@ export default function Recipes() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch variable components for all recipes
+  const { data: allVariableComponents } = useQuery({
+    queryKey: ["recipe-variable-components"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_variable_components" as any)
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const componentsByRecipe = new Map<string, any[]>();
+  allVariableComponents?.forEach((c: any) => {
+    const arr = componentsByRecipe.get(c.recipe_id) || [];
+    arr.push(c);
+    componentsByRecipe.set(c.recipe_id, arr);
   });
 
   const getProductCost = (productId: string): number => {
@@ -134,23 +167,48 @@ export default function Recipes() {
       })
     );
 
-  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setIngredients([]); };
+  // Component operations for create form
+  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const removeComponent = (i: number) => setComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
+  const updateComponent = (i: number, field: keyof ComponentLine, value: any) =>
+    setComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
+
+  // Component operations for edit form
+  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const removeEditComponent = (i: number) => setEditComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
+  const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
+    setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
+
+  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); };
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, restaurant_id: restaurantId! } as any).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, recipe_mode: recipeMode, restaurant_id: restaurantId! } as any).select("id").single();
       if (error) throw error;
-      const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
-      if (validIngredients.length > 0) {
-        const { error: ingError } = await supabase.from("recipe_ingredients").insert(
-          validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! }))
-        );
-        if (ingError) throw ingError;
+
+      if (recipeMode === "fixed") {
+        const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
+        if (validIngredients.length > 0) {
+          const { error: ingError } = await supabase.from("recipe_ingredients").insert(
+            validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! }))
+          );
+          if (ingError) throw ingError;
+        }
+      } else {
+        const validComponents = components.filter((c) => c.component_name.trim());
+        if (validComponents.length > 0) {
+          const { error: compError } = await supabase.from("recipe_variable_components" as any).insert(
+            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, restaurant_id: restaurantId! }))
+          );
+          if (compError) throw compError;
+        }
       }
-      await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, recipe_type: recipeType, ingredients: validIngredients }, canRollback: false });
+
+      await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, recipe_type: recipeType, recipe_mode: recipeMode }, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
+      qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
       setOpen(false);
       resetForm();
       toast({ title: "Receta creada" });
@@ -167,6 +225,7 @@ export default function Recipes() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
+      qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
       setViewRecipeId(null);
       toast({ title: "Receta eliminada" });
     },
@@ -189,6 +248,7 @@ export default function Recipes() {
     setEditName(recipe.name);
     setEditDescription(recipe.description || "");
     setEditRecipeType((recipe.recipe_type ?? "food") as RecipeType);
+    setEditRecipeMode((recipe.recipe_mode ?? "fixed") as RecipeMode);
     setEditIngredients(
       (recipe.recipe_ingredients ?? []).map((ri: any) => ({
         id: ri.id,
@@ -198,6 +258,14 @@ export default function Recipes() {
         yield_per_portion: Number(ri.yield_per_portion ?? 0),
       }))
     );
+    const comps = componentsByRecipe.get(recipe.id) ?? [];
+    setEditComponents(comps.map((c: any) => ({
+      id: c.id,
+      component_name: c.component_name,
+      quantity_per_service: Number(c.quantity_per_service),
+      required: c.required,
+      sort_order: c.sort_order,
+    })));
     setEditMode(true);
   };
 
@@ -229,27 +297,53 @@ export default function Recipes() {
       const { data: prev } = await supabase.from("recipes").select("*").eq("id", recipeId).single();
       const { error } = await supabase
         .from("recipes")
-        .update({ name: editName, description: editDescription, recipe_type: editRecipeType } as any)
+        .update({ name: editName, description: editDescription, recipe_type: editRecipeType, recipe_mode: editRecipeMode } as any)
         .eq("id", recipeId);
       if (error) throw error;
 
-      // Delete old ingredients and re-insert
-      const { error: delErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
-      if (delErr) throw delErr;
+      if (editRecipeMode === "fixed") {
+        // Delete old ingredients and re-insert
+        const { error: delErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+        if (delErr) throw delErr;
 
-      const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
-      if (validIngredients.length > 0) {
-        const { error: insErr } = await supabase.from("recipe_ingredients").insert(
-          validIngredients.map((i) => ({
-            recipe_id: recipeId,
-            product_id: i.product_id,
-            quantity: i.quantity,
-            unit: i.unit,
-            yield_per_portion: i.yield_per_portion,
-            restaurant_id: restaurantId!,
-          }))
-        );
-        if (insErr) throw insErr;
+        const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
+        if (validIngredients.length > 0) {
+          const { error: insErr } = await supabase.from("recipe_ingredients").insert(
+            validIngredients.map((i) => ({
+              recipe_id: recipeId,
+              product_id: i.product_id,
+              quantity: i.quantity,
+              unit: i.unit,
+              yield_per_portion: i.yield_per_portion,
+              restaurant_id: restaurantId!,
+            }))
+          );
+          if (insErr) throw insErr;
+        }
+
+        // Clean up components if switching from variable to fixed
+        await supabase.from("recipe_variable_components" as any).delete().eq("recipe_id", recipeId);
+      } else {
+        // Delete old components and re-insert
+        await supabase.from("recipe_variable_components" as any).delete().eq("recipe_id", recipeId);
+
+        const validComponents = editComponents.filter((c) => c.component_name.trim());
+        if (validComponents.length > 0) {
+          const { error: compErr } = await supabase.from("recipe_variable_components" as any).insert(
+            validComponents.map((c, i) => ({
+              recipe_id: recipeId,
+              component_name: c.component_name.trim(),
+              quantity_per_service: c.quantity_per_service,
+              required: c.required,
+              sort_order: i,
+              restaurant_id: restaurantId!,
+            }))
+          );
+          if (compErr) throw compErr;
+        }
+
+        // Clean up ingredients if switching from fixed to variable
+        await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
       }
 
       await logAudit({
@@ -257,29 +351,197 @@ export default function Recipes() {
         entityId: recipeId,
         action: "UPDATE",
         before: prev,
-        after: { name: editName, description: editDescription, recipe_type: editRecipeType, ingredients: validIngredients },
+        after: { name: editName, description: editDescription, recipe_type: editRecipeType, recipe_mode: editRecipeMode },
         canRollback: false,
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
+      qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
       setEditMode(false);
       toast({ title: "Receta actualizada" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const editIsValid = editName.trim().length > 0 && editIngredients.some((i) => i.product_id && i.quantity > 0);
+  const editIsValid = editName.trim().length > 0 && (
+    editRecipeMode === "fixed"
+      ? editIngredients.some((i) => i.product_id && i.quantity > 0)
+      : editComponents.some((c) => c.component_name.trim())
+  );
   const editCost = calcRecipeCost(editIngredients);
 
   const newCost = calcRecipeCost(ingredients);
-  const isValid = name.trim().length > 0 && ingredients.some((i) => i.product_id && i.quantity > 0);
+  const isValid = name.trim().length > 0 && (
+    recipeMode === "fixed"
+      ? ingredients.some((i) => i.product_id && i.quantity > 0)
+      : components.some((c) => c.component_name.trim())
+  );
 
   const viewedRecipe = recipes?.find((r) => r.id === viewRecipeId);
 
   const filteredRecipes = recipes
     ?.filter((r) => filterType === "all" || (r as any).recipe_type === filterType)
     .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+
+  // Render component editor (shared between create and edit)
+  const renderComponentEditor = (
+    comps: ComponentLine[],
+    addFn: () => void,
+    removeFn: (i: number) => void,
+    updateFn: (i: number, field: keyof ComponentLine, value: any) => void,
+  ) => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-base font-semibold flex items-center gap-2">
+          <Layers className="h-4 w-4" /> Componentes del servicio
+        </Label>
+        <Button type="button" variant="outline" size="sm" onClick={addFn}>
+          <Plus className="mr-1 h-3 w-3" /> Agregar componente
+        </Button>
+      </div>
+
+      {comps.length === 0 && (
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          Define los componentes variables del servicio (ej: bebida, fruta, snack)
+        </p>
+      )}
+
+      {comps.map((comp, i) => (
+        <div key={i} className="flex items-center gap-2 group">
+          <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+          <Badge variant="secondary" className="shrink-0 w-6 h-6 p-0 flex items-center justify-center text-xs">
+            {i + 1}
+          </Badge>
+          <div className="flex-1">
+            <KioskTextInput
+              value={comp.component_name}
+              onChange={(v) => updateFn(i, "component_name", v)}
+              placeholder="Ej: bebida, fruta, ponqué..."
+              keyboardLabel="Nombre del componente"
+            />
+          </div>
+          <div className="w-20">
+            <NumericKeypadInput
+              mode="decimal"
+              value={comp.quantity_per_service || 1}
+              onChange={(v) => updateFn(i, "quantity_per_service", Number(v) || 1)}
+              min="0.1"
+              keypadLabel="Cantidad por servicio"
+            />
+          </div>
+          <Label className="text-xs text-muted-foreground shrink-0">c/u</Label>
+          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeFn(i)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ))}
+
+      {comps.length > 0 && (
+        <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+          <Layers className="h-4 w-4 inline mr-1" />
+          {comps.filter(c => c.component_name.trim()).length} componente(s) definidos — el costo se calculará al ejecutar según los productos seleccionados
+        </div>
+      )}
+    </div>
+  );
+
+  // Render ingredient editor (shared between create and edit)
+  const renderIngredientEditor = (
+    ings: (IngredientLine & { id?: string })[],
+    addFn: () => void,
+    removeFn: (i: number) => void,
+    updateFn: (i: number, field: keyof IngredientLine, value: string) => void,
+    rType: RecipeType,
+    totalCost: number,
+  ) => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-base font-semibold">
+          {rType === "food" ? "Ingredientes" : "Insumos"}
+        </Label>
+        <Button type="button" variant="outline" size="sm" onClick={addFn}>
+          <Plus className="mr-1 h-3 w-3" /> Agregar
+        </Button>
+      </div>
+
+      {ings.length === 0 && (
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          {rType === "food" ? "Agrega ingredientes a la receta" : "Agrega insumos al servicio"}
+        </p>
+      )}
+
+      {ings.map((ing, i) => {
+        const prod = productMap.get(ing.product_id);
+        const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
+        const lineCost = calcLineCost(ing);
+        const noCost = ing.product_id && !productHasCost(ing.product_id);
+        return (
+          <div key={i} className="space-y-1">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
+                <SearchableSelect
+                  options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
+                  value={ing.product_id}
+                  onValueChange={(v) => updateFn(i, "product_id", v)}
+                  placeholder="Seleccionar..."
+                  searchPlaceholder="Buscar producto..."
+                />
+              </div>
+              <div className="w-24 space-y-1">
+                {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
+                <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateFn(i, "quantity", v)} min="0.001" keypadLabel="Cantidad ingrediente" />
+              </div>
+              <div className="w-20 space-y-1">
+                {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
+                {availableUnits.length > 1 ? (
+                  <Select value={ing.unit} onValueChange={(v) => updateFn(i, "unit", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {availableUnits.map((u) => (
+                        <SelectItem key={u} value={u}>{u}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
+                )}
+              </div>
+              <div className="w-20 space-y-1">
+                {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
+                <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateFn(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
+              </div>
+              <div className="w-24 text-right space-y-1">
+                {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
+                <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
+                  {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
+                </p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeFn(i)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+            {prod && (
+              <p className="text-xs text-muted-foreground ml-1">
+                Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
+                {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
+              </p>
+            )}
+          </div>
+        );
+      })}
+
+      {ings.length > 0 && (
+        <div className="rounded-md bg-muted p-3 flex items-center justify-between">
+          <span className="text-sm text-muted-foreground flex items-center gap-1">
+            <DollarSign className="h-4 w-4" /> Costo teórico total
+          </span>
+          <span className="font-heading text-lg font-bold">{formatCost(totalCost)}</span>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <AppLayout>
@@ -299,119 +561,55 @@ export default function Recipes() {
                   <DialogTitle className="font-heading">Crear Receta</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={(e) => { e.preventDefault(); if (isValid) createRecipe.mutate(); }} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Tipo de receta *</Label>
-                    <Select value={recipeType} onValueChange={(v) => setRecipeType(v as RecipeType)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(RECIPE_TYPE_CONFIG).map(([key, cfg]) => {
-                          const Icon = cfg.icon;
-                          return (
-                            <SelectItem key={key} value={key}>
-                              <span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {cfg.label}</span>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de receta *</Label>
+                      <Select value={recipeType} onValueChange={(v) => setRecipeType(v as RecipeType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(RECIPE_TYPE_CONFIG).map(([key, cfg]) => {
+                            const Icon = cfg.icon;
+                            return (
+                              <SelectItem key={key} value={key}>
+                                <span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {cfg.label}</span>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Modo *</Label>
+                      <Select value={recipeMode} onValueChange={(v) => { setRecipeMode(v as RecipeMode); setIngredients([]); setComponents([]); }}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">
+                            <span className="flex items-center gap-2"><ChefHat className="h-4 w-4" /> Fija (ingredientes definidos)</span>
+                          </SelectItem>
+                          <SelectItem value="variable_combo">
+                            <span className="flex items-center gap-2"><Layers className="h-4 w-4" /> Variable / Combo</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Nombre *</Label>
-                    <KioskTextInput value={name} onChange={setName} placeholder="Ej: Carne a la plancha / Lavado de ropa" keyboardLabel="Nombre de la receta" />
+                    <KioskTextInput value={name} onChange={setName} placeholder="Ej: Lunch empresarial / Carne a la plancha" keyboardLabel="Nombre de la receta" />
                   </div>
                   <div className="space-y-2">
                     <Label>Descripción (opcional)</Label>
                     <KioskTextInput value={description} onChange={setDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción de receta" />
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-semibold">
-                        {recipeType === "food" ? "Ingredientes" : "Insumos"}
-                      </Label>
-                      <Button type="button" variant="outline" size="sm" onClick={addIngredientLine}>
-                        <Plus className="mr-1 h-3 w-3" /> Agregar
-                      </Button>
-                    </div>
-
-                    {ingredients.length === 0 && (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        {recipeType === "food" ? "Agrega ingredientes a la receta" : "Agrega insumos al servicio"}
-                      </p>
-                    )}
-
-                    {ingredients.map((ing, i) => {
-                      const prod = productMap.get(ing.product_id);
-                      const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
-                      const lineCost = calcLineCost(ing);
-                      const noCost = ing.product_id && !productHasCost(ing.product_id);
-                      return (
-                        <div key={i} className="space-y-1">
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1 space-y-1">
-                              {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                              <SearchableSelect
-                                options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
-                                value={ing.product_id}
-                                onValueChange={(v) => updateIngredient(i, "product_id", v)}
-                                placeholder="Seleccionar..."
-                                searchPlaceholder="Buscar producto..."
-                              />
-                            </div>
-                            <div className="w-24 space-y-1">
-                              {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                              <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateIngredient(i, "quantity", v)} min="0.001" keypadLabel="Cantidad ingrediente" />
-                            </div>
-                            <div className="w-20 space-y-1">
-                              {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
-                              {availableUnits.length > 1 ? (
-                                <Select value={ing.unit} onValueChange={(v) => updateIngredient(i, "unit", v)}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    {availableUnits.map((u) => (
-                                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
-                              )}
-                            </div>
-                            <div className="w-20 space-y-1">
-                              {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
-                              <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
-                            </div>
-                            <div className="w-24 text-right space-y-1">
-                              {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
-                              <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
-                                {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
-                              </p>
-                            </div>
-                            <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeIngredientLine(i)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                          {prod && (
-                            <p className="text-xs text-muted-foreground ml-1">
-                              Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
-                              {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {ingredients.length > 0 && (
-                      <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground flex items-center gap-1">
-                          <DollarSign className="h-4 w-4" /> Costo teórico total
-                        </span>
-                        <span className="font-heading text-lg font-bold">{formatCost(newCost)}</span>
-                      </div>
-                    )}
-                  </div>
+                  {recipeMode === "fixed"
+                    ? renderIngredientEditor(ingredients, addIngredientLine, removeIngredientLine, updateIngredient, recipeType, newCost)
+                    : renderComponentEditor(components, addComponent, removeComponent, updateComponent)
+                  }
 
                   <Button type="submit" className="w-full" disabled={createRecipe.isPending || !isValid}>
                     {createRecipe.isPending ? "Creando..." : "Crear Receta"}
@@ -447,6 +645,7 @@ export default function Recipes() {
           ) : (
             filteredRecipes.map((recipe) => {
               const rType = ((recipe as any).recipe_type ?? "food") as RecipeType;
+              const rMode = ((recipe as any).recipe_mode ?? "fixed") as RecipeMode;
               const cfg = RECIPE_TYPE_CONFIG[rType];
               const Icon = cfg.icon;
               const ings = (recipe.recipe_ingredients ?? []).map((ri) => ({
@@ -458,29 +657,49 @@ export default function Recipes() {
               const cost = calcRecipeCost(ings);
               const totalYield = ings.reduce((s, i) => s + i.yield_per_portion, 0);
               const ingCount = ings.length;
+              const comps = componentsByRecipe.get(recipe.id) ?? [];
               return (
                 <Card key={recipe.id} className="group hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <Icon className="h-5 w-5 text-primary" />
+                        {rMode === "variable_combo" ? <Layers className="h-5 w-5 text-primary" /> : <Icon className="h-5 w-5 text-primary" />}
                         <CardTitle className="text-lg">{recipe.name}</CardTitle>
                       </div>
-                      <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
+                      <div className="flex gap-1">
+                        {rMode === "variable_combo" && (
+                          <Badge variant="outline" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Combo</Badge>
+                        )}
+                        <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
+                      </div>
                     </div>
                     {recipe.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2">{recipe.description}</p>
                     )}
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
-                      <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
-                    </div>
-                    {rType === "food" && (
-                      <p className="text-xs text-muted-foreground">
-                        Rinde: {totalYield.toFixed(3)} kg/porción
-                      </p>
+                    {rMode === "fixed" ? (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
+                          <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
+                        </div>
+                        {rType === "food" && (
+                          <p className="text-xs text-muted-foreground">
+                            Rinde: {totalYield.toFixed(3)} kg/porción
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">{comps.length} componente(s)</span>
+                        <div className="flex flex-wrap gap-1">
+                          {comps.slice(0, 5).map((c: any) => (
+                            <Badge key={c.id} variant="secondary" className="text-xs">{c.component_name}</Badge>
+                          ))}
+                          {comps.length > 5 && <Badge variant="secondary" className="text-xs">+{comps.length - 5}</Badge>}
+                        </div>
+                      </div>
                     )}
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
@@ -510,15 +729,21 @@ export default function Recipes() {
             <DialogHeader>
               <DialogTitle className="font-heading flex items-center gap-2">
                 {(() => {
+                  const rMode = (editMode ? editRecipeMode : ((viewedRecipe as any)?.recipe_mode ?? "fixed")) as RecipeMode;
                   const rType = (editMode ? editRecipeType : ((viewedRecipe as any)?.recipe_type ?? "food")) as RecipeType;
-                  const Icon = RECIPE_TYPE_CONFIG[rType].icon;
+                  const Icon = rMode === "variable_combo" ? Layers : RECIPE_TYPE_CONFIG[rType].icon;
                   return <Icon className="h-5 w-5 text-primary" />;
                 })()}
                 {editMode ? "Editar Receta" : viewedRecipe?.name}
                 {!editMode && viewedRecipe && (
-                  <Badge variant="outline" className={RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].color}>
-                    {RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].label}
-                  </Badge>
+                  <>
+                    <Badge variant="outline" className={RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].color}>
+                      {RECIPE_TYPE_CONFIG[((viewedRecipe as any).recipe_type ?? "food") as RecipeType].label}
+                    </Badge>
+                    {((viewedRecipe as any).recipe_mode ?? "fixed") === "variable_combo" && (
+                      <Badge variant="outline" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Combo Variable</Badge>
+                    )}
+                  </>
                 )}
               </DialogTitle>
             </DialogHeader>
@@ -526,21 +751,37 @@ export default function Recipes() {
             {/* === EDIT MODE === */}
             {editMode && viewedRecipe && (
               <form onSubmit={(e) => { e.preventDefault(); if (editIsValid) saveRecipe.mutate(); }} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Tipo de receta *</Label>
-                  <Select value={editRecipeType} onValueChange={(v) => setEditRecipeType(v as RecipeType)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(RECIPE_TYPE_CONFIG).map(([key, cfg]) => {
-                        const Icon = cfg.icon;
-                        return (
-                          <SelectItem key={key} value={key}>
-                            <span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {cfg.label}</span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tipo de receta *</Label>
+                    <Select value={editRecipeType} onValueChange={(v) => setEditRecipeType(v as RecipeType)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(RECIPE_TYPE_CONFIG).map(([key, cfg]) => {
+                          const Icon = cfg.icon;
+                          return (
+                            <SelectItem key={key} value={key}>
+                              <span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {cfg.label}</span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Modo *</Label>
+                    <Select value={editRecipeMode} onValueChange={(v) => { setEditRecipeMode(v as RecipeMode); }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">
+                          <span className="flex items-center gap-2"><ChefHat className="h-4 w-4" /> Fija</span>
+                        </SelectItem>
+                        <SelectItem value="variable_combo">
+                          <span className="flex items-center gap-2"><Layers className="h-4 w-4" /> Variable / Combo</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Nombre *</Label>
@@ -551,84 +792,10 @@ export default function Recipes() {
                   <KioskTextInput value={editDescription} onChange={setEditDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción" />
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base font-semibold">{editRecipeType === "food" ? "Ingredientes" : "Insumos"}</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addEditIngredient}>
-                      <Plus className="mr-1 h-3 w-3" /> Agregar
-                    </Button>
-                  </div>
-
-                  {editIngredients.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-4 text-center">Sin ingredientes</p>
-                  )}
-
-                  {editIngredients.map((ing, i) => {
-                    const prod = productMap.get(ing.product_id);
-                    const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
-                    const lineCost = calcLineCost(ing);
-                    const noCost = ing.product_id && !productHasCost(ing.product_id);
-                    return (
-                      <div key={i} className="space-y-1">
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                            <SearchableSelect
-                              options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
-                              value={ing.product_id}
-                              onValueChange={(v) => updateEditIngredient(i, "product_id", v)}
-                              placeholder="Seleccionar..."
-                              searchPlaceholder="Buscar producto..."
-                            />
-                          </div>
-                          <div className="w-24 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                            <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateEditIngredient(i, "quantity", v)} min="0.001" keypadLabel="Cantidad" />
-                          </div>
-                          <div className="w-20 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
-                            {availableUnits.length > 1 ? (
-                              <Select value={ing.unit} onValueChange={(v) => updateEditIngredient(i, "unit", v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {availableUnits.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <p className="h-10 flex items-center text-sm">{ing.unit || "—"}</p>
-                            )}
-                          </div>
-                          <div className="w-20 space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Rinde (kg)</Label>}
-                            <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateEditIngredient(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
-                          </div>
-                          <div className="w-24 text-right space-y-1">
-                            {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
-                            <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
-                              {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
-                            </p>
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeEditIngredient(i)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                        {prod && (
-                          <p className="text-xs text-muted-foreground ml-1">
-                            Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
-                            {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {editIngredients.length > 0 && (
-                    <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4" /> Costo teórico total</span>
-                      <span className="font-heading text-lg font-bold">{formatCost(editCost)}</span>
-                    </div>
-                  )}
-                </div>
+                {editRecipeMode === "fixed"
+                  ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost)
+                  : renderComponentEditor(editComponents, addEditComponent, removeEditComponent, updateEditComponent)
+                }
 
                 <div className="flex gap-3">
                   <Button type="button" variant="outline" className="flex-1" onClick={cancelEdit}>
@@ -643,6 +810,48 @@ export default function Recipes() {
 
             {/* === VIEW MODE === */}
             {!editMode && viewedRecipe && (() => {
+              const rMode = ((viewedRecipe as any).recipe_mode ?? "fixed") as RecipeMode;
+
+              if (rMode === "variable_combo") {
+                const comps = componentsByRecipe.get(viewedRecipe.id) ?? [];
+                return (
+                  <div className="space-y-4">
+                    {viewedRecipe.description && (
+                      <p className="text-sm text-muted-foreground">{viewedRecipe.description}</p>
+                    )}
+                    <div className="space-y-2">
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <Layers className="h-4 w-4" /> Componentes del servicio
+                      </Label>
+                      {comps.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">Sin componentes definidos</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {comps.map((c: any, i: number) => (
+                            <div key={c.id} className="flex items-center gap-3 rounded-md border p-3">
+                              <Badge variant="secondary" className="shrink-0 w-6 h-6 p-0 flex items-center justify-center text-xs">
+                                {i + 1}
+                              </Badge>
+                              <span className="flex-1 font-medium">{c.component_name}</span>
+                              <span className="text-sm text-muted-foreground">{Number(c.quantity_per_service)} c/u</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                      El costo se calcula dinámicamente al ejecutar, según los productos seleccionados para cada componente.
+                    </div>
+                    {canUpdate && (
+                      <Button className="w-full" variant="outline" onClick={() => startEdit(viewedRecipe)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Editar receta
+                      </Button>
+                    )}
+                  </div>
+                );
+              }
+
+              // Fixed recipe view
               const ings = (viewedRecipe.recipe_ingredients ?? []).map((ri) => ({
                 ...ri,
                 unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",

@@ -1361,12 +1361,61 @@ export type Database = {
           },
         ]
       }
+      recipe_variable_components: {
+        Row: {
+          component_name: string
+          created_at: string
+          id: string
+          quantity_per_service: number
+          recipe_id: string
+          required: boolean
+          restaurant_id: string
+          sort_order: number
+        }
+        Insert: {
+          component_name: string
+          created_at?: string
+          id?: string
+          quantity_per_service?: number
+          recipe_id: string
+          required?: boolean
+          restaurant_id: string
+          sort_order?: number
+        }
+        Update: {
+          component_name?: string
+          created_at?: string
+          id?: string
+          quantity_per_service?: number
+          recipe_id?: string
+          required?: boolean
+          restaurant_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_variable_components_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_variable_components_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipes: {
         Row: {
           created_at: string
           description: string | null
           id: string
           name: string
+          recipe_mode: string
           recipe_type: string
           restaurant_id: string
           updated_at: string
@@ -1376,6 +1425,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          recipe_mode?: string
           recipe_type?: string
           restaurant_id: string
           updated_at?: string
@@ -1385,6 +1435,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          recipe_mode?: string
           recipe_type?: string
           restaurant_id?: string
           updated_at?: string
