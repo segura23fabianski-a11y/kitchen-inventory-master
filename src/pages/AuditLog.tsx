@@ -218,7 +218,7 @@ export default function AuditLog() {
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10" placeholder="Buscar por usuario o entidad..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-10" placeholder="Buscar por usuario o entidad..." value={search} onChange={(e) => handleSearch(e.target.value)} />
           </div>
           <Select value={entityFilter} onValueChange={setEntityFilter}>
             <SelectTrigger className="w-[160px]">
