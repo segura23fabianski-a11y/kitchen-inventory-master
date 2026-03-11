@@ -9,7 +9,7 @@ import StaysTab from "@/components/hotel/StaysTab";
 
 export default function Hotel() {
   return (
-    <AppLayout title="Módulo Hotelero">
+    <AppLayout>
       <Tabs defaultValue="stays" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="stays" className="gap-1.5"><CalendarCheck className="h-4 w-4" />Estancias</TabsTrigger>
