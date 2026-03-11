@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -309,27 +310,25 @@ export default function OperationalReports() {
           </div>
           <div>
             <Label className="text-xs">Área / Servicio</Label>
-            <Select value={filterService} onValueChange={setFilterService}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las áreas</SelectItem>
-                {allAreas.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[{ value: "all", label: "Todas las áreas" }, ...allAreas.map((a) => ({ value: a, label: a }))]}
+              value={filterService}
+              onValueChange={setFilterService}
+              placeholder="Todas las áreas"
+              searchPlaceholder="Buscar área..."
+              triggerClassName="w-[180px]"
+            />
           </div>
           <div>
             <Label className="text-xs">Categoría</Label>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categories?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[{ value: "all", label: "Todas" }, ...(categories?.map((c) => ({ value: c.id, label: c.name })) ?? [])]}
+              value={filterCategory}
+              onValueChange={setFilterCategory}
+              placeholder="Todas"
+              searchPlaceholder="Buscar categoría..."
+              triggerClassName="w-[160px]"
+            />
           </div>
           {(filterService !== "all" || filterCategory !== "all") && (
             <Button variant="ghost" size="sm" onClick={() => { setFilterService("all"); setFilterCategory("all"); }}>

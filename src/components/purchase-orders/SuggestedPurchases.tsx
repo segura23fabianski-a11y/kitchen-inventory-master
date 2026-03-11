@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -359,28 +360,22 @@ export default function SuggestedPurchases() {
                     </TableCell>
                     <TableCell>
                       {canCreate && hasMultiple ? (
-                        <Select
+                        <SearchableSelect
+                          options={[
+                            ...supplierOptions.map((sup) => ({
+                              value: sup.id,
+                              label: `${sup.name}${sup.last_unit_cost != null ? ` ($${sup.last_unit_cost.toFixed(2)})` : ""}`,
+                            })),
+                            ...(allSuppliers
+                              ?.filter((s) => !supplierOptions.some((so) => so.id === s.id))
+                              .map((s) => ({ value: s.id, label: s.name })) ?? []),
+                          ]}
                           value={supplierOverrides[item.product_id] || item.supplier_id || ""}
                           onValueChange={(v) => setSupplierOverrides((prev) => ({ ...prev, [item.product_id]: v }))}
-                        >
-                          <SelectTrigger className={`h-8 w-44 ${noSupplier ? "border-amber-400" : ""}`}>
-                            <SelectValue placeholder="Sin proveedor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {supplierOptions.map((sup) => (
-                              <SelectItem key={sup.id} value={sup.id}>
-                                {sup.name} {sup.last_unit_cost != null ? `($${sup.last_unit_cost.toFixed(2)})` : ""}
-                              </SelectItem>
-                            ))}
-                            {allSuppliers
-                              ?.filter((s) => !supplierOptions.some((so) => so.id === s.id))
-                              .map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                          placeholder="Sin proveedor"
+                          searchPlaceholder="Buscar proveedor..."
+                          triggerClassName={`h-8 w-44 ${noSupplier ? "border-amber-400" : ""}`}
+                        />
                       ) : (
                         <span className={`text-sm ${noSupplier ? "text-amber-600 italic" : ""}`}>
                           {item.supplier_name || "Sin proveedor"}

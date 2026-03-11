@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
@@ -477,10 +478,13 @@ function ServiceCard({ restaurantId, planId, date, serviceType, serviceLabel, ex
                 <SelectTrigger><SelectValue placeholder="Componente" /></SelectTrigger>
                 <SelectContent>{components.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
-              <Select value={newRecipeId} onValueChange={setNewRecipeId}>
-                <SelectTrigger><SelectValue placeholder="Receta" /></SelectTrigger>
-                <SelectContent>{recipes.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <SearchableSelect
+                options={recipes.map((r: any) => ({ value: r.id, label: r.name }))}
+                value={newRecipeId}
+                onValueChange={setNewRecipeId}
+                placeholder="Receta"
+                searchPlaceholder="Buscar receta..."
+              />
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" onClick={() => setAddingItem(false)}>Cancelar</Button>

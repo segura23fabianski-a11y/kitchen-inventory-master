@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -319,14 +320,13 @@ export default function Transformations() {
         <div key={line.id} className="grid grid-cols-12 gap-2 items-end">
           <div className={showQty ? "col-span-4" : "col-span-5"}>
             {idx === 0 && <Label className="text-xs">Producto</Label>}
-            <Select value={line.productId} onValueChange={(v) => update(line.id, "productId", v)}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.unit})`, searchTerms: p.name }))}
+              value={line.productId}
+              onValueChange={(v) => update(line.id, "productId", v)}
+              placeholder="Seleccionar..."
+              searchPlaceholder="Buscar producto..."
+            />
           </div>
           <div className="col-span-3">
             {idx === 0 && <Label className="text-xs">Tipo</Label>}
@@ -395,14 +395,13 @@ export default function Transformations() {
                 </div>
                 <div>
                   <Label>Producto de entrada</Label>
-                  <Select value={defInputId} onValueChange={setDefInputId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.unit})`, searchTerms: p.name }))}
+                    value={defInputId}
+                    onValueChange={setDefInputId}
+                    placeholder="Seleccionar..."
+                    searchPlaceholder="Buscar producto..."
+                  />
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Productos de salida</Label>
@@ -459,14 +458,13 @@ export default function Transformations() {
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Producto</Label>
-                      <Select value={execInputId} onValueChange={setExecInputId}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                        <SelectContent>
-                          {products.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — Stock: {p.current_stock}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — Stock: ${p.current_stock}`, searchTerms: p.name }))}
+                        value={execInputId}
+                        onValueChange={setExecInputId}
+                        placeholder="Seleccionar..."
+                        searchPlaceholder="Buscar producto..."
+                      />
                     </div>
                     <div>
                       <Label>Cantidad</Label>

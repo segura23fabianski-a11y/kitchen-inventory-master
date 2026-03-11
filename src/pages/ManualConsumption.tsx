@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
@@ -352,21 +353,13 @@ export default function ManualConsumption() {
               {/* Service */}
               <div className="space-y-2">
                 <Label>Servicio / Área *</Label>
-                <Select
+                <SearchableSelect
+                  options={services?.map((s) => ({ value: s.id, label: s.name })) ?? []}
                   value={selectedServiceId ?? ""}
                   onValueChange={setSelectedServiceId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar servicio..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {services?.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Seleccionar servicio..."
+                  searchPlaceholder="Buscar servicio..."
+                />
                 {(!services || services.length === 0) && (
                   <p className="text-xs text-muted-foreground">
                     No hay servicios. Crea uno con el botón "Servicios".

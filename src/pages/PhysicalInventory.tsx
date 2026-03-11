@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -414,23 +415,23 @@ export default function PhysicalInventory() {
               </div>
               <div>
                 <label className="text-sm font-medium">Bodega (opcional)</label>
-                <Select value={formWarehouse} onValueChange={setFormWarehouse}>
-                  <SelectTrigger><SelectValue placeholder="Todas las bodegas" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={[{ value: "all", label: "Todas" }, ...(warehouses?.map((w) => ({ value: w.id, label: w.name })) ?? [])]}
+                  value={formWarehouse}
+                  onValueChange={setFormWarehouse}
+                  placeholder="Todas las bodegas"
+                  searchPlaceholder="Buscar bodega..."
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Categoría (opcional)</label>
-                <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger><SelectValue placeholder="Todas las categorías" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={[{ value: "all", label: "Todas" }, ...(categories?.map((c) => ({ value: c.id, label: c.name })) ?? [])]}
+                  value={formCategory}
+                  onValueChange={setFormCategory}
+                  placeholder="Todas las categorías"
+                  searchPlaceholder="Buscar categoría..."
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Notas</label>

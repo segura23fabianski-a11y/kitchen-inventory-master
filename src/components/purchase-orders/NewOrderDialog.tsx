@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAudit } from "@/hooks/use-audit";
@@ -182,16 +183,13 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
           <div className="grid grid-cols-1 gap-4">
             <div>
               <Label>Proveedor *</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proveedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers?.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={suppliers?.map((s) => ({ value: s.id, label: s.name })) ?? []}
+                value={supplierId}
+                onValueChange={setSupplierId}
+                placeholder="Seleccionar proveedor"
+                searchPlaceholder="Buscar proveedor..."
+              />
             </div>
             <div>
               <Label>Notas</Label>
@@ -229,20 +227,17 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
                   return (
                     <TableRow key={idx}>
                       <TableCell>
-                        <Select value={line.product_id} onValueChange={(v) => updateLine(idx, "product_id", v)}>
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Seleccionar..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {/* Show current selection + available */}
-                            {line.product_id && product && (
-                              <SelectItem value={product.id}>{product.name} ({product.unit})</SelectItem>
-                            )}
-                            {availableProducts.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={[
+                            ...(line.product_id && product ? [{ value: product.id, label: `${product.name} (${product.unit})` }] : []),
+                            ...availableProducts.map((p) => ({ value: p.id, label: `${p.name} (${p.unit})` })),
+                          ]}
+                          value={line.product_id}
+                          onValueChange={(v) => updateLine(idx, "product_id", v)}
+                          placeholder="Seleccionar..."
+                          searchPlaceholder="Buscar producto..."
+                          triggerClassName="h-8"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -351,14 +352,13 @@ export default function Recipes() {
                           <div className="flex items-end gap-2">
                             <div className="flex-1 space-y-1">
                               {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                              <Select value={ing.product_id} onValueChange={(v) => updateIngredient(i, "product_id", v)}>
-                                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                <SelectContent>
-                                  {products?.map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${getProductCost(p.id).toFixed(2)}/{p.unit}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
+                                value={ing.product_id}
+                                onValueChange={(v) => updateIngredient(i, "product_id", v)}
+                                placeholder="Seleccionar..."
+                                searchPlaceholder="Buscar producto..."
+                              />
                             </div>
                             <div className="w-24 space-y-1">
                               {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
@@ -573,14 +573,13 @@ export default function Recipes() {
                         <div className="flex items-end gap-2">
                           <div className="flex-1 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
-                            <Select value={ing.product_id} onValueChange={(v) => updateEditIngredient(i, "product_id", v)}>
-                              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                              <SelectContent>
-                                {products?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — ${getProductCost(p.id).toFixed(2)}/{p.unit}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                              options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
+                              value={ing.product_id}
+                              onValueChange={(v) => updateEditIngredient(i, "product_id", v)}
+                              placeholder="Seleccionar..."
+                              searchPlaceholder="Buscar producto..."
+                            />
                           </div>
                           <div className="w-24 space-y-1">
                             {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}

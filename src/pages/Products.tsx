@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -418,13 +419,15 @@ export default function Products() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Categoría</Label>
-                        <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
-                          <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                          <SelectContent>
-                            {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                      <Label>Categoría</Label>
+                        <SearchableSelect
+                          options={categories?.map((c) => ({ value: c.id, label: c.name })) ?? []}
+                          value={form.categoryId}
+                          onValueChange={(v) => setForm({ ...form, categoryId: v })}
+                          placeholder="Seleccionar categoría..."
+                          searchPlaceholder="Buscar categoría..."
+                          clearable
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -438,13 +441,15 @@ export default function Products() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Almacén</Label>
-                      <Select value={form.warehouseId} onValueChange={(v) => setForm({ ...form, warehouseId: v })}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                        <SelectContent>
-                          {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    <Label>Almacén</Label>
+                      <SearchableSelect
+                        options={warehouses?.map((w) => ({ value: w.id, label: w.name })) ?? []}
+                        value={form.warehouseId}
+                        onValueChange={(v) => setForm({ ...form, warehouseId: v })}
+                        placeholder="Seleccionar almacén..."
+                        searchPlaceholder="Buscar almacén..."
+                        clearable
+                      />
                     </div>
 
                     {/* Reorder settings */}
