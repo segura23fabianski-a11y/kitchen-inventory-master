@@ -311,6 +311,108 @@ export type Database = {
           },
         ]
       }
+      combo_execution_items: {
+        Row: {
+          component_name: string
+          created_at: string
+          execution_id: string
+          id: string
+          line_cost: number
+          product_id: string
+          quantity: number
+          unit_cost: number
+        }
+        Insert: {
+          component_name: string
+          created_at?: string
+          execution_id: string
+          id?: string
+          line_cost?: number
+          product_id: string
+          quantity: number
+          unit_cost?: number
+        }
+        Update: {
+          component_name?: string
+          created_at?: string
+          execution_id?: string
+          id?: string
+          line_cost?: number
+          product_id?: string
+          quantity?: number
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_execution_items_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "combo_execution_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_execution_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combo_execution_logs: {
+        Row: {
+          created_at: string
+          executed_at: string
+          executed_by: string
+          id: string
+          notes: string | null
+          recipe_id: string
+          restaurant_id: string
+          servings: number
+          total_cost: number
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string
+          executed_by: string
+          id?: string
+          notes?: string | null
+          recipe_id: string
+          restaurant_id: string
+          servings: number
+          total_cost?: number
+          unit_cost?: number
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string
+          executed_by?: string
+          id?: string
+          notes?: string | null
+          recipe_id?: string
+          restaurant_id?: string
+          servings?: number
+          total_cost?: number
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_execution_logs_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_execution_logs_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_movements: {
         Row: {
           created_at: string
