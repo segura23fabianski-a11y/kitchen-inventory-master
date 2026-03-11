@@ -21,6 +21,7 @@ export interface PdfSettings {
 
 export interface PdfOrderData {
   order_id: string;
+  order_number?: string | null;
   order_date: string;
   expected_delivery_date?: string | null;
   supplier_name: string;
