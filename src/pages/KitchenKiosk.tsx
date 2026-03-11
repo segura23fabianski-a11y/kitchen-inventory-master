@@ -30,6 +30,7 @@ interface CartItem {
   currentStock: number;
   averageCost: number;
   recipeId: string | null;
+  comboComponentId: string | null; // which component this product fills in a combo
 }
 
 interface ComboExecution {
@@ -251,6 +252,7 @@ export default function KitchenKiosk() {
         currentStock: Number(p.current_stock ?? 0),
         averageCost: Number(p.average_cost ?? 0),
         recipeId: null,
+        comboComponentId: null,
       },
     ]);
     setScanFeedback(`✓ ${p.name} agregado`);
@@ -381,8 +383,13 @@ export default function KitchenKiosk() {
       for (const line of cartLines) {
         if (line.quantity <= 0) continue;
         const recipeName = line.recipeId ? recipeMap.get(line.recipeId) : null;
+        const isCombo = line.recipeId ? comboRecipes.some(r => r.id === line.recipeId) : false;
+        const compName = line.comboComponentId && line.comboComponentId !== "__pending"
+          ? (componentsByRecipe.get(line.recipeId!)?.find((c: any) => c.id === line.comboComponentId) as any)?.component_name
+          : null;
         const notesParts = ["Consumo kiosco cocina"];
-        if (recipeName) notesParts.push(`Receta: ${recipeName}`);
+        if (recipeName) notesParts.push(isCombo ? `Combo: ${recipeName}` : `Receta: ${recipeName}`);
+        if (compName) notesParts.push(`Componente: ${compName}`);
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: line.productId,
           user_id: user!.id,
@@ -392,7 +399,7 @@ export default function KitchenKiosk() {
           total_cost: line.totalCost,
           notes: notesParts.join(" — "),
           restaurant_id: restaurantId!,
-           recipe_id: line.recipeId && line.recipeId !== "__pending" ? line.recipeId : null,
+          recipe_id: line.recipeId && line.recipeId !== "__pending" ? line.recipeId : null,
         });
         if (error) throw error;
       }
@@ -450,14 +457,24 @@ export default function KitchenKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Get relevant recipes for a product (fixed only)
+  // Get relevant recipes for a product (fixed recipes that use it + all combo recipes)
   const getProductRecipes = (productId: string) => {
+    const result: { id: string; name: string; isCombo: boolean }[] = [];
+    // Fixed recipes that contain this product
     const recipeIds = recipesForProduct.get(productId);
-    if (!recipeIds || recipeIds.size === 0) return [];
-    return [...recipeIds]
-      .map((id) => ({ id, name: recipeMap.get(id) ?? "" }))
-      .filter((r) => r.name)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    if (recipeIds) {
+      for (const id of recipeIds) {
+        const recipe = recipes?.find(r => r.id === id);
+        if (recipe && (recipe as any).recipe_mode !== "variable_combo") {
+          result.push({ id, name: recipe.name, isCombo: false });
+        }
+      }
+    }
+    // All combo recipes (any product can fill any component)
+    for (const r of comboRecipes) {
+      result.push({ id: r.id, name: `🔲 ${r.name}`, isCombo: true });
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   };
 
   const renderProductButton = (p: any) => {
@@ -838,7 +855,9 @@ export default function KitchenKiosk() {
                               </button>
                               {hasRecipe && item.recipeId && item.recipeId !== "__pending" && (
                                 <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
-                                  <UtensilsCrossed className="h-2.5 w-2.5" />
+                                  {comboRecipes.some(r => r.id === item.recipeId)
+                                    ? <Layers className="h-2.5 w-2.5" />
+                                    : <UtensilsCrossed className="h-2.5 w-2.5" />}
                                   {recipeMap.get(item.recipeId) ?? "Receta"}
                                 </Badge>
                               )}
@@ -846,19 +865,42 @@ export default function KitchenKiosk() {
 
                             {/* Show recipe dropdown when toggled to "Con receta" */}
                             {hasRecipe && (
-                              <SearchableSelect
-                                options={availableRecipes.length > 0
-                                  ? availableRecipes.map((r) => ({ value: r.id, label: r.name }))
-                                  : []}
-                                value={item.recipeId === "__pending" ? "" : (item.recipeId ?? "")}
-                                onValueChange={(v) =>
-                                  updateCartItem(item.productId, { recipeId: v || null })
-                                }
-                                placeholder="Seleccionar receta..."
-                                searchPlaceholder="Buscar receta..."
-                                emptyMessage={availableRecipes.length === 0 ? "No hay recetas con este producto" : "Sin resultados."}
-                                triggerClassName="h-8 text-xs"
-                              />
+                              <>
+                                <SearchableSelect
+                                  options={availableRecipes.length > 0
+                                    ? availableRecipes.map((r) => ({ value: r.id, label: r.name }))
+                                    : []}
+                                  value={item.recipeId === "__pending" ? "" : (item.recipeId ?? "")}
+                                  onValueChange={(v) => {
+                                    const isCombo = comboRecipes.some(r => r.id === v);
+                                    updateCartItem(item.productId, {
+                                      recipeId: v || null,
+                                      comboComponentId: isCombo ? "__pending" : null,
+                                    });
+                                  }}
+                                  placeholder="Seleccionar receta..."
+                                  searchPlaceholder="Buscar receta..."
+                                  emptyMessage={availableRecipes.length === 0 ? "No hay recetas disponibles" : "Sin resultados."}
+                                  triggerClassName="h-8 text-xs"
+                                />
+                                {/* Component selector for combo recipes */}
+                                {item.recipeId && item.recipeId !== "__pending" && comboRecipes.some(r => r.id === item.recipeId) && (() => {
+                                  const comps = componentsByRecipe.get(item.recipeId!) ?? [];
+                                  return comps.length > 0 ? (
+                                    <SearchableSelect
+                                      options={comps.map((c: any) => ({
+                                        value: c.id,
+                                        label: c.component_name,
+                                      }))}
+                                      value={item.comboComponentId === "__pending" ? "" : (item.comboComponentId ?? "")}
+                                      onValueChange={(v) => updateCartItem(item.productId, { comboComponentId: v || null })}
+                                      placeholder="¿Qué componente llena?"
+                                      searchPlaceholder="Buscar componente..."
+                                      triggerClassName="h-8 text-xs"
+                                    />
+                                  ) : null;
+                                })()}
+                              </>
                             )}
                           </div>
 
