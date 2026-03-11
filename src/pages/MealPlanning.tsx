@@ -291,7 +291,7 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
   const { data: recipes = [] } = useQuery({
     queryKey: ["recipes-list", restaurantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, recipe_type").eq("restaurant_id", restaurantId).order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name, recipe_type").eq("restaurant_id", restaurantId).eq("recipe_type", "food").order("name");
       if (error) throw error;
       return data;
     },
