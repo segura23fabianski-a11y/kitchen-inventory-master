@@ -1596,6 +1596,158 @@ export type Database = {
         }
         Relationships: []
       }
+      transformation_logs: {
+        Row: {
+          created_at: string
+          id: string
+          input_product_id: string
+          input_quantity: number
+          notes: string | null
+          output_product_id: string
+          output_quantity: number
+          performed_at: string
+          performed_by: string
+          process_id: string | null
+          restaurant_id: string
+          waste_product_id: string | null
+          waste_quantity: number
+          yield_percentage: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_product_id: string
+          input_quantity: number
+          notes?: string | null
+          output_product_id: string
+          output_quantity: number
+          performed_at?: string
+          performed_by: string
+          process_id?: string | null
+          restaurant_id: string
+          waste_product_id?: string | null
+          waste_quantity?: number
+          yield_percentage?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_product_id?: string
+          input_quantity?: number
+          notes?: string | null
+          output_product_id?: string
+          output_quantity?: number
+          performed_at?: string
+          performed_by?: string
+          process_id?: string | null
+          restaurant_id?: string
+          waste_product_id?: string | null
+          waste_quantity?: number
+          yield_percentage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transformation_logs_input_product_id_fkey"
+            columns: ["input_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_logs_output_product_id_fkey"
+            columns: ["output_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_logs_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "transformation_processes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_logs_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_logs_waste_product_id_fkey"
+            columns: ["waste_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transformation_processes: {
+        Row: {
+          active: boolean
+          created_at: string
+          expected_yield: number | null
+          id: string
+          input_product_id: string
+          name: string
+          output_product_id: string
+          restaurant_id: string
+          waste_product_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          expected_yield?: number | null
+          id?: string
+          input_product_id: string
+          name: string
+          output_product_id: string
+          restaurant_id: string
+          waste_product_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          expected_yield?: number | null
+          id?: string
+          input_product_id?: string
+          name?: string
+          output_product_id?: string
+          restaurant_id?: string
+          waste_product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transformation_processes_input_product_id_fkey"
+            columns: ["input_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_processes_output_product_id_fkey"
+            columns: ["output_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_processes_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transformation_processes_waste_product_id_fkey"
+            columns: ["waste_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
