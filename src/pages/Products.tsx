@@ -441,13 +441,15 @@ export default function Products() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Almacén</Label>
-                      <Select value={form.warehouseId} onValueChange={(v) => setForm({ ...form, warehouseId: v })}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                        <SelectContent>
-                          {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    <Label>Almacén</Label>
+                      <SearchableSelect
+                        options={warehouses?.map((w) => ({ value: w.id, label: w.name })) ?? []}
+                        value={form.warehouseId}
+                        onValueChange={(v) => setForm({ ...form, warehouseId: v })}
+                        placeholder="Seleccionar almacén..."
+                        searchPlaceholder="Buscar almacén..."
+                        clearable
+                      />
                     </div>
 
                     {/* Reorder settings */}
