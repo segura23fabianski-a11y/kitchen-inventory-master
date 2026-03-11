@@ -46,13 +46,16 @@ interface ComboExecution {
     quantityPerService: number;
     selectedProductId: string; // for product mode
     selectedRecipeId: string; // for recipe mode
+    productionRunId: string | null; // if using today's production run
+    costSource: "theoretical" | "production_run";
+    productionRunUnitCost: number; // real unit cost from production run
     recipeIngredients: {
       ingredientId: string;
       productId: string;
       productName: string;
       productUnit: string;
-      theoreticalQty: number; // per service × servings
-      actualQty: number; // editable real quantity
+      theoreticalQty: number;
+      actualQty: number;
       unitCost: number;
     }[];
   }[];
