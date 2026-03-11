@@ -350,7 +350,7 @@ export default function Transformations() {
           {showYield && (
             <div className="col-span-2">
               {idx === 0 && <Label className="text-xs">Rend. %</Label>}
-              <Input type="number" min="0" max="100" step="0.1" value={line.expectedYield} onChange={(e) => update(line.id, "expectedYield", e.target.value)} placeholder="%" />
+              <NumericKeypadInput value={line.expectedYield} onChange={(v) => update(line.id, "expectedYield", v)} placeholder="%" keypadLabel="Rendimiento %" maxValue={100} />
             </div>
           )}
           <div className="col-span-1">
