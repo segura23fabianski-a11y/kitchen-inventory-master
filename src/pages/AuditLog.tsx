@@ -33,6 +33,13 @@ const ACTION_LABELS: Record<string, string> = {
   REMOVE_CODE: "Código eliminado",
   COST_CHANGE: "Cambio de costo",
   ROLLBACK: "Reversión",
+  PRODUCT_COST_REVALUATION: "Revalorización de costo de producto",
+  INVENTORY_RESET: "Reset de inventario",
+  BACKDATED_MOVEMENT: "Movimiento con fecha retroactiva",
+  TRANSFORMATION_RUN: "Transformación de producto",
+  WASTE_REGISTERED: "Registro de desperdicio",
+  MEAL_PLAN_CREATED: "Planeación de minuta creada",
+  MEAL_PLAN_UPDATED: "Planeación de minuta actualizada",
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -43,6 +50,13 @@ const ACTION_COLORS: Record<string, string> = {
   REMOVE_CODE: "bg-orange-500/10 text-orange-700 border-orange-200",
   COST_CHANGE: "bg-amber-500/10 text-amber-700 border-amber-200",
   ROLLBACK: "bg-slate-500/10 text-slate-700 border-slate-200",
+  PRODUCT_COST_REVALUATION: "bg-amber-500/10 text-amber-700 border-amber-200",
+  INVENTORY_RESET: "bg-red-500/10 text-red-700 border-red-200",
+  BACKDATED_MOVEMENT: "bg-amber-500/10 text-amber-700 border-amber-200",
+  TRANSFORMATION_RUN: "bg-blue-500/10 text-blue-700 border-blue-200",
+  WASTE_REGISTERED: "bg-red-500/10 text-red-700 border-red-200",
+  MEAL_PLAN_CREATED: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  MEAL_PLAN_UPDATED: "bg-blue-500/10 text-blue-700 border-blue-200",
 };
 
 export default function AuditLog() {
