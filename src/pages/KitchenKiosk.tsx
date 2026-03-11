@@ -814,6 +814,8 @@ export default function KitchenKiosk() {
                 // ── Recipe component ──
                 const selectedRecipeName = comp.selectedRecipeId ? recipeMap.get(comp.selectedRecipeId) : null;
                 const compIngCost = comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+                const useRunCost = comp.costSource === "production_run" && comp.productionRunUnitCost > 0;
+                const runCostTotal = useRunCost ? comp.productionRunUnitCost * comp.quantityPerService * comboExecution.servings : 0;
 
                 return (
                   <Card key={comp.componentId}>
@@ -824,22 +826,51 @@ export default function KitchenKiosk() {
                           {comp.componentName}
                           <Badge variant="outline" className="text-[10px] ml-1">Receta</Badge>
                         </Label>
+                        {comp.selectedRecipeId && (
+                          <Badge variant={useRunCost ? "default" : "secondary"} className="text-[10px] gap-1">
+                            {useRunCost ? <><Factory className="h-3 w-3" /> Costo real del día</> : "Costo teórico"}
+                          </Badge>
+                        )}
                       </div>
                       <SearchableSelect
-                        options={fixedRecipes.map((r) => ({
-                          value: r.id,
-                          label: r.name,
-                          searchTerms: r.name,
-                        }))}
+                        options={fixedRecipes.map((r) => {
+                          const hasRun = todayRunByRecipe.has(r.id);
+                          return {
+                            value: r.id,
+                            label: hasRun ? `✅ ${r.name} (producción de hoy)` : r.name,
+                            searchTerms: r.name,
+                          };
+                        })}
                         value={comp.selectedRecipeId}
                         onValueChange={(v) => updateComboRecipeComponent(comp.componentId, v)}
                         placeholder="Buscar y seleccionar receta..."
                         searchPlaceholder="Buscar receta..."
                       />
-                      {selectedRecipeName && comp.recipeIngredients.length > 0 && (
+
+                      {/* Production run info */}
+                      {useRunCost && selectedRecipeName && (
+                        <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-1">
+                          <p className="text-xs font-semibold flex items-center gap-1.5">
+                            <Factory className="h-3.5 w-3.5 text-primary" />
+                            Producción de hoy disponible
+                          </p>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Costo unitario real</span>
+                            <span className="font-semibold">${comp.productionRunUnitCost.toFixed(2)} / unidad</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Costo total ({comp.quantityPerService} × {comboExecution.servings})</span>
+                            <span className="font-semibold">${runCostTotal.toFixed(2)}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Inventario ya descontado en la producción</p>
+                        </div>
+                      )}
+
+                      {/* Fallback: show ingredients when no production run */}
+                      {!useRunCost && selectedRecipeName && comp.recipeIngredients.length > 0 && (
                         <div className="space-y-1.5 rounded-md border p-3 bg-muted/30">
                           <p className="text-xs font-semibold text-muted-foreground">
-                            Ingredientes de "{selectedRecipeName}" × {comboExecution.servings} servicios
+                            Ingredientes de "{selectedRecipeName}" × {comboExecution.servings} servicios (teórico)
                           </p>
                           <div className="space-y-1">
                             {comp.recipeIngredients.map((ri) => {
@@ -868,7 +899,7 @@ export default function KitchenKiosk() {
                             })}
                           </div>
                           <div className="flex justify-between text-xs pt-1 border-t">
-                            <span className="text-muted-foreground">Costo ingredientes</span>
+                            <span className="text-muted-foreground">Costo ingredientes (teórico)</span>
                             <span className="font-medium">${compIngCost.toFixed(2)}</span>
                           </div>
                         </div>
