@@ -298,7 +298,7 @@ export default function KitchenKiosk() {
           total_cost: line.totalCost,
           notes: notesParts.join(" — "),
           restaurant_id: restaurantId!,
-          service_id: serviceId || null,
+          recipe_id: line.recipeId && line.recipeId !== "__pending" ? line.recipeId : null,
           recipe_id: line.recipeId || null,
         });
         if (error) throw error;
