@@ -504,11 +504,14 @@ export default function KitchenKiosk() {
       } else {
         // recipe mode
         if (!comp.selectedRecipeId) return false;
-        if (comp.recipeIngredients.length === 0) return false;
-        for (const ri of comp.recipeIngredients) {
-          const prod = products?.find((p) => p.id === ri.productId);
-          if (!prod) return false;
-          if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+        // If using production run, no ingredient-level stock check needed (already produced)
+        if (comp.costSource !== "production_run") {
+          if (comp.recipeIngredients.length === 0) return false;
+          for (const ri of comp.recipeIngredients) {
+            const prod = products?.find((p) => p.id === ri.productId);
+            if (!prod) return false;
+            if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+          }
         }
       }
     }
@@ -524,7 +527,10 @@ export default function KitchenKiosk() {
         const cost = Number(prod.average_cost ?? 0);
         return sum + (cost * comp.quantityPerService * comboExecution.servings);
       } else {
-        // recipe mode: sum actual ingredient costs
+        // recipe mode: use production run unit cost if available, else sum ingredient costs
+        if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
+          return sum + (comp.productionRunUnitCost * comp.quantityPerService * comboExecution.servings);
+        }
         return sum + comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
       }
     }, 0);
