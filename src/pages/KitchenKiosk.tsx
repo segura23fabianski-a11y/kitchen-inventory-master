@@ -412,11 +412,12 @@ export default function KitchenKiosk() {
     });
   };
 
-  // When a recipe is selected for a recipe-type component, load its ingredients
+  // When a recipe is selected for a recipe-type component, load its ingredients and check production run
   const updateComboRecipeComponent = (componentId: string, recipeId: string) => {
     setComboExecution((prev) => {
       if (!prev) return null;
       const ings = ingredientsByRecipe.get(recipeId) ?? [];
+      const todayRun = todayRunByRecipe.get(recipeId);
       return {
         ...prev,
         components: prev.components.map((c) => {
@@ -435,7 +436,14 @@ export default function KitchenKiosk() {
               unitCost: Number(prod?.average_cost ?? 0),
             };
           });
-          return { ...c, selectedRecipeId: recipeId, recipeIngredients: recipeIngs };
+          return {
+            ...c,
+            selectedRecipeId: recipeId,
+            recipeIngredients: recipeIngs,
+            productionRunId: todayRun ? todayRun.id : null,
+            costSource: todayRun ? "production_run" as const : "theoretical" as const,
+            productionRunUnitCost: todayRun ? Number(todayRun.actual_unit_cost) : 0,
+          };
         }),
       };
     });
