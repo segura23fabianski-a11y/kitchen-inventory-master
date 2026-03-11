@@ -108,7 +108,7 @@ export default function KitchenKiosk() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipe_ingredients")
-        .select("recipe_id, product_id");
+        .select("recipe_id, product_id, quantity, unit");
       if (error) throw error;
       return data;
     },
