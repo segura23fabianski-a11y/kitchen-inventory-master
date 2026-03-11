@@ -466,10 +466,23 @@ export default function Recipes() {
             <KioskTextInput
               value={comp.component_name}
               onChange={(v) => updateFn(i, "component_name", v)}
-              placeholder="Ej: bebida, fruta, ponqué..."
+              placeholder="Ej: bebida, fruta, caliente principal..."
               keyboardLabel="Nombre del componente"
             />
           </div>
+          <Select value={comp.component_mode} onValueChange={(v) => updateFn(i, "component_mode" as any, v)}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="product">
+                <span className="flex items-center gap-1"><Package className="h-3 w-3" /> Producto</span>
+              </SelectItem>
+              <SelectItem value="recipe">
+                <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> Receta</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <div className="w-20">
             <NumericKeypadInput
               mode="decimal"
