@@ -94,6 +94,22 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     },
   });
 
+  // Realtime subscriptions for automatic dashboard updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("hotel-dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard-rooms"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "housekeeping_tasks" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard-housekeeping-pending"] });
+        qc.invalidateQueries({ queryKey: ["dashboard-rooms"] });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [qc]);
+
   // Build enriched room data
   const enrichedRooms = useMemo(() => {
     if (!rooms) return [];
