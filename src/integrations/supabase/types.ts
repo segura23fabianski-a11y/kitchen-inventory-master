@@ -1834,6 +1834,7 @@ export type Database = {
       }
       transformation_run_outputs: {
         Row: {
+          calculated_unit_cost: number
           created_at: string
           id: string
           output_product_id: string
@@ -1843,6 +1844,7 @@ export type Database = {
           yield_percent: number
         }
         Insert: {
+          calculated_unit_cost?: number
           created_at?: string
           id?: string
           output_product_id: string
@@ -1852,6 +1854,7 @@ export type Database = {
           yield_percent?: number
         }
         Update: {
+          calculated_unit_cost?: number
           created_at?: string
           id?: string
           output_product_id?: string
@@ -1884,6 +1887,7 @@ export type Database = {
           id: string
           input_product_id: string
           input_quantity: number
+          input_unit_cost: number
           notes: string | null
           overall_yield: number
           restaurant_id: string
@@ -1898,6 +1902,7 @@ export type Database = {
           id?: string
           input_product_id: string
           input_quantity: number
+          input_unit_cost?: number
           notes?: string | null
           overall_yield?: number
           restaurant_id: string
@@ -1912,6 +1917,7 @@ export type Database = {
           id?: string
           input_product_id?: string
           input_quantity?: number
+          input_unit_cost?: number
           notes?: string | null
           overall_yield?: number
           restaurant_id?: string
