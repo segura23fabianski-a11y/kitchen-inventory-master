@@ -67,17 +67,45 @@ export default function AuditLog() {
   const [detailEvent, setDetailEvent] = useState<any>(null);
   const [rollbackEvent, setRollbackEvent] = useState<any>(null);
   const [rollbackReason, setRollbackReason] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: events, isLoading } = useQuery({
-    queryKey: ["audit-events", entityFilter, actionFilter],
+  // Reset page when filters change
+  const handleEntityFilter = useCallback((v: string) => { setEntityFilter(v); setPage(1); }, []);
+  const handleActionFilter = useCallback((v: string) => { setActionFilter(v); setPage(1); }, []);
+  const handleSearch = useCallback((v: string) => { setSearch(v); setPage(1); }, []);
+
+  const { data: countData } = useQuery({
+    queryKey: ["audit-events-count", entityFilter, actionFilter, search],
     queryFn: async () => {
+      let query = supabase
+        .from("audit_events" as any)
+        .select("id", { count: "exact", head: true });
+
+      if (entityFilter !== "all") query = query.eq("entity_type", entityFilter);
+      if (actionFilter !== "all") query = query.eq("action", actionFilter);
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const totalCount = countData ?? 0;
+
+  const { data: events, isLoading } = useQuery({
+    queryKey: ["audit-events", entityFilter, actionFilter, page, pageSize],
+    queryFn: async () => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from("audit_events" as any)
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .range(from, to);
 
       if (entityFilter !== "all") {
         query = query.eq("entity_type", entityFilter);
@@ -89,14 +117,6 @@ export default function AuditLog() {
       const { data, error } = await query;
       if (error) throw error;
       return data as any[];
-    },
-  });
-
-  const { data: profiles } = useQuery({
-    queryKey: ["all-profiles"],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("user_id, full_name");
-      return data ?? [];
     },
   });
 
