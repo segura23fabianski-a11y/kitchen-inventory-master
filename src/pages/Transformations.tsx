@@ -344,7 +344,7 @@ export default function Transformations() {
           {showQty && (
             <div className="col-span-2">
               {idx === 0 && <Label className="text-xs">Cantidad</Label>}
-              <Input type="number" min="0" step="0.01" value={line.quantity} onChange={(e) => update(line.id, "quantity", e.target.value)} placeholder="0" />
+              <NumericKeypadInput value={line.quantity} onChange={(v) => update(line.id, "quantity", v)} placeholder="0" keypadLabel="Cantidad" />
             </div>
           )}
           {showYield && (
