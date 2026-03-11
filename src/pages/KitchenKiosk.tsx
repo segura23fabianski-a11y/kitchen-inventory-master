@@ -11,8 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import {
   ChefHat, CheckCircle2, AlertTriangle, Package, Search,
-  Clock, Star, Trash2, ScanBarcode, UtensilsCrossed, Layers,
+  Clock, Star, Trash2, ScanBarcode, UtensilsCrossed, Layers, Factory,
 } from "lucide-react";
+import { format } from "date-fns";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
@@ -20,6 +21,7 @@ import { UnitSelector } from "@/components/UnitSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ProductionRunDialog } from "@/components/ProductionRunDialog";
 
 interface CartItem {
   productId: string;
@@ -44,13 +46,16 @@ interface ComboExecution {
     quantityPerService: number;
     selectedProductId: string; // for product mode
     selectedRecipeId: string; // for recipe mode
+    productionRunId: string | null; // if using today's production run
+    costSource: "theoretical" | "production_run";
+    productionRunUnitCost: number; // real unit cost from production run
     recipeIngredients: {
       ingredientId: string;
       productId: string;
       productName: string;
       productUnit: string;
-      theoreticalQty: number; // per service × servings
-      actualQty: number; // editable real quantity
+      theoreticalQty: number;
+      actualQty: number;
       unitCost: number;
     }[];
   }[];
@@ -61,6 +66,7 @@ export default function KitchenKiosk() {
   const [productSearch, setProductSearch] = useState("");
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const [comboExecution, setComboExecution] = useState<ComboExecution | null>(null);
+  const [productionRunOpen, setProductionRunOpen] = useState(false);
   const barcodeBufferRef = useRef("");
   const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
@@ -126,6 +132,32 @@ export default function KitchenKiosk() {
       return data as any[];
     },
   });
+
+  // Fetch today's production runs to use real costs in combos
+  const today = format(new Date(), "yyyy-MM-dd");
+  const { data: todayProductionRuns } = useQuery({
+    queryKey: ["production-runs-today", today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_production_runs" as any)
+        .select("*")
+        .eq("production_date", today)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Map recipe_id → latest production run of today
+  const todayRunByRecipe = useMemo(() => {
+    const map = new Map<string, any>();
+    todayProductionRuns?.forEach((run: any) => {
+      if (!map.has(run.recipe_id)) {
+        map.set(run.recipe_id, run);
+      }
+    });
+    return map;
+  }, [todayProductionRuns]);
 
   const componentsByRecipe = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -360,6 +392,9 @@ export default function KitchenKiosk() {
         quantityPerService: Number(c.quantity_per_service),
         selectedProductId: "",
         selectedRecipeId: "",
+        productionRunId: null,
+        costSource: "theoretical" as const,
+        productionRunUnitCost: 0,
         recipeIngredients: [],
       })),
     });
@@ -377,11 +412,12 @@ export default function KitchenKiosk() {
     });
   };
 
-  // When a recipe is selected for a recipe-type component, load its ingredients
+  // When a recipe is selected for a recipe-type component, load its ingredients and check production run
   const updateComboRecipeComponent = (componentId: string, recipeId: string) => {
     setComboExecution((prev) => {
       if (!prev) return null;
       const ings = ingredientsByRecipe.get(recipeId) ?? [];
+      const todayRun = todayRunByRecipe.get(recipeId);
       return {
         ...prev,
         components: prev.components.map((c) => {
@@ -400,7 +436,14 @@ export default function KitchenKiosk() {
               unitCost: Number(prod?.average_cost ?? 0),
             };
           });
-          return { ...c, selectedRecipeId: recipeId, recipeIngredients: recipeIngs };
+          return {
+            ...c,
+            selectedRecipeId: recipeId,
+            recipeIngredients: recipeIngs,
+            productionRunId: todayRun ? todayRun.id : null,
+            costSource: todayRun ? "production_run" as const : "theoretical" as const,
+            productionRunUnitCost: todayRun ? Number(todayRun.actual_unit_cost) : 0,
+          };
         }),
       };
     });
@@ -461,11 +504,14 @@ export default function KitchenKiosk() {
       } else {
         // recipe mode
         if (!comp.selectedRecipeId) return false;
-        if (comp.recipeIngredients.length === 0) return false;
-        for (const ri of comp.recipeIngredients) {
-          const prod = products?.find((p) => p.id === ri.productId);
-          if (!prod) return false;
-          if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+        // If using production run, no ingredient-level stock check needed (already produced)
+        if (comp.costSource !== "production_run") {
+          if (comp.recipeIngredients.length === 0) return false;
+          for (const ri of comp.recipeIngredients) {
+            const prod = products?.find((p) => p.id === ri.productId);
+            if (!prod) return false;
+            if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+          }
         }
       }
     }
@@ -481,7 +527,10 @@ export default function KitchenKiosk() {
         const cost = Number(prod.average_cost ?? 0);
         return sum + (cost * comp.quantityPerService * comboExecution.servings);
       } else {
-        // recipe mode: sum actual ingredient costs
+        // recipe mode: use production run unit cost if available, else sum ingredient costs
+        if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
+          return sum + (comp.productionRunUnitCost * comp.quantityPerService * comboExecution.servings);
+        }
         return sum + comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
       }
     }, 0);
@@ -535,99 +584,80 @@ export default function KitchenKiosk() {
       if (!comboExecution) throw new Error("No combo");
 
       let totalCost = 0;
-      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number; isRecipeComponent: boolean; selectedRecipeId: string | null; theoreticalQty: number | null; actualQty: number | null }[] = [];
+      const itemsForLog: any[] = [];
 
       for (const comp of comboExecution.components) {
         if (comp.componentMode === "product") {
-          // Direct product component
           const prod = products?.find((p) => p.id === comp.selectedProductId);
           if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
           const qty = comp.quantityPerService * comboExecution.servings;
           const cost = Number(prod.average_cost ?? 0);
           const lineCost = qty * cost;
           totalCost += lineCost;
-          itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null });
+          itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null, productionRunId: null, costSource: "theoretical" });
 
           const { error } = await supabase.from("inventory_movements").insert({
-            product_id: comp.selectedProductId,
-            user_id: user!.id,
-            type: "salida",
-            quantity: qty,
-            unit_cost: cost,
-            total_cost: lineCost,
+            product_id: comp.selectedProductId, user_id: user!.id, type: "salida", quantity: qty, unit_cost: cost, total_cost: lineCost,
             notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
-            restaurant_id: restaurantId!,
-            recipe_id: comboExecution.recipeId,
+            restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
           });
           if (error) throw error;
         } else {
-          // Recipe component - deduct each ingredient with actual quantities
           const selectedRecipeName = recipeMap.get(comp.selectedRecipeId) ?? "Receta";
-          for (const ri of comp.recipeIngredients) {
-            const prod = products?.find((p) => p.id === ri.productId);
-            if (!prod) continue;
-            const cost = Number(prod.average_cost ?? 0);
-            const lineCost = ri.actualQty * cost;
+
+          if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
+            // Use production run cost — no ingredient-level deduction (already deducted during production)
+            const qty = comp.quantityPerService * comboExecution.servings;
+            const lineCost = comp.productionRunUnitCost * qty;
             totalCost += lineCost;
             itemsForLog.push({
-              componentName: comp.componentName,
-              productId: ri.productId,
-              qty: ri.actualQty,
-              unitCost: cost,
-              lineCost,
-              isRecipeComponent: true,
-              selectedRecipeId: comp.selectedRecipeId,
-              theoreticalQty: ri.theoreticalQty,
-              actualQty: ri.actualQty,
+              componentName: comp.componentName, productId: comp.selectedRecipeId, qty, unitCost: comp.productionRunUnitCost, lineCost,
+              isRecipeComponent: true, selectedRecipeId: comp.selectedRecipeId,
+              theoreticalQty: qty, actualQty: qty,
+              productionRunId: comp.productionRunId, costSource: "production_run",
             });
+          } else {
+            // Deduct each ingredient with actual quantities
+            for (const ri of comp.recipeIngredients) {
+              const prod = products?.find((p) => p.id === ri.productId);
+              if (!prod) continue;
+              const cost = Number(prod.average_cost ?? 0);
+              const lineCost = ri.actualQty * cost;
+              totalCost += lineCost;
+              itemsForLog.push({
+                componentName: comp.componentName, productId: ri.productId, qty: ri.actualQty, unitCost: cost, lineCost,
+                isRecipeComponent: true, selectedRecipeId: comp.selectedRecipeId,
+                theoreticalQty: ri.theoreticalQty, actualQty: ri.actualQty,
+                productionRunId: null, costSource: "theoretical",
+              });
 
-            const { error } = await supabase.from("inventory_movements").insert({
-              product_id: ri.productId,
-              user_id: user!.id,
-              type: "salida",
-              quantity: ri.actualQty,
-              unit_cost: cost,
-              total_cost: lineCost,
-              notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
-              restaurant_id: restaurantId!,
-              recipe_id: comboExecution.recipeId,
-            });
-            if (error) throw error;
+              const { error } = await supabase.from("inventory_movements").insert({
+                product_id: ri.productId, user_id: user!.id, type: "salida", quantity: ri.actualQty, unit_cost: cost, total_cost: lineCost,
+                notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
+                restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
+              });
+              if (error) throw error;
+            }
           }
         }
       }
 
-      // Save combo execution log
       const unitCost = comboExecution.servings > 0 ? totalCost / comboExecution.servings : 0;
       const { data: execLog, error: logError } = await supabase
         .from("combo_execution_logs" as any)
-        .insert({
-          restaurant_id: restaurantId!,
-          recipe_id: comboExecution.recipeId,
-          executed_by: user!.id,
-          servings: comboExecution.servings,
-          total_cost: totalCost,
-          unit_cost: unitCost,
-        } as any)
-        .select("id")
-        .single();
+        .insert({ restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId, executed_by: user!.id, servings: comboExecution.servings, total_cost: totalCost, unit_cost: unitCost } as any)
+        .select("id").single();
       if (logError) throw logError;
 
-      // Save combo execution items
       const { error: itemsError } = await supabase
         .from("combo_execution_items" as any)
         .insert(
           itemsForLog.map((item) => ({
-            execution_id: (execLog as any).id,
-            component_name: item.componentName,
-            product_id: item.productId,
-            quantity: item.qty,
-            unit_cost: item.unitCost,
-            line_cost: item.lineCost,
-            is_recipe_component: item.isRecipeComponent,
-            selected_recipe_id: item.selectedRecipeId,
-            theoretical_quantity: item.theoreticalQty,
-            actual_quantity: item.actualQty,
+            execution_id: (execLog as any).id, component_name: item.componentName, product_id: item.productId,
+            quantity: item.qty, unit_cost: item.unitCost, line_cost: item.lineCost,
+            is_recipe_component: item.isRecipeComponent, selected_recipe_id: item.selectedRecipeId,
+            theoretical_quantity: item.theoreticalQty, actual_quantity: item.actualQty,
+            production_run_id: item.productionRunId, cost_source: item.costSource,
           })) as any
         );
       if (itemsError) throw itemsError;
@@ -784,6 +814,8 @@ export default function KitchenKiosk() {
                 // ── Recipe component ──
                 const selectedRecipeName = comp.selectedRecipeId ? recipeMap.get(comp.selectedRecipeId) : null;
                 const compIngCost = comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+                const useRunCost = comp.costSource === "production_run" && comp.productionRunUnitCost > 0;
+                const runCostTotal = useRunCost ? comp.productionRunUnitCost * comp.quantityPerService * comboExecution.servings : 0;
 
                 return (
                   <Card key={comp.componentId}>
@@ -794,22 +826,51 @@ export default function KitchenKiosk() {
                           {comp.componentName}
                           <Badge variant="outline" className="text-[10px] ml-1">Receta</Badge>
                         </Label>
+                        {comp.selectedRecipeId && (
+                          <Badge variant={useRunCost ? "default" : "secondary"} className="text-[10px] gap-1">
+                            {useRunCost ? <><Factory className="h-3 w-3" /> Costo real del día</> : "Costo teórico"}
+                          </Badge>
+                        )}
                       </div>
                       <SearchableSelect
-                        options={fixedRecipes.map((r) => ({
-                          value: r.id,
-                          label: r.name,
-                          searchTerms: r.name,
-                        }))}
+                        options={fixedRecipes.map((r) => {
+                          const hasRun = todayRunByRecipe.has(r.id);
+                          return {
+                            value: r.id,
+                            label: hasRun ? `✅ ${r.name} (producción de hoy)` : r.name,
+                            searchTerms: r.name,
+                          };
+                        })}
                         value={comp.selectedRecipeId}
                         onValueChange={(v) => updateComboRecipeComponent(comp.componentId, v)}
                         placeholder="Buscar y seleccionar receta..."
                         searchPlaceholder="Buscar receta..."
                       />
-                      {selectedRecipeName && comp.recipeIngredients.length > 0 && (
+
+                      {/* Production run info */}
+                      {useRunCost && selectedRecipeName && (
+                        <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-1">
+                          <p className="text-xs font-semibold flex items-center gap-1.5">
+                            <Factory className="h-3.5 w-3.5 text-primary" />
+                            Producción de hoy disponible
+                          </p>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Costo unitario real</span>
+                            <span className="font-semibold">${comp.productionRunUnitCost.toFixed(2)} / unidad</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Costo total ({comp.quantityPerService} × {comboExecution.servings})</span>
+                            <span className="font-semibold">${runCostTotal.toFixed(2)}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Inventario ya descontado en la producción</p>
+                        </div>
+                      )}
+
+                      {/* Fallback: show ingredients when no production run */}
+                      {!useRunCost && selectedRecipeName && comp.recipeIngredients.length > 0 && (
                         <div className="space-y-1.5 rounded-md border p-3 bg-muted/30">
                           <p className="text-xs font-semibold text-muted-foreground">
-                            Ingredientes de "{selectedRecipeName}" × {comboExecution.servings} servicios
+                            Ingredientes de "{selectedRecipeName}" × {comboExecution.servings} servicios (teórico)
                           </p>
                           <div className="space-y-1">
                             {comp.recipeIngredients.map((ri) => {
@@ -838,7 +899,7 @@ export default function KitchenKiosk() {
                             })}
                           </div>
                           <div className="flex justify-between text-xs pt-1 border-t">
-                            <span className="text-muted-foreground">Costo ingredientes</span>
+                            <span className="text-muted-foreground">Costo ingredientes (teórico)</span>
                             <span className="font-medium">${compIngCost.toFixed(2)}</span>
                           </div>
                         </div>
@@ -897,6 +958,15 @@ export default function KitchenKiosk() {
             Escanea códigos o selecciona productos — ingresa cantidades — confirma
           </p>
         </div>
+
+        {/* Production Run button */}
+        {fixedRecipes.length > 0 && (
+          <div className="flex justify-center">
+            <Button variant="outline" className="gap-2" onClick={() => setProductionRunOpen(true)}>
+              <Factory className="h-4 w-4" /> Registrar Producción de Receta
+            </Button>
+          </div>
+        )}
 
         {/* Barcode scan feedback */}
         {scanFeedback && (
@@ -1216,6 +1286,13 @@ export default function KitchenKiosk() {
           </div>
         </div>
       </div>
+      <ProductionRunDialog
+        open={productionRunOpen}
+        onOpenChange={setProductionRunOpen}
+        fixedRecipes={fixedRecipes}
+        recipeIngredientsByRecipe={ingredientsByRecipe}
+        products={products ?? []}
+      />
     </AppLayout>
   );
 }
