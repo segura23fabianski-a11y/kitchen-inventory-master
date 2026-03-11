@@ -91,9 +91,9 @@ const AppRoutes = () => (
     <Route path="/kardex" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/kardex/:productId" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/physical-inventory" element={<ProtectedRoute roles={["admin", "bodega"]}><PhysicalInventory /></ProtectedRoute>} />
-    <Route path="/waste" element={<ProtectedRoute roles={["admin", "bodega"]}><WasteControl /></ProtectedRoute>} />
-    <Route path="/transformations" element={<ProtectedRoute roles={["admin", "bodega"]}><Transformations /></ProtectedRoute>} />
-    <Route path="/meal-planning" element={<ProtectedRoute roles={["admin", "bodega"]}><MealPlanning /></ProtectedRoute>} />
+    <Route path="/waste" element={<ProtectedRoute permKey="waste_control"><WasteControl /></ProtectedRoute>} />
+    <Route path="/transformations" element={<ProtectedRoute permKey="transformations"><Transformations /></ProtectedRoute>} />
+    <Route path="/meal-planning" element={<ProtectedRoute permKey="recipes"><MealPlanning /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
     <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
     <Route path="/recalculate-inventory" element={<ProtectedRoute roles={["admin"]}><RecalculateInventory /></ProtectedRoute>} />
