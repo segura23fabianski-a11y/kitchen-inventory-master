@@ -686,6 +686,7 @@ export type Database = {
           category: string
           condition_notes: string | null
           created_at: string
+          damaged: number
           id: string
           in_laundry: number
           in_use: number
@@ -700,6 +701,7 @@ export type Database = {
           category?: string
           condition_notes?: string | null
           created_at?: string
+          damaged?: number
           id?: string
           in_laundry?: number
           in_use?: number
@@ -714,6 +716,7 @@ export type Database = {
           category?: string
           condition_notes?: string | null
           created_at?: string
+          damaged?: number
           id?: string
           in_laundry?: number
           in_use?: number
