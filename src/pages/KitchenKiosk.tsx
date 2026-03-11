@@ -63,18 +63,6 @@ export default function KitchenKiosk() {
     },
   });
 
-  const { data: services } = useQuery({
-    queryKey: ["operational-services"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("operational_services")
-        .select("id, name")
-        .eq("active", true)
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
 
   const { data: recipes } = useQuery({
     queryKey: ["recipes-food"],
