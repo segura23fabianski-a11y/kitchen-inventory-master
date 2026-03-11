@@ -39,12 +39,14 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
+function ProtectedRoute({ children, roles, permKey }: { children: React.ReactNode; roles?: string[]; permKey?: string }) {
   const { session, loading, hasRole, profileStatus } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
+  const { hasPermission, isLoading: permLoading } = usePermissions();
+  if (loading || permLoading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
   if (!session) return <Navigate to="/auth" replace />;
   if (profileStatus !== "active") return <Navigate to="/pending" replace />;
-  if (roles && !roles.some((r) => hasRole(r))) return <Navigate to="/" replace />;
+  if (permKey && !hasPermission(permKey)) return <Navigate to="/" replace />;
+  if (!permKey && roles && !roles.some((r) => hasRole(r))) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
