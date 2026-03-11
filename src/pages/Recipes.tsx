@@ -43,6 +43,7 @@ interface IngredientLine {
 interface ComponentLine {
   id?: string;
   component_name: string;
+  component_mode: "product" | "recipe";
   quantity_per_service: number;
   required: boolean;
   sort_order: number;
