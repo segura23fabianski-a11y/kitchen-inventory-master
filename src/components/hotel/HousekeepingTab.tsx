@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { CheckCircle, PlayCircle, Clock, ClipboardList } from "lucide-react";
+import { CheckCircle, PlayCircle, Clock, ClipboardList, Beaker } from "lucide-react";
 
 const TASK_TYPE_LABELS: Record<string, string> = { checkout_clean: "Limpieza Check-out", daily: "Limpieza Diaria", daily_clean: "Limpieza Diaria", maintenance: "Mantenimiento" };
 const STATUS_LABELS: Record<string, string> = { pending: "Pendiente", in_progress: "En Progreso", done: "Completada" };
@@ -18,9 +19,12 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline"> = { p
 
 export default function HousekeepingTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const restaurantId = useRestaurantId();
   const qc = useQueryClient();
   const [filterStatus, setFilterStatus] = useState("pending");
   const [checklistTask, setChecklistTask] = useState<any>(null);
+  const [consumptionDialog, setConsumptionDialog] = useState<any>(null);
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ["housekeeping-tasks", filterStatus],
@@ -45,6 +49,18 @@ export default function HousekeepingTab() {
     enabled: !!checklistTask,
   });
 
+  // Fetch operational recipes for housekeeping type
+  const { data: housekeepingRecipes } = useQuery({
+    queryKey: ["housekeeping-recipes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("recipes")
+        .select("id, name, recipe_type, recipe_ingredients(product_id, quantity, unit, products(name, unit, average_cost, current_stock))")
+        .eq("recipe_type", "housekeeping").order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const toggleItemMutation = useMutation({
     mutationFn: async ({ itemId, completed }: { itemId: string; completed: boolean }) => {
       const { error } = await supabase.from("housekeeping_task_items" as any).update({
@@ -61,25 +77,46 @@ export default function HousekeepingTab() {
     mutationFn: async ({ taskId, newStatus, roomId }: { taskId: string; newStatus: string; roomId: string }) => {
       const updateData: any = { status: newStatus };
       if (newStatus === "done") updateData.completed_at = new Date().toISOString();
-
       const { error } = await supabase.from("housekeeping_tasks" as any).update(updateData).eq("id", taskId);
       if (error) throw error;
-
-      // If checkout_clean done → room available
       const task = tasks?.find((t: any) => t.id === taskId);
       if (newStatus === "done" && (task?.task_type === "checkout_clean" || task?.task_type === "daily_clean")) {
         const { error: rErr } = await supabase.from("rooms" as any).update({ status: "available" } as any).eq("id", roomId);
         if (rErr) throw rErr;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
       qc.invalidateQueries({ queryKey: ["rooms-available"] });
       qc.invalidateQueries({ queryKey: ["rooms-for-checkin"] });
       toast({ title: "Tarea actualizada" });
+      // If task completed, suggest chemical consumption
+      if (variables.newStatus === "done" && housekeepingRecipes && housekeepingRecipes.length > 0) {
+        const task = tasks?.find((t: any) => t.id === variables.taskId);
+        setConsumptionDialog(task);
+      }
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const registerConsumptionMutation = useMutation({
+    mutationFn: async ({ recipeId, taskId }: { recipeId: string; taskId: string }) => {
+      if (!user || !restaurantId) throw new Error("Sin sesión");
+      // Use the existing RPC to register recipe consumption (1 portion = 1 room)
+      const { error } = await supabase.rpc("register_recipe_consumption", {
+        _recipe_id: recipeId, _user_id: user.id, _portions: 1, _notes: `Consumo housekeeping - Tarea ${taskId}`,
+      });
+      if (error) throw error;
+      // Link recipe to task
+      await supabase.from("housekeeping_tasks" as any).update({ recipe_id: recipeId } as any).eq("id", taskId);
+    },
+    onSuccess: () => {
+      setConsumptionDialog(null);
+      qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+      toast({ title: "Consumo de químicos registrado", description: "Los insumos se descontaron del inventario operativo." });
+    },
+    onError: (e: any) => toast({ title: "Error al registrar consumo", description: e.message, variant: "destructive" }),
   });
 
   const allChecked = checklistItems?.length > 0 && checklistItems.every((i: any) => i.is_completed);
@@ -103,12 +140,8 @@ export default function HousekeepingTab() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Habitación</TableHead>
-            <TableHead>Tipo Tarea</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Prioridad</TableHead>
-            <TableHead>Fecha</TableHead>
-            <TableHead>Completada</TableHead>
+            <TableHead>Habitación</TableHead><TableHead>Tipo Tarea</TableHead><TableHead>Estado</TableHead>
+            <TableHead>Prioridad</TableHead><TableHead>Fecha</TableHead><TableHead>Completada</TableHead>
             <TableHead className="w-44">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -156,9 +189,7 @@ export default function HousekeepingTab() {
       <Dialog open={!!checklistTask} onOpenChange={() => setChecklistTask(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              Checklist — Hab #{checklistTask?.rooms?.room_number || "—"}
-            </DialogTitle>
+            <DialogTitle>Checklist — Hab #{checklistTask?.rooms?.room_number || "—"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground mb-3">
@@ -195,6 +226,65 @@ export default function HousekeepingTab() {
           {checklistTask?.notes && (
             <p className="text-xs text-muted-foreground mt-2"><span className="font-medium">Notas:</span> {checklistTask.notes}</p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Chemical Consumption Suggestion Dialog */}
+      <Dialog open={!!consumptionDialog} onOpenChange={() => setConsumptionDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Beaker className="h-5 w-5" />Registrar Consumo de Químicos
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              La tarea de limpieza de Hab #{consumptionDialog?.rooms?.room_number} fue completada.
+              ¿Desea registrar el consumo de químicos desde una receta operativa?
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Los insumos se descontarán del inventario operativo actual (detergente, cloro, desinfectante, etc.)
+            </p>
+
+            {housekeepingRecipes && housekeepingRecipes.length > 0 ? (
+              <div className="space-y-2">
+                {housekeepingRecipes.map((r: any) => {
+                  const ingredients = r.recipe_ingredients || [];
+                  return (
+                    <div key={r.id} className="rounded-md border p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{r.name}</span>
+                        <Button size="sm" onClick={() => registerConsumptionMutation.mutate({ recipeId: r.id, taskId: consumptionDialog.id })}
+                          disabled={registerConsumptionMutation.isPending}>
+                          Registrar
+                        </Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        {ingredients.map((ing: any) => (
+                          <p key={ing.product_id}>
+                            • {ing.products?.name}: {ing.quantity} {ing.unit}
+                            {ing.products?.current_stock !== undefined && (
+                              <span className={ing.products.current_stock < ing.quantity ? "text-destructive ml-1" : "ml-1"}>
+                                (stock: {ing.products.current_stock})
+                              </span>
+                            )}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay recetas operativas de tipo "housekeeping". Puede crearlas en el módulo de Recetas.
+              </p>
+            )}
+
+            <Button variant="outline" className="w-full" onClick={() => setConsumptionDialog(null)}>
+              Omitir / Registrar después
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

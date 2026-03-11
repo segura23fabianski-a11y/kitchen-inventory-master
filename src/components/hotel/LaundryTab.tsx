@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, X, Shirt, Bed } from "lucide-react";
+import { Plus, X, Shirt, Bed, Beaker } from "lucide-react";
 
 const TYPE_LABELS: Record<string, string> = { hotel_linen: "Ropa de Cama/Hotel", guest_personal: "Ropa Personal Huésped" };
 const STATUS_LABELS: Record<string, string> = { pending: "Pendiente", washing: "Lavando", ready: "Lista", delivered: "Entregada" };
@@ -37,6 +37,7 @@ export default function LaundryTab() {
   const [form, setForm] = useState<LaundryForm>(emptyForm);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [consumptionDialog, setConsumptionDialog] = useState<any>(null);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["laundry-orders", filterStatus, filterType],
@@ -72,6 +73,18 @@ export default function LaundryTab() {
     },
   });
 
+  // Laundry operational recipes for chemical consumption
+  const { data: laundryRecipes } = useQuery({
+    queryKey: ["laundry-recipes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("recipes")
+        .select("id, name, recipe_type, recipe_mode, recipe_ingredients(product_id, quantity, unit, products(name, unit, average_cost, current_stock))")
+        .eq("recipe_type", "laundry").order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const addItem = (name: string) => {
     const existing = form.items.find(i => i.name === name);
     if (existing) {
@@ -80,27 +93,22 @@ export default function LaundryTab() {
       setForm({ ...form, items: [...form.items, { name, quantity: 1 }] });
     }
   };
-
   const removeItem = (name: string) => setForm({ ...form, items: form.items.filter(i => i.name !== name) });
   const updateQty = (name: string, qty: number) => {
     if (qty <= 0) return removeItem(name);
     setForm({ ...form, items: form.items.map(i => i.name === name ? { ...i, quantity: qty } : i) });
   };
-
   const handleStayChange = (stayId: string) => {
     const stay = activeStays?.find((s: any) => s.id === stayId);
-    setForm(prev => ({
-      ...prev, stay_id: stayId,
-      room_id: stay?.room_id || "", company_id: stay?.company_id || "",
-    }));
+    setForm(prev => ({ ...prev, stay_id: stayId === "none" ? "" : stayId, room_id: stay?.room_id || "", company_id: stay?.company_id || "" }));
   };
 
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!restaurantId || !user) throw new Error("Sin restaurante o usuario");
       if (form.items.length === 0) throw new Error("Agregue al menos un artículo");
-
-      const { error } = await supabase.from("laundry_orders" as any).insert({
+      const totalPieces = form.items.reduce((s, i) => s + i.quantity, 0);
+      const { data, error } = await supabase.from("laundry_orders" as any).insert({
         restaurant_id: restaurantId,
         laundry_type: form.laundry_type,
         stay_id: form.stay_id || null,
@@ -108,16 +116,22 @@ export default function LaundryTab() {
         company_id: form.company_id || null,
         guest_id: form.guest_id || null,
         items: form.items,
+        total_pieces: totalPieces,
         notes: form.notes.trim() || null,
         created_by: user.id,
-      } as any);
+      } as any).select("id").single();
       if (error) throw error;
+      return { orderId: (data as any).id, totalPieces };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["laundry-orders"] });
       setOpen(false);
       setForm(emptyForm);
       toast({ title: "Orden de lavandería creada" });
+      // Suggest chemical consumption if laundry recipes exist
+      if (laundryRecipes && laundryRecipes.length > 0) {
+        setConsumptionDialog({ orderId: result.orderId, totalPieces: result.totalPieces });
+      }
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -134,6 +148,24 @@ export default function LaundryTab() {
       toast({ title: "Estado actualizado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const registerConsumptionMutation = useMutation({
+    mutationFn: async ({ recipeId, portions, orderId }: { recipeId: string; portions: number; orderId: string }) => {
+      if (!user || !restaurantId) throw new Error("Sin sesión");
+      // Per-item model: portions = total pieces
+      const { error } = await supabase.rpc("register_recipe_consumption", {
+        _recipe_id: recipeId, _user_id: user.id, _portions: portions,
+        _notes: `Consumo lavandería - Orden ${orderId} (${portions} prendas)`,
+      });
+      if (error) throw error;
+      await supabase.from("laundry_orders" as any).update({ recipe_id: recipeId } as any).eq("id", orderId);
+    },
+    onSuccess: () => {
+      setConsumptionDialog(null);
+      toast({ title: "Consumo de químicos registrado", description: "Los insumos se descontaron del inventario operativo." });
+    },
+    onError: (e: any) => toast({ title: "Error al registrar consumo", description: e.message, variant: "destructive" }),
   });
 
   const suggestedItems = form.laundry_type === "hotel_linen" ? LINEN_ITEMS : PERSONAL_ITEMS;
@@ -168,14 +200,9 @@ export default function LaundryTab() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Habitación</TableHead>
-            <TableHead>Empresa</TableHead>
-            <TableHead>Huésped</TableHead>
-            <TableHead>Artículos</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Fecha</TableHead>
-            <TableHead className="w-44">Acciones</TableHead>
+            <TableHead>Tipo</TableHead><TableHead>Habitación</TableHead><TableHead>Empresa</TableHead>
+            <TableHead>Huésped</TableHead><TableHead>Piezas</TableHead><TableHead>Estado</TableHead>
+            <TableHead>Fecha</TableHead><TableHead className="w-44">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -236,7 +263,7 @@ export default function LaundryTab() {
 
             <div>
               <Label>Estancia Activa (opcional)</Label>
-              <Select value={form.stay_id} onValueChange={handleStayChange}>
+              <Select value={form.stay_id || "none"} onValueChange={handleStayChange}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estancia..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin estancia</SelectItem>
@@ -296,6 +323,7 @@ export default function LaundryTab() {
                       </Button>
                     </div>
                   ))}
+                  <p className="text-xs text-muted-foreground">Total: {form.items.reduce((s, i) => s + i.quantity, 0)} piezas</p>
                 </div>
               )}
             </div>
@@ -304,6 +332,70 @@ export default function LaundryTab() {
 
             <Button className="w-full" onClick={() => createMutation.mutate()} disabled={form.items.length === 0 || createMutation.isPending}>
               {createMutation.isPending ? "Creando..." : "Crear Orden"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chemical Consumption Suggestion Dialog */}
+      <Dialog open={!!consumptionDialog} onOpenChange={() => setConsumptionDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Beaker className="h-5 w-5" />Registrar Consumo de Químicos
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Orden creada con {consumptionDialog?.totalPieces} piezas.
+              ¿Desea registrar el consumo de químicos (detergente, suavizante, etc.)?
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Se aplicará el modelo por prenda: los insumos de la receta se multiplicarán por {consumptionDialog?.totalPieces} piezas.
+            </p>
+
+            {laundryRecipes && laundryRecipes.length > 0 ? (
+              <div className="space-y-2">
+                {laundryRecipes.map((r: any) => {
+                  const ingredients = r.recipe_ingredients || [];
+                  const pieces = consumptionDialog?.totalPieces || 1;
+                  return (
+                    <div key={r.id} className="rounded-md border p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{r.name}</span>
+                        <Button size="sm" onClick={() => registerConsumptionMutation.mutate({
+                          recipeId: r.id, portions: pieces, orderId: consumptionDialog.orderId,
+                        })} disabled={registerConsumptionMutation.isPending}>
+                          Registrar
+                        </Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        {ingredients.map((ing: any) => {
+                          const totalQty = ing.quantity * pieces;
+                          return (
+                            <p key={ing.product_id}>
+                              • {ing.products?.name}: {totalQty.toFixed(2)} {ing.unit} ({ing.quantity} × {pieces})
+                              {ing.products?.current_stock !== undefined && (
+                                <span className={ing.products.current_stock < totalQty ? "text-destructive ml-1" : "ml-1"}>
+                                  (stock: {ing.products.current_stock})
+                                </span>
+                              )}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay recetas operativas de tipo "laundry". Puede crearlas en el módulo de Recetas.
+              </p>
+            )}
+
+            <Button variant="outline" className="w-full" onClick={() => setConsumptionDialog(null)}>
+              Omitir / Registrar después
             </Button>
           </div>
         </DialogContent>

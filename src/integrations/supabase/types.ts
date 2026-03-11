@@ -679,6 +679,111 @@ export type Database = {
           },
         ]
       }
+      hotel_linen_inventory: {
+        Row: {
+          active: boolean
+          available: number
+          category: string
+          condition_notes: string | null
+          created_at: string
+          id: string
+          in_laundry: number
+          in_use: number
+          item_name: string
+          restaurant_id: string
+          total_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          available?: number
+          category?: string
+          condition_notes?: string | null
+          created_at?: string
+          id?: string
+          in_laundry?: number
+          in_use?: number
+          item_name: string
+          restaurant_id: string
+          total_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          available?: number
+          category?: string
+          condition_notes?: string | null
+          created_at?: string
+          id?: string
+          in_laundry?: number
+          in_use?: number
+          item_name?: string
+          restaurant_id?: string
+          total_quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotel_linen_inventory_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotel_linen_room_assignments: {
+        Row: {
+          assigned_at: string
+          id: string
+          linen_id: string
+          notes: string | null
+          quantity: number
+          restaurant_id: string
+          room_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          linen_id: string
+          notes?: string | null
+          quantity?: number
+          restaurant_id: string
+          room_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          linen_id?: string
+          notes?: string | null
+          quantity?: number
+          restaurant_id?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotel_linen_room_assignments_linen_id_fkey"
+            columns: ["linen_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_linen_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotel_linen_room_assignments_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotel_linen_room_assignments_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       housekeeping_checklist_templates: {
         Row: {
           active: boolean
@@ -776,6 +881,7 @@ export type Database = {
           id: string
           notes: string | null
           priority: string | null
+          recipe_id: string | null
           restaurant_id: string
           room_id: string
           status: string
@@ -789,6 +895,7 @@ export type Database = {
           id?: string
           notes?: string | null
           priority?: string | null
+          recipe_id?: string | null
           restaurant_id: string
           room_id: string
           status?: string
@@ -802,6 +909,7 @@ export type Database = {
           id?: string
           notes?: string | null
           priority?: string | null
+          recipe_id?: string | null
           restaurant_id?: string
           room_id?: string
           status?: string
@@ -809,6 +917,13 @@ export type Database = {
           task_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "housekeeping_tasks_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "housekeeping_tasks_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -929,10 +1044,12 @@ export type Database = {
           items: Json
           laundry_type: string
           notes: string | null
+          recipe_id: string | null
           restaurant_id: string
           room_id: string | null
           status: string
           stay_id: string | null
+          total_pieces: number
         }
         Insert: {
           company_id?: string | null
@@ -944,10 +1061,12 @@ export type Database = {
           items?: Json
           laundry_type?: string
           notes?: string | null
+          recipe_id?: string | null
           restaurant_id: string
           room_id?: string | null
           status?: string
           stay_id?: string | null
+          total_pieces?: number
         }
         Update: {
           company_id?: string | null
@@ -959,10 +1078,12 @@ export type Database = {
           items?: Json
           laundry_type?: string
           notes?: string | null
+          recipe_id?: string | null
           restaurant_id?: string
           room_id?: string | null
           status?: string
           stay_id?: string | null
+          total_pieces?: number
         }
         Relationships: [
           {
@@ -977,6 +1098,13 @@ export type Database = {
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "hotel_guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_orders_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
           {
