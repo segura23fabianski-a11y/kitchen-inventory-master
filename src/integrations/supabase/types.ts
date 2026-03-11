@@ -679,6 +679,95 @@ export type Database = {
           },
         ]
       }
+      housekeeping_checklist_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          item_name: string
+          restaurant_id: string
+          sort_order: number
+          task_type: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          item_name: string
+          restaurant_id: string
+          sort_order?: number
+          task_type?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          item_name?: string
+          restaurant_id?: string
+          sort_order?: number
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housekeeping_checklist_templates_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      housekeeping_task_items: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          housekeeping_task_id: string
+          id: string
+          is_completed: boolean
+          item_name: string
+          notes: string | null
+          restaurant_id: string
+          sort_order: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          housekeeping_task_id: string
+          id?: string
+          is_completed?: boolean
+          item_name: string
+          notes?: string | null
+          restaurant_id: string
+          sort_order?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          housekeeping_task_id?: string
+          id?: string
+          is_completed?: boolean
+          item_name?: string
+          notes?: string | null
+          restaurant_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housekeeping_task_items_housekeeping_task_id_fkey"
+            columns: ["housekeeping_task_id"]
+            isOneToOne: false
+            referencedRelation: "housekeeping_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "housekeeping_task_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       housekeeping_tasks: {
         Row: {
           assigned_to: string | null
@@ -825,6 +914,90 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "operational_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laundry_orders: {
+        Row: {
+          company_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          guest_id: string | null
+          id: string
+          items: Json
+          laundry_type: string
+          notes: string | null
+          restaurant_id: string
+          room_id: string | null
+          status: string
+          stay_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_id?: string | null
+          id?: string
+          items?: Json
+          laundry_type?: string
+          notes?: string | null
+          restaurant_id: string
+          room_id?: string | null
+          status?: string
+          stay_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_id?: string | null
+          id?: string
+          items?: Json
+          laundry_type?: string
+          notes?: string | null
+          restaurant_id?: string
+          room_id?: string | null
+          status?: string
+          stay_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_orders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_orders_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_orders_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_orders_stay_id_fkey"
+            columns: ["stay_id"]
+            isOneToOne: false
+            referencedRelation: "stays"
             referencedColumns: ["id"]
           },
         ]
@@ -2257,6 +2430,7 @@ export type Database = {
         Row: {
           check_in_at: string
           check_out_at: string | null
+          checkout_type: string
           company_id: string | null
           created_at: string
           created_by: string
@@ -2274,6 +2448,7 @@ export type Database = {
         Insert: {
           check_in_at?: string
           check_out_at?: string | null
+          checkout_type?: string
           company_id?: string | null
           created_at?: string
           created_by: string
@@ -2291,6 +2466,7 @@ export type Database = {
         Update: {
           check_in_at?: string
           check_out_at?: string | null
+          checkout_type?: string
           company_id?: string | null
           created_at?: string
           created_by?: string
