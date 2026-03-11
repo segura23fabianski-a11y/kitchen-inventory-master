@@ -79,26 +79,26 @@ const AppRoutes = () => (
     <Route path="/kitchen" element={<ProtectedRoute><KitchenKiosk /></ProtectedRoute>} />
     <Route path="/operations" element={<ProtectedRoute><OperationsKiosk /></ProtectedRoute>} />
     
-    <Route path="/reports" element={<ProtectedRoute roles={["admin"]}><Reports /></ProtectedRoute>} />
-    <Route path="/executive" element={<ProtectedRoute roles={["admin"]}><ExecutiveDashboard /></ProtectedRoute>} />
-    <Route path="/operational-reports" element={<ProtectedRoute roles={["admin", "bodega"]}><OperationalReports /></ProtectedRoute>} />
-    <Route path="/roles" element={<ProtectedRoute roles={["admin"]}><Roles /></ProtectedRoute>} />
-    <Route path="/warehouses" element={<ProtectedRoute roles={["admin", "bodega"]}><Warehouses /></ProtectedRoute>} />
-    <Route path="/purchases" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseInvoices /></ProtectedRoute>} />
-    <Route path="/suppliers" element={<ProtectedRoute roles={["admin", "bodega"]}><Suppliers /></ProtectedRoute>} />
-    <Route path="/price-history" element={<ProtectedRoute roles={["admin", "bodega"]}><PriceHistory /></ProtectedRoute>} />
-    <Route path="/purchase-orders" element={<ProtectedRoute roles={["admin", "bodega"]}><PurchaseOrders /></ProtectedRoute>} />
-    <Route path="/kardex" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
-    <Route path="/kardex/:productId" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
-    <Route path="/physical-inventory" element={<ProtectedRoute roles={["admin", "bodega"]}><PhysicalInventory /></ProtectedRoute>} />
+    <Route path="/reports" element={<ProtectedRoute permKey="reports"><Reports /></ProtectedRoute>} />
+    <Route path="/executive" element={<ProtectedRoute permKey="executive_dashboard"><ExecutiveDashboard /></ProtectedRoute>} />
+    <Route path="/operational-reports" element={<ProtectedRoute permKey="operational_reports"><OperationalReports /></ProtectedRoute>} />
+    <Route path="/roles" element={<ProtectedRoute permKey="roles"><Roles /></ProtectedRoute>} />
+    <Route path="/warehouses" element={<ProtectedRoute permKey="warehouses"><Warehouses /></ProtectedRoute>} />
+    <Route path="/purchases" element={<ProtectedRoute permKey="purchases"><PurchaseInvoices /></ProtectedRoute>} />
+    <Route path="/suppliers" element={<ProtectedRoute permKey="suppliers"><Suppliers /></ProtectedRoute>} />
+    <Route path="/price-history" element={<ProtectedRoute permKey="price_history"><PriceHistory /></ProtectedRoute>} />
+    <Route path="/purchase-orders" element={<ProtectedRoute permKey="purchase_orders"><PurchaseOrders /></ProtectedRoute>} />
+    <Route path="/kardex" element={<ProtectedRoute permKey="kardex"><Kardex /></ProtectedRoute>} />
+    <Route path="/kardex/:productId" element={<ProtectedRoute permKey="kardex"><Kardex /></ProtectedRoute>} />
+    <Route path="/physical-inventory" element={<ProtectedRoute permKey="physical_inventory"><PhysicalInventory /></ProtectedRoute>} />
     <Route path="/waste" element={<ProtectedRoute permKey="waste_control"><WasteControl /></ProtectedRoute>} />
     <Route path="/transformations" element={<ProtectedRoute permKey="transformations"><Transformations /></ProtectedRoute>} />
-    <Route path="/meal-planning" element={<ProtectedRoute permKey="recipes"><MealPlanning /></ProtectedRoute>} />
-    <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
-    <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
-    <Route path="/recalculate-inventory" element={<ProtectedRoute roles={["admin"]}><RecalculateInventory /></ProtectedRoute>} />
-    <Route path="/branding" element={<ProtectedRoute roles={["admin"]}><Branding /></ProtectedRoute>} />
-    <Route path="/manual" element={<ProtectedRoute><UserManual /></ProtectedRoute>} />
+    <Route path="/meal-planning" element={<ProtectedRoute permKey="meal_planning"><MealPlanning /></ProtectedRoute>} />
+    <Route path="/audit" element={<ProtectedRoute permKey="audit"><AuditLog /></ProtectedRoute>} />
+    <Route path="/reset-inventory" element={<ProtectedRoute permKey="reset_inventory"><ResetInventory /></ProtectedRoute>} />
+    <Route path="/recalculate-inventory" element={<ProtectedRoute permKey="recalculate_inventory"><RecalculateInventory /></ProtectedRoute>} />
+    <Route path="/branding" element={<ProtectedRoute permKey="branding"><Branding /></ProtectedRoute>} />
+    <Route path="/manual" element={<ProtectedRoute permKey="user_manual"><UserManual /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
