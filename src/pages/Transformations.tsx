@@ -395,14 +395,13 @@ export default function Transformations() {
                 </div>
                 <div>
                   <Label>Producto de entrada</Label>
-                  <Select value={defInputId} onValueChange={setDefInputId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.unit})`, searchTerms: p.name }))}
+                    value={defInputId}
+                    onValueChange={setDefInputId}
+                    placeholder="Seleccionar..."
+                    searchPlaceholder="Buscar producto..."
+                  />
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Productos de salida</Label>
