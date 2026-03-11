@@ -486,6 +486,13 @@ export default function Movements() {
                 )}
               </TableBody>
             </Table>
+            <PaginationControls
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </CardContent>
         </Card>
       </div>
