@@ -115,6 +115,7 @@ export default function OrdersList() {
 
     const pdfOrder: PdfOrderData = {
       order_id: order.id,
+      order_number: order.order_number,
       order_date: order.order_date,
       expected_delivery_date: order.expected_delivery_date,
       supplier_name: supplier?.name || order.suppliers?.name || "",
@@ -159,6 +160,7 @@ export default function OrdersList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>N.º Orden</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Estado</TableHead>
@@ -169,13 +171,14 @@ export default function OrdersList() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : !orders?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sin pedidos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin pedidos</TableCell></TableRow>
               ) : orders.map((o: any) => {
                 const stats = orderStats?.get(o.id);
                 return (
                   <TableRow key={o.id}>
+                    <TableCell className="font-mono text-xs font-semibold text-primary">{o.order_number || o.id.slice(0, 8).toUpperCase()}</TableCell>
                     <TableCell>{format(new Date(o.order_date), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{(o as any).suppliers?.name}</TableCell>
                     <TableCell>{statusBadge(o.status)}</TableCell>
@@ -231,7 +234,9 @@ export default function OrdersList() {
       <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Pedido — {viewOrder && (viewOrder as any).suppliers?.name}</DialogTitle>
+            <DialogTitle>
+              <span className="font-mono text-primary">{viewOrder?.order_number}</span> — {viewOrder && (viewOrder as any).suppliers?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="text-sm text-muted-foreground mb-2">
             Fecha: {viewOrder && format(new Date(viewOrder.order_date), "dd/MM/yyyy")} · {viewOrder && statusBadge(viewOrder.status)}

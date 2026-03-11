@@ -1260,6 +1260,7 @@ export type Database = {
           id: string
           notes: string | null
           order_date: string
+          order_number: string
           restaurant_id: string
           status: string
           supplier_id: string
@@ -1271,6 +1272,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_date?: string
+          order_number: string
           restaurant_id: string
           status?: string
           supplier_id: string
@@ -1282,6 +1284,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_date?: string
+          order_number?: string
           restaurant_id?: string
           status?: string
           supplier_id?: string
@@ -2040,6 +2043,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_order_number: {
+        Args: { p_restaurant_id: string }
+        Returns: string
+      }
       get_my_permissions: {
         Args: never
         Returns: {

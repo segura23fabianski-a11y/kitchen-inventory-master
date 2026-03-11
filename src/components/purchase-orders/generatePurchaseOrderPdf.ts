@@ -21,6 +21,7 @@ export interface PdfSettings {
 
 export interface PdfOrderData {
   order_id: string;
+  order_number?: string | null;
   order_date: string;
   expected_delivery_date?: string | null;
   supplier_name: string;
@@ -146,7 +147,7 @@ export async function generatePurchaseOrderPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(60, 60, 60);
-  const orderNum = order.order_id.slice(0, 8).toUpperCase();
+  const orderNum = order.order_number || order.order_id.slice(0, 8).toUpperCase();
   const metaRight = [
     `N.º ${orderNum}`,
     `Fecha: ${order.order_date}`,
@@ -396,9 +397,9 @@ export async function generatePurchaseOrderPdf(
       .replace(/\s+/g, "_")
       .toUpperCase();
 
-  const orderNum2 = order.order_id.slice(0, 8).toUpperCase();
+  const orderNumClean = (order.order_number || order.order_id.slice(0, 8)).toUpperCase().replace(/[^A-Z0-9-]/g, '');
   const supplierClean = sanitize(order.supplier_name);
-  const fileName = `ORDEN_COMPRA_${orderNum2}_${supplierClean}.pdf`;
+  const fileName = `ORDEN_COMPRA_${orderNumClean}_${supplierClean}.pdf`;
 
   if (action === "preview") {
     const blob = doc.output("blob");
