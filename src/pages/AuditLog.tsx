@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Undo2, Eye, Clock, User, Filter } from "lucide-react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
