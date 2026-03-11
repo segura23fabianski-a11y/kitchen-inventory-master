@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,11 +13,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { CheckCircle, PlayCircle, Clock, ClipboardList, Beaker } from "lucide-react";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle } from "lucide-react";
 
-const TASK_TYPE_LABELS: Record<string, string> = { checkout_clean: "Limpieza Check-out", daily: "Limpieza Diaria", daily_clean: "Limpieza Diaria", maintenance: "Mantenimiento" };
+const TASK_TYPE_LABELS: Record<string, string> = {
+  checkout_clean: "Limpieza Check-out",
+  daily_clean: "Limpieza Diaria",
+  daily: "Limpieza Diaria",
+  maintenance: "Mantenimiento",
+};
 const STATUS_LABELS: Record<string, string> = { pending: "Pendiente", in_progress: "En Progreso", done: "Completada" };
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline"> = { pending: "outline", in_progress: "secondary", done: "default" };
+
+interface NewTaskForm {
+  room_id: string;
+  task_type: string;
+  priority: string;
+  assigned_to: string;
+  notes: string;
+}
+const emptyTaskForm: NewTaskForm = { room_id: "", task_type: "daily_clean", priority: "normal", assigned_to: "", notes: "" };
 
 export default function HousekeepingTab() {
   const { toast } = useToast();
@@ -25,11 +41,44 @@ export default function HousekeepingTab() {
   const [filterStatus, setFilterStatus] = useState("pending");
   const [checklistTask, setChecklistTask] = useState<any>(null);
   const [consumptionDialog, setConsumptionDialog] = useState<any>(null);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState<NewTaskForm>(emptyTaskForm);
+  const [assignDialog, setAssignDialog] = useState<{ taskId: string; currentAssignee: string | null } | null>(null);
+  const [assignValue, setAssignValue] = useState("");
+
+  // Fetch all rooms for task creation
+  const { data: allRooms } = useQuery({
+    queryKey: ["rooms-all-housekeeping"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("rooms" as any)
+        .select("id, room_number, room_types(name)").order("room_number");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Fetch staff (active profiles in same restaurant)
+  const { data: staff } = useQuery({
+    queryKey: ["staff-profiles"],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      const { data, error } = await supabase.from("profiles")
+        .select("user_id, full_name")
+        .eq("restaurant_id", restaurantId)
+        .eq("status", "active")
+        .order("full_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ["housekeeping-tasks", filterStatus],
     queryFn: async () => {
-      let q = supabase.from("housekeeping_tasks" as any).select("*, rooms(room_number, room_types(name))").order("created_at", { ascending: false }).limit(100);
+      let q = supabase.from("housekeeping_tasks" as any)
+        .select("*, rooms(room_number, room_types(name))")
+        .order("created_at", { ascending: false }).limit(100);
       if (filterStatus !== "all") q = q.eq("status", filterStatus);
       const { data, error } = await q;
       if (error) throw error;
@@ -49,7 +98,6 @@ export default function HousekeepingTab() {
     enabled: !!checklistTask,
   });
 
-  // Fetch operational recipes for housekeeping type
   const { data: housekeepingRecipes } = useQuery({
     queryKey: ["housekeeping-recipes"],
     queryFn: async () => {
@@ -59,6 +107,73 @@ export default function HousekeepingTab() {
       if (error) throw error;
       return data as any[];
     },
+  });
+
+  const getStaffName = (userId: string | null) => {
+    if (!userId) return null;
+    return staff?.find(s => s.user_id === userId)?.full_name || null;
+  };
+
+  // ── Create manual task ──
+  const createTaskMutation = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId) throw new Error("Sin restaurante");
+      if (!taskForm.room_id) throw new Error("Seleccione habitación");
+
+      const { data: hTask, error } = await supabase.from("housekeeping_tasks" as any).insert({
+        restaurant_id: restaurantId,
+        room_id: taskForm.room_id,
+        task_type: taskForm.task_type,
+        priority: taskForm.priority,
+        assigned_to: taskForm.assigned_to || null,
+        notes: taskForm.notes.trim() || null,
+        status: "pending",
+      } as any).select("id").single();
+      if (error) throw error;
+
+      // Create checklist items from templates
+      const taskId = (hTask as any).id;
+      const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
+        .select("item_name, sort_order")
+        .eq("task_type", taskForm.task_type)
+        .eq("active", true)
+        .order("sort_order");
+
+      const defaultItems = ["Cama tendida", "Baño limpio", "Amenities repuestos", "Basura retirada", "Piso limpio", "Toallas verificadas"];
+      const items = (templates && (templates as any[]).length > 0)
+        ? (templates as any[]).map((t: any) => ({
+            housekeeping_task_id: taskId, restaurant_id: restaurantId,
+            item_name: t.item_name, sort_order: t.sort_order,
+          }))
+        : defaultItems.map((name, i) => ({
+            housekeeping_task_id: taskId, restaurant_id: restaurantId,
+            item_name: name, sort_order: i,
+          }));
+
+      await supabase.from("housekeeping_task_items" as any).insert(items as any);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+      setNewTaskOpen(false);
+      setTaskForm(emptyTaskForm);
+      toast({ title: "Tarea creada con checklist" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Assign staff ──
+  const assignMutation = useMutation({
+    mutationFn: async ({ taskId, userId }: { taskId: string; userId: string | null }) => {
+      const { error } = await supabase.from("housekeeping_tasks" as any)
+        .update({ assigned_to: userId } as any).eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+      setAssignDialog(null);
+      toast({ title: "Responsable actualizado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const toggleItemMutation = useMutation({
@@ -90,8 +205,8 @@ export default function HousekeepingTab() {
       qc.invalidateQueries({ queryKey: ["rooms"] });
       qc.invalidateQueries({ queryKey: ["rooms-available"] });
       qc.invalidateQueries({ queryKey: ["rooms-for-checkin"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-rooms"] });
       toast({ title: "Tarea actualizada" });
-      // If task completed, suggest chemical consumption
       if (variables.newStatus === "done" && housekeepingRecipes && housekeepingRecipes.length > 0) {
         const task = tasks?.find((t: any) => t.id === variables.taskId);
         setConsumptionDialog(task);
@@ -103,18 +218,16 @@ export default function HousekeepingTab() {
   const registerConsumptionMutation = useMutation({
     mutationFn: async ({ recipeId, taskId }: { recipeId: string; taskId: string }) => {
       if (!user || !restaurantId) throw new Error("Sin sesión");
-      // Use the existing RPC to register recipe consumption (1 portion = 1 room)
       const { error } = await supabase.rpc("register_recipe_consumption", {
         _recipe_id: recipeId, _user_id: user.id, _portions: 1, _notes: `Consumo housekeeping - Tarea ${taskId}`,
       });
       if (error) throw error;
-      // Link recipe to task
       await supabase.from("housekeeping_tasks" as any).update({ recipe_id: recipeId } as any).eq("id", taskId);
     },
     onSuccess: () => {
       setConsumptionDialog(null);
       qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
-      toast({ title: "Consumo de químicos registrado", description: "Los insumos se descontaron del inventario operativo." });
+      toast({ title: "Consumo de químicos registrado" });
     },
     onError: (e: any) => toast({ title: "Error al registrar consumo", description: e.message, variant: "destructive" }),
   });
@@ -126,66 +239,172 @@ export default function HousekeepingTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-4">
         <h3 className="text-lg font-semibold text-foreground">Housekeeping</h3>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="pending">Pendientes</SelectItem>
-            <SelectItem value="in_progress">En Progreso</SelectItem>
-            <SelectItem value="done">Completadas</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => { setTaskForm(emptyTaskForm); setNewTaskOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" />Nueva Tarea
+          </Button>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="pending">Pendientes</SelectItem>
+              <SelectItem value="in_progress">En Progreso</SelectItem>
+              <SelectItem value="done">Completadas</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Habitación</TableHead><TableHead>Tipo Tarea</TableHead><TableHead>Estado</TableHead>
-            <TableHead>Prioridad</TableHead><TableHead>Fecha</TableHead><TableHead>Completada</TableHead>
-            <TableHead className="w-44">Acciones</TableHead>
+            <TableHead>Habitación</TableHead>
+            <TableHead>Tipo Tarea</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead>Prioridad</TableHead>
+            <TableHead>Responsable</TableHead>
+            <TableHead>Fecha</TableHead>
+            <TableHead>Completada</TableHead>
+            <TableHead className="w-48">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
           ) : tasks?.length === 0 ? (
-            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin tareas</TableCell></TableRow>
-          ) : tasks?.map((t: any) => (
-            <TableRow key={t.id}>
-              <TableCell className="font-medium">#{(t as any).rooms?.room_number || "—"}</TableCell>
-              <TableCell>{TASK_TYPE_LABELS[t.task_type] || t.task_type}</TableCell>
-              <TableCell><Badge variant={STATUS_VARIANTS[t.status] || "secondary"}>{STATUS_LABELS[t.status] || t.status}</Badge></TableCell>
-              <TableCell>
-                {t.priority === "high" ? <Badge variant="destructive">Alta</Badge> : <span className="text-sm text-muted-foreground">Normal</span>}
-              </TableCell>
-              <TableCell>{format(new Date(t.created_at), "dd/MM/yy HH:mm")}</TableCell>
-              <TableCell>{t.completed_at ? format(new Date(t.completed_at), "dd/MM/yy HH:mm") : "—"}</TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => setChecklistTask(t)}>
-                    <ClipboardList className="h-4 w-4 mr-1" />Checklist
-                  </Button>
-                  {t.status === "pending" && (
-                    <Button variant="outline" size="sm" onClick={() => updateStatusMutation.mutate({ taskId: t.id, newStatus: "in_progress", roomId: t.room_id })}>
-                      <PlayCircle className="h-4 w-4 mr-1" />Iniciar
+            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sin tareas</TableCell></TableRow>
+          ) : tasks?.map((t: any) => {
+            const assigneeName = getStaffName(t.assigned_to);
+            return (
+              <TableRow key={t.id}>
+                <TableCell className="font-medium">#{t.rooms?.room_number || "—"}</TableCell>
+                <TableCell>{TASK_TYPE_LABELS[t.task_type] || t.task_type}</TableCell>
+                <TableCell><Badge variant={STATUS_VARIANTS[t.status] || "secondary"}>{STATUS_LABELS[t.status] || t.status}</Badge></TableCell>
+                <TableCell>
+                  {t.priority === "high" ? <Badge variant="destructive">Alta</Badge> : <span className="text-sm text-muted-foreground">Normal</span>}
+                </TableCell>
+                <TableCell>
+                  <button
+                    className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
+                    onClick={() => { setAssignDialog({ taskId: t.id, currentAssignee: t.assigned_to }); setAssignValue(t.assigned_to || ""); }}
+                    title="Asignar/reasignar"
+                  >
+                    <UserCircle className="h-3.5 w-3.5" />
+                    {assigneeName || <span className="text-muted-foreground italic">Sin asignar</span>}
+                  </button>
+                </TableCell>
+                <TableCell>{format(new Date(t.created_at), "dd/MM/yy HH:mm")}</TableCell>
+                <TableCell>{t.completed_at ? format(new Date(t.completed_at), "dd/MM/yy HH:mm") : "—"}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => setChecklistTask(t)}>
+                      <ClipboardList className="h-4 w-4 mr-1" />Checklist
                     </Button>
-                  )}
-                  {t.status === "in_progress" && (
-                    <Button variant="default" size="sm" onClick={() => updateStatusMutation.mutate({ taskId: t.id, newStatus: "done", roomId: t.room_id })}>
-                      <CheckCircle className="h-4 w-4 mr-1" />Completar
-                    </Button>
-                  )}
-                  {t.status === "done" && (
-                    <span className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Hecho</span>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                    {t.status === "pending" && (
+                      <Button variant="outline" size="sm" onClick={() => updateStatusMutation.mutate({ taskId: t.id, newStatus: "in_progress", roomId: t.room_id })}>
+                        <PlayCircle className="h-4 w-4 mr-1" />Iniciar
+                      </Button>
+                    )}
+                    {t.status === "in_progress" && (
+                      <Button variant="default" size="sm" onClick={() => updateStatusMutation.mutate({ taskId: t.id, newStatus: "done", roomId: t.room_id })}>
+                        <CheckCircle className="h-4 w-4 mr-1" />Completar
+                      </Button>
+                    )}
+                    {t.status === "done" && (
+                      <span className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Hecho</span>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 
-      {/* Checklist Dialog */}
+      {/* ── New Task Dialog ── */}
+      <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Nueva Tarea de Housekeeping</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Habitación *</Label>
+              <Select value={taskForm.room_id} onValueChange={v => setTaskForm({ ...taskForm, room_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar habitación..." /></SelectTrigger>
+                <SelectContent>
+                  {allRooms?.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id}>#{r.room_number} — {r.room_types?.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Tipo de Tarea</Label>
+              <Select value={taskForm.task_type} onValueChange={v => setTaskForm({ ...taskForm, task_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily_clean">Limpieza Diaria</SelectItem>
+                  <SelectItem value="checkout_clean">Limpieza Check-out</SelectItem>
+                  <SelectItem value="maintenance">Mantenimiento</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Prioridad</Label>
+              <Select value={taskForm.priority} onValueChange={v => setTaskForm({ ...taskForm, priority: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Responsable (opcional)</Label>
+              <Select value={taskForm.assigned_to} onValueChange={v => setTaskForm({ ...taskForm, assigned_to: v })}>
+                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin asignar</SelectItem>
+                  {staff?.map(s => (
+                    <SelectItem key={s.user_id} value={s.user_id}>{s.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Notas</Label>
+              <Input value={taskForm.notes} onChange={e => setTaskForm({ ...taskForm, notes: e.target.value })} placeholder="Observaciones..." />
+            </div>
+            <Button className="w-full" onClick={() => createTaskMutation.mutate()} disabled={!taskForm.room_id || createTaskMutation.isPending}>
+              {createTaskMutation.isPending ? "Creando..." : "Crear Tarea"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Assign Staff Dialog ── */}
+      <Dialog open={!!assignDialog} onOpenChange={() => setAssignDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Asignar Responsable</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Select value={assignValue} onValueChange={setAssignValue}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sin asignar</SelectItem>
+                {staff?.map(s => (
+                  <SelectItem key={s.user_id} value={s.user_id}>{s.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button className="w-full" onClick={() => {
+              if (assignDialog) assignMutation.mutate({ taskId: assignDialog.taskId, userId: assignValue || null });
+            }} disabled={assignMutation.isPending}>
+              {assignMutation.isPending ? "Guardando..." : "Guardar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Checklist Dialog ── */}
       <Dialog open={!!checklistTask} onOpenChange={() => setChecklistTask(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -194,6 +413,9 @@ export default function HousekeepingTab() {
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground mb-3">
               {TASK_TYPE_LABELS[checklistTask?.task_type] || checklistTask?.task_type} • {checkedCount}/{checklistItems?.length || 0} completados
+              {checklistTask?.assigned_to && (
+                <span className="ml-2">• Responsable: {getStaffName(checklistTask.assigned_to) || "—"}</span>
+              )}
             </p>
             {checklistItems?.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Sin ítems de checklist</p>
@@ -229,7 +451,7 @@ export default function HousekeepingTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Chemical Consumption Suggestion Dialog */}
+      {/* ── Chemical Consumption Suggestion Dialog ── */}
       <Dialog open={!!consumptionDialog} onOpenChange={() => setConsumptionDialog(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -245,7 +467,6 @@ export default function HousekeepingTab() {
             <p className="text-xs text-muted-foreground">
               Los insumos se descontarán del inventario operativo actual (detergente, cloro, desinfectante, etc.)
             </p>
-
             {housekeepingRecipes && housekeepingRecipes.length > 0 ? (
               <div className="space-y-2">
                 {housekeepingRecipes.map((r: any) => {
@@ -280,7 +501,6 @@ export default function HousekeepingTab() {
                 No hay recetas operativas de tipo "housekeeping". Puede crearlas en el módulo de Recetas.
               </p>
             )}
-
             <Button variant="outline" className="w-full" onClick={() => setConsumptionDialog(null)}>
               Omitir / Registrar después
             </Button>
