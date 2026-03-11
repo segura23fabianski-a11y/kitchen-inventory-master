@@ -9,12 +9,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle } from "lucide-react";
+import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import SignaturePad from "./SignaturePad";
+import QuickGuestDialog from "./QuickGuestDialog";
+import QuickCompanyDialog from "./QuickCompanyDialog";
 
 const STATUS_LABELS: Record<string, string> = { checked_in: "Hospedado", checked_out: "Check-out", cancelled: "Cancelada" };
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> = { checked_in: "default", checked_out: "secondary", cancelled: "destructive" };
@@ -40,6 +43,9 @@ export default function StaysTab() {
   const [docUploading, setDocUploading] = useState(false);
   const [rateInfo, setRateInfo] = useState("");
   const [checkoutDialog, setCheckoutDialog] = useState<{ stayId: string; type: string } | null>(null);
+  const [quickGuestOpen, setQuickGuestOpen] = useState(false);
+  const [quickGuestTarget, setQuickGuestTarget] = useState<"primary" | "companion">("primary");
+  const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
@@ -52,13 +58,29 @@ export default function StaysTab() {
 
   const { data: guests } = useQuery({
     queryKey: ["hotel-guests"],
-    queryFn: async () => { const { data, error } = await supabase.from("hotel_guests" as any).select("id, first_name, last_name, document_number").order("last_name"); if (error) throw error; return data as any[]; },
+    queryFn: async () => { const { data, error } = await supabase.from("hotel_guests" as any).select("id, first_name, last_name, document_number, document_type").order("last_name"); if (error) throw error; return data as any[]; },
   });
 
   const { data: companies } = useQuery({
     queryKey: ["hotel-companies-active"],
-    queryFn: async () => { const { data, error } = await supabase.from("hotel_companies" as any).select("id, name").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
+    queryFn: async () => { const { data, error } = await supabase.from("hotel_companies" as any).select("id, name, nit").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
   });
+
+  // Build searchable options
+  const guestOptions: SearchableSelectOption[] = (guests || []).map((g: any) => ({
+    value: g.id,
+    label: `${g.first_name} ${g.last_name} (${g.document_type || ""} ${g.document_number})`,
+    searchTerms: `${g.document_number} ${g.first_name} ${g.last_name}`,
+  }));
+
+  const companyOptions: SearchableSelectOption[] = [
+    { value: "none", label: "Ninguna" },
+    ...(companies || []).map((c: any) => ({
+      value: c.id,
+      label: `${c.name}${c.nit ? ` (NIT: ${c.nit})` : ""}`,
+      searchTerms: `${c.nit || ""} ${c.name}`,
+    })),
+  ];
 
   const { data: allCompanyRates } = useQuery({
     queryKey: ["all-company-rates"],
@@ -397,55 +419,111 @@ export default function StaysTab() {
       {/* ── Check-in Dialog ── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nuevo Check-in</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle><LogIn className="h-5 w-5 inline mr-2" />Nuevo Check-in</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {/* 1. Room */}
             <div>
               <Label>Habitación *</Label>
-              <Select value={form.room_id} onValueChange={handleRoomChange}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar habitación..." /></SelectTrigger>
-                <SelectContent>{rooms?.map((r: any) => <SelectItem key={r.id} value={r.id}>#{r.room_number} — {r.room_types?.name} (máx {r.room_types?.max_occupancy})</SelectItem>)}</SelectContent>
-              </Select>
+              <SearchableSelect
+                options={(rooms || []).map((r: any) => ({
+                  value: r.id,
+                  label: `#${r.room_number} — ${r.room_types?.name} (máx ${r.room_types?.max_occupancy})`,
+                  searchTerms: r.room_number,
+                }))}
+                value={form.room_id}
+                onValueChange={handleRoomChange}
+                placeholder="Buscar habitación..."
+                searchPlaceholder="Número o tipo..."
+                emptyMessage="Sin habitaciones disponibles"
+              />
             </div>
 
+            {/* 2. Primary Guest */}
             <div>
-              <Label>Huésped Titular *</Label>
-              <Select value={form.primary_guest_id} onValueChange={v => setForm({ ...form, primary_guest_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar huésped..." /></SelectTrigger>
-                <SelectContent>{guests?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.first_name} {g.last_name} ({g.document_number})</SelectItem>)}</SelectContent>
-              </Select>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Huésped Titular *</Label>
+                <Button
+                  type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                  onClick={() => { setQuickGuestTarget("primary"); setQuickGuestOpen(true); }}
+                >
+                  <UserPlus className="h-3.5 w-3.5" /> Crear nuevo
+                </Button>
+              </div>
+              <SearchableSelect
+                options={guestOptions}
+                value={form.primary_guest_id}
+                onValueChange={v => setForm({ ...form, primary_guest_id: v })}
+                placeholder="Buscar por nombre o documento..."
+                searchPlaceholder="Nombre, apellido o documento..."
+                emptyMessage="Sin resultados. Cree un nuevo huésped."
+                clearable
+              />
             </div>
 
+            {/* 3. Company */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Empresa (opcional)</Label>
+                <Button
+                  type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                  onClick={() => setQuickCompanyOpen(true)}
+                >
+                  <Building className="h-3.5 w-3.5" /> Crear nueva
+                </Button>
+              </div>
+              <SearchableSelect
+                options={companyOptions}
+                value={form.company_id || "none"}
+                onValueChange={handleCompanyChange}
+                placeholder="Buscar empresa o NIT..."
+                searchPlaceholder="Nombre o NIT..."
+                emptyMessage="Sin resultados. Cree una nueva empresa."
+              />
+            </div>
+
+            {/* 4. Companions */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label>Acompañantes</Label>
-                {form.room_id && <span className="text-xs text-muted-foreground">{totalGuests}/{maxOccupancy} huéspedes</span>}
+                <div className="flex items-center gap-2">
+                  {form.room_id && <span className="text-xs text-muted-foreground">{totalGuests}/{maxOccupancy}</span>}
+                  {totalGuests < maxOccupancy && form.primary_guest_id && (
+                    <Button
+                      type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => { setQuickGuestTarget("companion"); setQuickGuestOpen(true); }}
+                    >
+                      <UserPlus className="h-3.5 w-3.5" /> Crear nuevo
+                    </Button>
+                  )}
+                </div>
               </div>
               {form.companion_ids.map(cid => {
                 const g = guests?.find((g: any) => g.id === cid);
                 return (
-                  <div key={cid} className="flex items-center gap-2 mb-1 text-sm">
-                    <span className="flex-1">{g ? `${g.first_name} ${g.last_name}` : cid}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeCompanion(cid)}><X className="h-3 w-3" /></Button>
+                  <div key={cid} className="flex items-center gap-2 mb-1 text-sm rounded-md border px-2 py-1">
+                    <span className="flex-1 truncate">{g ? `${g.first_name} ${g.last_name} (${g.document_number})` : cid}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeCompanion(cid)}><X className="h-3 w-3" /></Button>
                   </div>
                 );
               })}
               {totalGuests < maxOccupancy && form.primary_guest_id && (
-                <Select value="" onValueChange={addCompanion}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Agregar acompañante..." /></SelectTrigger>
-                  <SelectContent>{availableCompanions?.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.first_name} {g.last_name}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={(availableCompanions || []).map((g: any) => ({
+                    value: g.id,
+                    label: `${g.first_name} ${g.last_name} (${g.document_number})`,
+                    searchTerms: `${g.document_number} ${g.first_name} ${g.last_name}`,
+                  }))}
+                  value=""
+                  onValueChange={addCompanion}
+                  placeholder="Agregar acompañante..."
+                  searchPlaceholder="Buscar por nombre o documento..."
+                  emptyMessage="Sin resultados. Cree un nuevo huésped."
+                />
               )}
               {overCapacity && <p className="text-sm text-destructive mt-1">Excede la capacidad máxima ({maxOccupancy})</p>}
             </div>
 
-            <div>
-              <Label>Empresa (opcional)</Label>
-              <Select value={form.company_id} onValueChange={handleCompanyChange}>
-                <SelectTrigger><SelectValue placeholder="Ninguna" /></SelectTrigger>
-                <SelectContent><SelectItem value="none">Ninguna</SelectItem>{companies?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-
+            {/* 5. Rate & Checkout */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -463,12 +541,35 @@ export default function StaysTab() {
             <div><Label>Método de Pago</Label><Input value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} placeholder="Efectivo, tarjeta, transferencia..." /></div>
             <div><Label>Notas</Label><Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
 
+            {/* 6. Confirm */}
             <Button className="w-full" onClick={() => checkInMutation.mutate()} disabled={!form.room_id || !form.primary_guest_id || overCapacity || checkInMutation.isPending}>
               <LogIn className="h-4 w-4 mr-2" />{checkInMutation.isPending ? "Registrando..." : "Registrar Check-in"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Quick Guest Dialog ── */}
+      <QuickGuestDialog
+        open={quickGuestOpen}
+        onOpenChange={setQuickGuestOpen}
+        onCreated={(guestId) => {
+          if (quickGuestTarget === "primary") {
+            setForm(prev => ({ ...prev, primary_guest_id: guestId }));
+          } else {
+            addCompanion(guestId);
+          }
+        }}
+      />
+
+      {/* ── Quick Company Dialog ── */}
+      <QuickCompanyDialog
+        open={quickCompanyOpen}
+        onOpenChange={setQuickCompanyOpen}
+        onCreated={(companyId) => {
+          setForm(prev => ({ ...prev, company_id: companyId }));
+        }}
+      />
 
       {/* ── Signature Dialog ── */}
       <Dialog open={!!signatureStay} onOpenChange={() => setSignatureStay(null)}>
