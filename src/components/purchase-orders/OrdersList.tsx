@@ -170,9 +170,9 @@ export default function OrdersList() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : !orders?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sin pedidos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin pedidos</TableCell></TableRow>
               ) : orders.map((o: any) => {
                 const stats = orderStats?.get(o.id);
                 return (
