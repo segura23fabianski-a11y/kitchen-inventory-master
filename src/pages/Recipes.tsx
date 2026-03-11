@@ -860,6 +860,9 @@ export default function Recipes() {
 
               if (rMode === "variable_combo") {
                 const comps = componentsByRecipe.get(viewedRecipe.id) ?? [];
+                const stats = getComboStats(viewedRecipe.id);
+                const recentLogs = stats?.logs.slice(0, 10) ?? [];
+
                 return (
                   <div className="space-y-4">
                     {viewedRecipe.description && (
@@ -885,9 +888,78 @@ export default function Recipes() {
                         </div>
                       )}
                     </div>
-                    <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                      El costo se calcula dinámicamente al ejecutar, según los productos seleccionados para cada componente.
-                    </div>
+
+                    {/* Cost statistics */}
+                    {stats ? (
+                      <div className="space-y-3">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" /> Costos históricos del servicio
+                        </Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="rounded-md border p-3 text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Promedio</p>
+                            <p className="font-heading font-bold text-lg">${stats.avg.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">por servicio</p>
+                          </div>
+                          <div className="rounded-md border p-3 text-center">
+                            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Mínimo</p>
+                            <p className="font-heading font-bold text-lg text-primary">${stats.min.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">por servicio</p>
+                          </div>
+                          <div className="rounded-md border p-3 text-center">
+                            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Máximo</p>
+                            <p className="font-heading font-bold text-lg">${stats.max.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">por servicio</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">{stats.count} ejecución(es) registrada(s)</p>
+
+                        {/* Recent executions */}
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <Calendar className="h-4 w-4" /> Últimas ejecuciones
+                        </Label>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {recentLogs.map((log: any) => {
+                            const items = executionItemsByLog.get(log.id) ?? [];
+                            return (
+                              <div key={log.id} className="rounded-md border p-3 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">
+                                    {format(new Date(log.executed_at), "dd/MM/yyyy HH:mm")}
+                                  </span>
+                                  <Badge variant="outline">{Number(log.servings)} servicios</Badge>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Costo unitario</span>
+                                  <span className="font-semibold">${Number(log.unit_cost).toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Costo total</span>
+                                  <span className="font-semibold">${Number(log.total_cost).toFixed(2)}</span>
+                                </div>
+                                {items.length > 0 && (
+                                  <div className="pt-1 border-t space-y-0.5">
+                                    {items.map((item: any) => {
+                                      const prod = productMap.get(item.product_id);
+                                      return (
+                                        <div key={item.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                                          <span><span className="capitalize font-medium">{item.component_name}</span> → {prod?.name ?? "?"}</span>
+                                          <span>${Number(item.line_cost).toFixed(2)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                        El costo se calculará dinámicamente al ejecutar, según los productos seleccionados para cada componente. Aún no hay ejecuciones registradas.
+                      </div>
+                    )}
                     {canUpdate && (
                       <Button className="w-full" variant="outline" onClick={() => startEdit(viewedRecipe)}>
                         <Pencil className="mr-2 h-4 w-4" /> Editar receta
