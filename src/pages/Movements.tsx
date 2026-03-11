@@ -61,13 +61,32 @@ export default function Movements() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: movements, isLoading } = useQuery({
-    queryKey: ["movements"],
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  const { data: movementCount } = useQuery({
+    queryKey: ["movements-count"],
     queryFn: async () => {
+      const { count, error } = await supabase
+        .from("inventory_movements")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const totalCount = movementCount ?? 0;
+
+  const { data: movements, isLoading } = useQuery({
+    queryKey: ["movements", page, pageSize],
+    queryFn: async () => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
       const { data, error } = await supabase
         .from("inventory_movements")
         .select("*, products(name, unit)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
       if (error) throw error;
       return data;
     },
