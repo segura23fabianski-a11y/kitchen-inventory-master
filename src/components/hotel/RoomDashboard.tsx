@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ interface RoomDashboardProps {
 }
 
 export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardProps) {
+  const qc = useQueryClient();
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -92,6 +93,22 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
       return data;
     },
   });
+
+  // Realtime subscriptions for automatic dashboard updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("hotel-dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard-rooms"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "housekeeping_tasks" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard-housekeeping-pending"] });
+        qc.invalidateQueries({ queryKey: ["dashboard-rooms"] });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [qc]);
 
   // Build enriched room data
   const enrichedRooms = useMemo(() => {
