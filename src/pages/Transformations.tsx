@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -16,37 +16,44 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FlaskConical, History, Percent, ArrowRight } from "lucide-react";
+import { Plus, FlaskConical, History, Percent, ArrowRight, Trash2, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+/* ─── Types ─── */
+interface OutputLine {
+  id: string;
+  productId: string;
+  outputType: "output" | "byproduct" | "waste";
+  quantity: string;
+  expectedYield: string;
+}
+
+const OUTPUT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  output: { label: "Producto", color: "default" },
+  byproduct: { label: "Subproducto", color: "secondary" },
+  waste: { label: "Merma", color: "destructive" },
+};
+
+let lineIdCounter = 0;
+const newLine = (): OutputLine => ({
+  id: `line-${++lineIdCounter}`,
+  productId: "",
+  outputType: "output",
+  quantity: "",
+  expectedYield: "",
+});
+
+/* ─── Page ─── */
 export default function Transformations() {
   const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const { logAudit } = useAudit();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   const [tab, setTab] = useState("register");
-  const [processDialogOpen, setProcessDialogOpen] = useState(false);
 
-  // Process form
-  const [processName, setProcessName] = useState("");
-  const [processInputId, setProcessInputId] = useState("");
-  const [processOutputId, setProcessOutputId] = useState("");
-  const [processWasteId, setProcessWasteId] = useState("");
-  const [processYield, setProcessYield] = useState("");
-
-  // Registration form
-  const [selectedProcessId, setSelectedProcessId] = useState("");
-  const [inputProductId, setInputProductId] = useState("");
-  const [outputProductId, setOutputProductId] = useState("");
-  const [wasteProductId, setWasteProductId] = useState("");
-  const [inputQty, setInputQty] = useState("");
-  const [outputQty, setOutputQty] = useState("");
-  const [wasteQty, setWasteQty] = useState("");
-  const [notes, setNotes] = useState("");
-
-  // Queries
+  /* ── Queries ── */
   const { data: products = [] } = useQuery({
     queryKey: ["products", restaurantId],
     queryFn: async () => {
@@ -59,12 +66,12 @@ export default function Transformations() {
     enabled: !!restaurantId,
   });
 
-  const { data: processes = [] } = useQuery({
-    queryKey: ["transformation_processes", restaurantId],
+  const { data: definitions = [], isLoading: defsLoading } = useQuery({
+    queryKey: ["transformation_definitions", restaurantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("transformation_processes" as any)
-        .select("*")
+        .from("transformation_definitions" as any)
+        .select("*, transformation_definition_outputs(*)")
         .eq("restaurant_id", restaurantId!)
         .eq("active", true)
         .order("name");
@@ -73,212 +80,316 @@ export default function Transformations() {
     enabled: !!restaurantId,
   });
 
-  const { data: logs = [] } = useQuery({
-    queryKey: ["transformation_logs", restaurantId],
+  const { data: runs = [] } = useQuery({
+    queryKey: ["transformation_runs", restaurantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("transformation_logs" as any)
-        .select("*")
+        .from("transformation_runs" as any)
+        .select("*, transformation_run_outputs(*)")
         .eq("restaurant_id", restaurantId!)
-        .order("performed_at", { ascending: false })
+        .order("run_date", { ascending: false })
         .limit(100);
       return (data ?? []) as any[];
     },
     enabled: !!restaurantId,
   });
 
-  const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+  const pMap = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
 
-  // Create process
-  const createProcess = useMutation({
+  /* ══════════════════════════════════════════
+     DEFINITION DIALOG
+     ══════════════════════════════════════════ */
+  const [defOpen, setDefOpen] = useState(false);
+  const [defName, setDefName] = useState("");
+  const [defInputId, setDefInputId] = useState("");
+  const [defOutputs, setDefOutputs] = useState<OutputLine[]>([newLine()]);
+
+  const resetDefForm = () => {
+    setDefName("");
+    setDefInputId("");
+    setDefOutputs([newLine()]);
+  };
+
+  const addDefOutput = () => setDefOutputs((prev) => [...prev, newLine()]);
+  const removeDefOutput = (id: string) => setDefOutputs((prev) => prev.filter((l) => l.id !== id));
+  const updateDefOutput = (id: string, field: keyof OutputLine, value: string) =>
+    setDefOutputs((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+
+  const createDef = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("transformation_processes" as any).insert({
-        restaurant_id: restaurantId,
-        name: processName.trim(),
-        input_product_id: processInputId,
-        output_product_id: processOutputId,
-        waste_product_id: processWasteId || null,
-        expected_yield: processYield ? parseFloat(processYield) : 0,
-      } as any);
-      if (error) throw error;
+      const validOutputs = defOutputs.filter((o) => o.productId);
+      if (!validOutputs.length) throw new Error("Agrega al menos un producto de salida");
+
+      const { data: def, error: e1 } = await supabase
+        .from("transformation_definitions" as any)
+        .insert({ restaurant_id: restaurantId, name: defName.trim(), input_product_id: defInputId } as any)
+        .select("id")
+        .single();
+      if (e1) throw e1;
+
+      const outputs = validOutputs.map((o) => ({
+        transformation_definition_id: (def as any).id,
+        output_product_id: o.productId,
+        output_type: o.outputType,
+        expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
+      }));
+      const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
+      if (e2) throw e2;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transformation_processes"] });
-      setProcessDialogOpen(false);
-      setProcessName("");
-      setProcessInputId("");
-      setProcessOutputId("");
-      setProcessWasteId("");
-      setProcessYield("");
+      qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
+      setDefOpen(false);
+      resetDefForm();
       toast({ title: "Proceso creado correctamente" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Execute transformation
-  const executeTransformation = useMutation({
+  /* ══════════════════════════════════════════
+     EXECUTION FORM
+     ══════════════════════════════════════════ */
+  const [selDefId, setSelDefId] = useState("");
+  const [execInputId, setExecInputId] = useState("");
+  const [execInputQty, setExecInputQty] = useState("");
+  const [execOutputs, setExecOutputs] = useState<OutputLine[]>([newLine()]);
+  const [execNotes, setExecNotes] = useState("");
+
+  const addExecOutput = () => setExecOutputs((prev) => [...prev, newLine()]);
+  const removeExecOutput = (id: string) => setExecOutputs((prev) => prev.filter((l) => l.id !== id));
+  const updateExecOutput = (id: string, field: keyof OutputLine, value: string) =>
+    setExecOutputs((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+
+  const resetExecForm = () => {
+    setSelDefId("");
+    setExecInputId("");
+    setExecInputQty("");
+    setExecOutputs([newLine()]);
+    setExecNotes("");
+  };
+
+  const handleDefSelect = (defId: string) => {
+    setSelDefId(defId);
+    const def = definitions.find((d: any) => d.id === defId);
+    if (!def) return;
+    setExecInputId(def.input_product_id);
+    const outs = (def.transformation_definition_outputs || []).map((o: any) => ({
+      id: `line-${++lineIdCounter}`,
+      productId: o.output_product_id,
+      outputType: o.output_type,
+      quantity: "",
+      expectedYield: o.expected_yield_percent?.toString() || "",
+    }));
+    setExecOutputs(outs.length ? outs : [newLine()]);
+  };
+
+  // Totals
+  const totalOutputQty = execOutputs.reduce((s, o) => {
+    const q = parseFloat(o.quantity) || 0;
+    return o.outputType !== "waste" ? s + q : s;
+  }, 0);
+  const totalWasteQty = execOutputs.reduce((s, o) => {
+    const q = parseFloat(o.quantity) || 0;
+    return o.outputType === "waste" ? s + q : s;
+  }, 0);
+  const totalAllOutputs = totalOutputQty + totalWasteQty;
+  const inputQtyNum = parseFloat(execInputQty) || 0;
+  const impliedWaste = Math.max(0, inputQtyNum - totalAllOutputs);
+  const overallYield = inputQtyNum > 0 ? ((totalOutputQty / inputQtyNum) * 100).toFixed(1) : "0";
+  const overTotal = totalAllOutputs > inputQtyNum && inputQtyNum > 0;
+
+  const execTransformation = useMutation({
     mutationFn: async () => {
       if (!user || !restaurantId) throw new Error("Sin sesión");
-      const inQty = Math.abs(parseFloat(inputQty));
-      const outQty = Math.abs(parseFloat(outputQty));
-      if (!inQty || !outQty) throw new Error("Cantidades inválidas");
-      if (outQty > inQty) throw new Error("La cantidad de salida no puede ser mayor a la entrada");
+      if (inputQtyNum <= 0) throw new Error("Cantidad de entrada inválida");
+      const validOutputs = execOutputs.filter((o) => o.productId && parseFloat(o.quantity) > 0);
+      if (!validOutputs.length) throw new Error("Agrega al menos una salida con cantidad");
+      if (overTotal) throw new Error("La suma de salidas supera la cantidad de entrada");
 
-      const waste = wasteQty ? Math.abs(parseFloat(wasteQty)) : inQty - outQty;
-      const yieldPct = (outQty / inQty) * 100;
-
-      const inputProduct = productMap[inputProductId];
-      const outputProduct = productMap[outputProductId];
-      if (!inputProduct || !outputProduct) throw new Error("Productos no encontrados");
-
-      if (inQty > inputProduct.current_stock) {
+      const inputProduct = pMap[execInputId];
+      if (!inputProduct) throw new Error("Producto de entrada no encontrado");
+      if (inputQtyNum > inputProduct.current_stock) {
         throw new Error(`Stock insuficiente de ${inputProduct.name}. Disponible: ${inputProduct.current_stock} ${inputProduct.unit}`);
       }
 
       const unitCostInput = inputProduct.average_cost || 0;
-      const totalCostInput = inQty * unitCostInput;
-      const unitCostOutput = outQty > 0 ? totalCostInput / outQty : 0;
+      const totalCostInput = inputQtyNum * unitCostInput;
 
-      // 1. Salida del producto de entrada
+      // 1. SALIDA del producto de entrada
       const { error: e1 } = await supabase.from("inventory_movements").insert({
         restaurant_id: restaurantId,
-        product_id: inputProductId,
+        product_id: execInputId,
         user_id: user.id,
         type: "salida",
-        quantity: inQty,
+        quantity: inputQtyNum,
         unit_cost: unitCostInput,
         total_cost: totalCostInput,
-        notes: `Transformación: ${processName || "manual"} → ${outputProduct.name}`,
+        notes: `Transformación: ${pMap[execInputId]?.name}`,
       });
       if (e1) throw e1;
 
-      // 2. Entrada del producto de salida
-      const { error: e2 } = await supabase.from("inventory_movements").insert({
-        restaurant_id: restaurantId,
-        product_id: outputProductId,
-        user_id: user.id,
-        type: "entrada",
-        quantity: outQty,
-        unit_cost: unitCostOutput,
-        total_cost: totalCostInput,
-        notes: `Transformación: ${inputProduct.name} → ${outputProduct.name}`,
-      });
-      if (e2) throw e2;
+      // 2. ENTRADA / MERMA para cada output
+      for (const out of validOutputs) {
+        const qty = Math.abs(parseFloat(out.quantity));
+        const outProduct = pMap[out.productId];
+        const movType = out.outputType === "waste" ? "merma" : "entrada";
+        const outUnitCost = out.outputType === "waste" ? 0 : (totalOutputQty > 0 ? (totalCostInput * (qty / totalOutputQty)) / qty : 0);
+        const outTotal = out.outputType === "waste" ? 0 : (totalOutputQty > 0 ? totalCostInput * (qty / totalOutputQty) : 0);
 
-      // 3. Merma (si hay producto de merma)
-      if (wasteProductId && waste > 0) {
-        const { error: e3 } = await supabase.from("inventory_movements").insert({
+        const { error } = await supabase.from("inventory_movements").insert({
           restaurant_id: restaurantId,
-          product_id: wasteProductId,
+          product_id: out.productId,
           user_id: user.id,
-          type: "entrada",
-          quantity: waste,
-          unit_cost: 0,
-          total_cost: 0,
-          notes: `Merma de transformación: ${inputProduct.name}`,
+          type: movType,
+          quantity: qty,
+          unit_cost: outUnitCost,
+          total_cost: outTotal,
+          notes: `Transformación de ${inputProduct.name} → ${outProduct?.name || ""}`,
         });
-        if (e3) throw e3;
+        if (error) throw error;
       }
 
-      // 4. Log
-      const { error: e4 } = await supabase.from("transformation_logs" as any).insert({
+      // 3. Log run
+      const yieldPct = inputQtyNum > 0 ? (totalOutputQty / inputQtyNum) * 100 : 0;
+      const { data: run, error: e3 } = await supabase.from("transformation_runs" as any).insert({
         restaurant_id: restaurantId,
-        process_id: selectedProcessId || null,
-        input_product_id: inputProductId,
-        output_product_id: outputProductId,
-        waste_product_id: wasteProductId || null,
-        input_quantity: inQty,
-        output_quantity: outQty,
-        waste_quantity: waste,
-        yield_percentage: yieldPct,
-        performed_by: user.id,
-        notes: notes || null,
-      } as any);
+        transformation_definition_id: selDefId || null,
+        input_product_id: execInputId,
+        input_quantity: inputQtyNum,
+        total_output: totalOutputQty,
+        total_waste: totalWasteQty + impliedWaste,
+        overall_yield: yieldPct,
+        created_by: user.id,
+        notes: execNotes || null,
+      } as any).select("id").single();
+      if (e3) throw e3;
+
+      // 4. Log run outputs
+      const runOutputs = validOutputs.map((o) => ({
+        transformation_run_id: (run as any).id,
+        output_product_id: o.productId,
+        output_type: o.outputType,
+        quantity: Math.abs(parseFloat(o.quantity)),
+        yield_percent: inputQtyNum > 0 ? (Math.abs(parseFloat(o.quantity)) / inputQtyNum) * 100 : 0,
+      }));
+      const { error: e4 } = await supabase.from("transformation_run_outputs" as any).insert(runOutputs as any);
       if (e4) throw e4;
 
       // 5. Audit
       await logAudit({
         entityType: "transformation",
-        entityId: inputProductId,
+        entityId: (run as any).id,
         action: "CREATE",
         after: {
-          input: { product: inputProduct.name, qty: inQty },
-          output: { product: outputProduct.name, qty: outQty },
-          waste,
+          input: { product: inputProduct.name, qty: inputQtyNum },
+          outputs: validOutputs.map((o) => ({
+            product: pMap[o.productId]?.name,
+            qty: parseFloat(o.quantity),
+            type: o.outputType,
+          })),
           yield: yieldPct,
         },
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transformation_logs"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      resetRegistrationForm();
+      qc.invalidateQueries({ queryKey: ["transformation_runs"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      resetExecForm();
       toast({ title: "Transformación registrada", description: "Inventario actualizado correctamente" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const resetRegistrationForm = () => {
-    setSelectedProcessId("");
-    setInputProductId("");
-    setOutputProductId("");
-    setWasteProductId("");
-    setInputQty("");
-    setOutputQty("");
-    setWasteQty("");
-    setNotes("");
-  };
-
-  const handleProcessSelect = (processId: string) => {
-    setSelectedProcessId(processId);
-    const proc = processes.find((p: any) => p.id === processId);
-    if (proc) {
-      setInputProductId(proc.input_product_id);
-      setOutputProductId(proc.output_product_id);
-      setWasteProductId(proc.waste_product_id || "");
-    }
-  };
-
-  const calculatedWaste = inputQty && outputQty ? Math.max(0, parseFloat(inputQty) - parseFloat(outputQty)) : 0;
-  const calculatedYield = inputQty && outputQty && parseFloat(inputQty) > 0
-    ? ((parseFloat(outputQty) / parseFloat(inputQty)) * 100).toFixed(1)
-    : "0";
-
-  const processName_ = selectedProcessId
-    ? (processes.find((p: any) => p.id === selectedProcessId) as any)?.name || ""
-    : "";
+  /* ── Render helpers ── */
+  const renderOutputLines = (
+    lines: OutputLine[],
+    update: (id: string, field: keyof OutputLine, value: string) => void,
+    remove: (id: string) => void,
+    add: () => void,
+    showQty: boolean,
+    showYield: boolean,
+  ) => (
+    <div className="space-y-3">
+      {lines.map((line, idx) => (
+        <div key={line.id} className="grid grid-cols-12 gap-2 items-end">
+          <div className={showQty ? "col-span-4" : "col-span-5"}>
+            {idx === 0 && <Label className="text-xs">Producto</Label>}
+            <Select value={line.productId} onValueChange={(v) => update(line.id, "productId", v)}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+              <SelectContent>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-3">
+            {idx === 0 && <Label className="text-xs">Tipo</Label>}
+            <Select value={line.outputType} onValueChange={(v) => update(line.id, "outputType", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="output">Producto</SelectItem>
+                <SelectItem value="byproduct">Subproducto</SelectItem>
+                <SelectItem value="waste">Merma</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {showQty && (
+            <div className="col-span-2">
+              {idx === 0 && <Label className="text-xs">Cantidad</Label>}
+              <Input type="number" min="0" step="0.01" value={line.quantity} onChange={(e) => update(line.id, "quantity", e.target.value)} placeholder="0" />
+            </div>
+          )}
+          {showYield && (
+            <div className="col-span-2">
+              {idx === 0 && <Label className="text-xs">Rend. %</Label>}
+              <Input type="number" min="0" max="100" step="0.1" value={line.expectedYield} onChange={(e) => update(line.id, "expectedYield", e.target.value)} placeholder="%" />
+            </div>
+          )}
+          <div className="col-span-1">
+            {lines.length > 1 && (
+              <Button variant="ghost" size="icon" onClick={() => remove(line.id)} className="h-9 w-9">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" onClick={add} type="button">
+        <Plus className="h-4 w-4 mr-1" /> Agregar salida
+      </Button>
+    </div>
+  );
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <FlaskConical className="h-6 w-6" />
               Transformaciones de Productos
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Registra procesos donde un producto se convierte en otro con merma natural
+              Registra procesos donde un producto se convierte en varios productos derivados
             </p>
           </div>
-          <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
+          <Dialog open={defOpen} onOpenChange={(o) => { setDefOpen(o); if (!o) resetDefForm(); }}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Nuevo Proceso
-              </Button>
+              <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" /> Nuevo Proceso</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Crear Proceso de Transformación</DialogTitle>
+                <DialogTitle>Definir Proceso de Transformación</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
                   <Label>Nombre del proceso</Label>
-                  <Input value={processName} onChange={(e) => setProcessName(e.target.value)} placeholder="Ej: Pelar papa" />
+                  <Input value={defName} onChange={(e) => setDefName(e.target.value)} placeholder="Ej: Despiece de pollo" />
                 </div>
                 <div>
                   <Label>Producto de entrada</Label>
-                  <Select value={processInputId} onValueChange={setProcessInputId}>
+                  <Select value={defInputId} onValueChange={setDefInputId}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                     <SelectContent>
                       {products.map((p) => (
@@ -288,38 +399,15 @@ export default function Transformations() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Producto de salida</Label>
-                  <Select value={processOutputId} onValueChange={setProcessOutputId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Producto de merma (opcional)</Label>
-                  <Select value={processWasteId} onValueChange={setProcessWasteId}>
-                    <SelectTrigger><SelectValue placeholder="Sin producto de merma" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin producto de merma</SelectItem>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Rendimiento esperado (%)</Label>
-                  <Input type="number" value={processYield} onChange={(e) => setProcessYield(e.target.value)} placeholder="Ej: 84" />
+                  <Label className="text-sm font-medium">Productos de salida</Label>
+                  {renderOutputLines(defOutputs, updateDefOutput, removeDefOutput, addDefOutput, false, true)}
                 </div>
                 <Button
-                  onClick={() => createProcess.mutate()}
-                  disabled={!processName.trim() || !processInputId || !processOutputId || createProcess.isPending}
+                  onClick={() => createDef.mutate()}
+                  disabled={!defName.trim() || !defInputId || !defOutputs.some((o) => o.productId) || createDef.isPending}
                   className="w-full"
                 >
-                  Crear Proceso
+                  {createDef.isPending ? "Creando..." : "Crear Proceso"}
                 </Button>
               </div>
             </DialogContent>
@@ -328,233 +416,207 @@ export default function Transformations() {
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="register">
-              <FlaskConical className="h-4 w-4 mr-1" /> Registrar
-            </TabsTrigger>
-            <TabsTrigger value="history">
-              <History className="h-4 w-4 mr-1" /> Historial
-            </TabsTrigger>
-            <TabsTrigger value="processes">
-              <Percent className="h-4 w-4 mr-1" /> Procesos
-            </TabsTrigger>
+            <TabsTrigger value="register"><FlaskConical className="h-4 w-4 mr-1" /> Registrar</TabsTrigger>
+            <TabsTrigger value="history"><History className="h-4 w-4 mr-1" /> Historial</TabsTrigger>
+            <TabsTrigger value="processes"><Percent className="h-4 w-4 mr-1" /> Procesos</TabsTrigger>
           </TabsList>
 
-          {/* REGISTER TAB */}
+          {/* ── REGISTER ── */}
           <TabsContent value="register">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Registrar Transformación</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Optional: select pre-defined process */}
-                {processes.length > 0 && (
+                {/* Process selector */}
+                {definitions.length > 0 && (
                   <div>
                     <Label>Proceso predefinido (opcional)</Label>
-                    <Select value={selectedProcessId} onValueChange={handleProcessSelect}>
+                    <Select value={selDefId} onValueChange={handleDefSelect}>
                       <SelectTrigger><SelectValue placeholder="Seleccionar proceso o registrar manualmente" /></SelectTrigger>
                       <SelectContent>
-                        {processes.map((p: any) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        {definitions.map((d: any) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Input */}
-                  <Card className="border-2 border-destructive/30">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-destructive">Producto Entrada (sale)</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <Label>Producto</Label>
-                        <Select value={inputProductId} onValueChange={setInputProductId}>
-                          <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — Stock: {p.current_stock}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Cantidad</Label>
-                        <Input type="number" min="0" step="0.01" value={inputQty} onChange={(e) => setInputQty(e.target.value)} placeholder="Ej: 50" />
-                        {inputProductId && productMap[inputProductId] && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Stock: {productMap[inputProductId].current_stock} {productMap[inputProductId].unit}
-                          </p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                {/* Input section */}
+                <Card className="border-2 border-destructive/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-destructive flex items-center gap-2">
+                      <PackagePlus className="h-4 w-4" /> Producto de Entrada (se descuenta)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Producto</Label>
+                      <Select value={execInputId} onValueChange={setExecInputId}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                        <SelectContent>
+                          {products.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — Stock: {p.current_stock}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Cantidad</Label>
+                      <Input type="number" min="0" step="0.01" value={execInputQty} onChange={(e) => setExecInputQty(e.target.value)} placeholder="Ej: 10" />
+                      {execInputId && pMap[execInputId] && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Stock: {pMap[execInputId].current_stock} {pMap[execInputId].unit}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  {/* Arrow */}
-                  <div className="hidden md:flex items-center justify-center">
-                    <ArrowRight className="h-8 w-8 text-muted-foreground" />
-                  </div>
-
-                  {/* Output */}
-                  <Card className="border-2 border-primary/30">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-primary">Producto Salida (entra)</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <Label>Producto</Label>
-                        <Select value={outputProductId} onValueChange={setOutputProductId}>
-                          <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Cantidad</Label>
-                        <Input type="number" min="0" step="0.01" value={outputQty} onChange={(e) => setOutputQty(e.target.value)} placeholder="Ej: 42" />
-                      </div>
-                    </CardContent>
-                  </Card>
+                {/* Arrow */}
+                <div className="flex justify-center">
+                  <ArrowRight className="h-6 w-6 text-muted-foreground rotate-90" />
                 </div>
 
-                {/* Waste product */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Producto de merma (opcional)</Label>
-                    <Select value={wasteProductId} onValueChange={(v) => setWasteProductId(v === "none" ? "" : v)}>
-                      <SelectTrigger><SelectValue placeholder="Sin producto de merma" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin producto de merma</SelectItem>
-                        {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Cantidad merma (auto si vacío)</Label>
-                    <Input type="number" min="0" step="0.01" value={wasteQty} onChange={(e) => setWasteQty(e.target.value)} placeholder={`Auto: ${calculatedWaste}`} />
-                  </div>
-                </div>
+                {/* Outputs section */}
+                <Card className="border-2 border-primary/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">Productos de Salida (se agregan al inventario)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {renderOutputLines(execOutputs, updateExecOutput, removeExecOutput, addExecOutput, true, false)}
+                  </CardContent>
+                </Card>
 
-                {/* Calculated metrics */}
-                {inputQty && outputQty && (
-                  <div className="flex gap-4 flex-wrap">
+                {/* Summary metrics */}
+                {inputQtyNum > 0 && execOutputs.some((o) => parseFloat(o.quantity) > 0) && (
+                  <div className="flex gap-3 flex-wrap items-center">
                     <Badge variant="secondary" className="text-sm py-1 px-3">
-                      Merma: {wasteQty ? parseFloat(wasteQty) : calculatedWaste} {inputProductId ? productMap[inputProductId]?.unit : ""}
+                      Total salidas: {totalAllOutputs.toFixed(2)} / {inputQtyNum}
                     </Badge>
-                    <Badge variant={parseFloat(calculatedYield) >= 80 ? "default" : "destructive"} className="text-sm py-1 px-3">
-                      Rendimiento: {calculatedYield}%
+                    {impliedWaste > 0.001 && (
+                      <Badge variant="outline" className="text-sm py-1 px-3">
+                        Merma implícita: {impliedWaste.toFixed(2)}
+                      </Badge>
+                    )}
+                    <Badge variant={parseFloat(overallYield) >= 70 ? "default" : "destructive"} className="text-sm py-1 px-3">
+                      Rendimiento: {overallYield}%
                     </Badge>
+                    {overTotal && (
+                      <Badge variant="destructive" className="text-sm py-1 px-3">
+                        ⚠ Suma supera la entrada
+                      </Badge>
+                    )}
                   </div>
                 )}
 
                 <div>
                   <Label>Notas (opcional)</Label>
-                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observaciones del proceso..." rows={2} />
+                  <Textarea value={execNotes} onChange={(e) => setExecNotes(e.target.value)} placeholder="Observaciones..." rows={2} />
                 </div>
 
                 <Button
-                  onClick={() => executeTransformation.mutate()}
-                  disabled={!inputProductId || !outputProductId || !inputQty || !outputQty || executeTransformation.isPending}
+                  onClick={() => execTransformation.mutate()}
+                  disabled={!execInputId || inputQtyNum <= 0 || !execOutputs.some((o) => o.productId && parseFloat(o.quantity) > 0) || overTotal || execTransformation.isPending}
                   className="w-full"
                   size="lg"
                 >
-                  {executeTransformation.isPending ? "Procesando..." : "Registrar Transformación"}
+                  {execTransformation.isPending ? "Procesando..." : "Registrar Transformación"}
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* HISTORY TAB */}
+          {/* ── HISTORY ── */}
           <TabsContent value="history">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Historial de Transformaciones</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Historial de Transformaciones</CardTitle></CardHeader>
               <CardContent>
-                {logs.length === 0 ? (
+                {runs.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No hay transformaciones registradas</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Fecha</TableHead>
-                          <TableHead>Entrada</TableHead>
-                          <TableHead>Qty Entrada</TableHead>
-                          <TableHead>Salida</TableHead>
-                          <TableHead>Qty Salida</TableHead>
-                          <TableHead>Merma</TableHead>
-                          <TableHead>Rendimiento</TableHead>
-                          <TableHead>Notas</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {logs.map((log: any) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="whitespace-nowrap text-sm">
-                              {format(new Date(log.performed_at), "dd/MM/yy HH:mm", { locale: es })}
-                            </TableCell>
-                            <TableCell className="text-sm">{productMap[log.input_product_id]?.name ?? "—"}</TableCell>
-                            <TableCell className="text-sm">{log.input_quantity}</TableCell>
-                            <TableCell className="text-sm">{productMap[log.output_product_id]?.name ?? "—"}</TableCell>
-                            <TableCell className="text-sm">{log.output_quantity}</TableCell>
-                            <TableCell className="text-sm">{log.waste_quantity}</TableCell>
-                            <TableCell>
-                              <Badge variant={log.yield_percentage >= 80 ? "default" : "destructive"} className="text-xs">
-                                {parseFloat(log.yield_percentage).toFixed(1)}%
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{log.notes || "—"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-4">
+                    {runs.map((run: any) => {
+                      const outs = run.transformation_run_outputs || [];
+                      return (
+                        <Card key={run.id} className="border">
+                          <CardContent className="pt-4 space-y-2">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">
+                                  {format(new Date(run.run_date), "dd/MM/yy HH:mm", { locale: es })}
+                                </span>
+                                <Badge variant={run.overall_yield >= 70 ? "default" : "destructive"}>
+                                  Rend: {parseFloat(run.overall_yield).toFixed(1)}%
+                                </Badge>
+                              </div>
+                              {run.notes && <span className="text-xs text-muted-foreground">{run.notes}</span>}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Badge variant="destructive" className="text-xs">ENTRADA</Badge>
+                              <span className="font-medium">{pMap[run.input_product_id]?.name ?? "—"}</span>
+                              <span>{run.input_quantity} {pMap[run.input_product_id]?.unit}</span>
+                            </div>
+                            <div className="ml-4 border-l-2 border-primary/20 pl-3 space-y-1">
+                              {outs.map((o: any) => (
+                                <div key={o.id} className="flex items-center gap-2 text-sm">
+                                  <Badge variant={OUTPUT_TYPE_LABELS[o.output_type]?.color as any ?? "secondary"} className="text-xs">
+                                    {OUTPUT_TYPE_LABELS[o.output_type]?.label ?? o.output_type}
+                                  </Badge>
+                                  <span>{pMap[o.output_product_id]?.name ?? "—"}</span>
+                                  <span className="text-muted-foreground">{o.quantity} {pMap[o.output_product_id]?.unit}</span>
+                                  <span className="text-xs text-muted-foreground">({parseFloat(o.yield_percent).toFixed(1)}%)</span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* PROCESSES TAB */}
+          {/* ── PROCESSES ── */}
           <TabsContent value="processes">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Procesos Definidos</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Procesos Definidos</CardTitle></CardHeader>
               <CardContent>
-                {processes.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No hay procesos definidos. Crea uno con el botón "Nuevo Proceso".</p>
+                {definitions.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No hay procesos definidos. Crea uno con "Nuevo Proceso".</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Producto Entrada</TableHead>
-                        <TableHead>Producto Salida</TableHead>
-                        <TableHead>Producto Merma</TableHead>
-                        <TableHead>Rendimiento Esperado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {processes.map((p: any) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell>{productMap[p.input_product_id]?.name ?? "—"}</TableCell>
-                          <TableCell>{productMap[p.output_product_id]?.name ?? "—"}</TableCell>
-                          <TableCell>{p.waste_product_id ? (productMap[p.waste_product_id]?.name ?? "—") : "—"}</TableCell>
-                          <TableCell>
-                            {p.expected_yield > 0 ? <Badge variant="secondary">{p.expected_yield}%</Badge> : "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div className="space-y-4">
+                    {definitions.map((def: any) => {
+                      const outs = def.transformation_definition_outputs || [];
+                      return (
+                        <Card key={def.id} className="border">
+                          <CardContent className="pt-4 space-y-2">
+                            <h3 className="font-semibold">{def.name}</h3>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Badge variant="destructive" className="text-xs">ENTRADA</Badge>
+                              <span>{pMap[def.input_product_id]?.name ?? "—"} ({pMap[def.input_product_id]?.unit})</span>
+                            </div>
+                            <div className="ml-4 border-l-2 border-primary/20 pl-3 space-y-1">
+                              {outs.map((o: any) => (
+                                <div key={o.id} className="flex items-center gap-2 text-sm">
+                                  <Badge variant={OUTPUT_TYPE_LABELS[o.output_type]?.color as any ?? "secondary"} className="text-xs">
+                                    {OUTPUT_TYPE_LABELS[o.output_type]?.label ?? o.output_type}
+                                  </Badge>
+                                  <span>{pMap[o.output_product_id]?.name ?? "—"}</span>
+                                  {o.expected_yield_percent && (
+                                    <span className="text-xs text-muted-foreground">({o.expected_yield_percent}%)</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
