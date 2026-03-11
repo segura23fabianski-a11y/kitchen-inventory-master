@@ -11,44 +11,60 @@ import CorporateReportsTab from "@/components/hotel/CorporateReportsTab";
 import LaundryTab from "@/components/hotel/LaundryTab";
 import LinenInventoryTab from "@/components/hotel/LinenInventoryTab";
 import RoomDashboard from "@/components/hotel/RoomDashboard";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useState } from "react";
 
+interface TabDef {
+  value: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  permKey: string;
+}
+
+const hotelTabs: TabDef[] = [
+  { value: "dashboard", label: "Dashboard", icon: LayoutDashboard, permKey: "hotel_dashboard_view" },
+  { value: "stays", label: "Estancias", icon: CalendarCheck, permKey: "hotel_stays_view" },
+  { value: "rooms", label: "Habitaciones", icon: BedDouble, permKey: "hotel_rooms_view" },
+  { value: "room-types", label: "Tipos", icon: HotelIcon, permKey: "hotel_room_types_view" },
+  { value: "guests", label: "Huéspedes", icon: Users, permKey: "hotel_guests_view" },
+  { value: "companies", label: "Empresas", icon: Building2, permKey: "hotel_companies_view" },
+  { value: "housekeeping", label: "Housekeeping", icon: Sparkles, permKey: "housekeeping_view" },
+  { value: "laundry", label: "Lavandería", icon: Shirt, permKey: "laundry_view" },
+  { value: "linen", label: "Lencería", icon: Package, permKey: "linen_inventory_view" },
+  { value: "reports", label: "Reportes Corp.", icon: BarChart3, permKey: "hotel_corporate_reports_view" },
+];
+
 export default function Hotel() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const { hasPermission } = usePermissions();
+  const visibleTabs = hotelTabs.filter(t => hasPermission(t.permKey));
+  const defaultTab = visibleTabs[0]?.value || "dashboard";
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
-  const handleCheckIn = (_roomId: string) => {
-    setActiveTab("stays");
-  };
-
-  const handleCheckOut = (_stayId: string) => {
-    setActiveTab("stays");
-  };
+  const handleCheckIn = (_roomId: string) => setActiveTab("stays");
+  const handleCheckOut = (_stayId: string) => setActiveTab("stays");
 
   return (
     <AppLayout>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="dashboard" className="gap-1.5"><LayoutDashboard className="h-4 w-4" />Dashboard</TabsTrigger>
-          <TabsTrigger value="stays" className="gap-1.5"><CalendarCheck className="h-4 w-4" />Estancias</TabsTrigger>
-          <TabsTrigger value="rooms" className="gap-1.5"><BedDouble className="h-4 w-4" />Habitaciones</TabsTrigger>
-          <TabsTrigger value="room-types" className="gap-1.5"><HotelIcon className="h-4 w-4" />Tipos</TabsTrigger>
-          <TabsTrigger value="guests" className="gap-1.5"><Users className="h-4 w-4" />Huéspedes</TabsTrigger>
-          <TabsTrigger value="companies" className="gap-1.5"><Building2 className="h-4 w-4" />Empresas</TabsTrigger>
-          <TabsTrigger value="housekeeping" className="gap-1.5"><Sparkles className="h-4 w-4" />Housekeeping</TabsTrigger>
-          <TabsTrigger value="laundry" className="gap-1.5"><Shirt className="h-4 w-4" />Lavandería</TabsTrigger>
-          <TabsTrigger value="linen" className="gap-1.5"><Package className="h-4 w-4" />Lencería</TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" />Reportes Corp.</TabsTrigger>
+          {visibleTabs.map(tab => (
+            <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+              <tab.icon className="h-4 w-4" />{tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="dashboard"><RoomDashboard onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} /></TabsContent>
-        <TabsContent value="stays"><StaysTab /></TabsContent>
-        <TabsContent value="rooms"><RoomsTab /></TabsContent>
-        <TabsContent value="room-types"><RoomTypesTab /></TabsContent>
-        <TabsContent value="guests"><GuestsTab /></TabsContent>
-        <TabsContent value="companies"><CompaniesTab /></TabsContent>
-        <TabsContent value="housekeeping"><HousekeepingTab /></TabsContent>
-        <TabsContent value="laundry"><LaundryTab /></TabsContent>
-        <TabsContent value="linen"><LinenInventoryTab /></TabsContent>
-        <TabsContent value="reports"><CorporateReportsTab /></TabsContent>
+        {hasPermission("hotel_dashboard_view") && (
+          <TabsContent value="dashboard"><RoomDashboard onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} /></TabsContent>
+        )}
+        {hasPermission("hotel_stays_view") && <TabsContent value="stays"><StaysTab /></TabsContent>}
+        {hasPermission("hotel_rooms_view") && <TabsContent value="rooms"><RoomsTab /></TabsContent>}
+        {hasPermission("hotel_room_types_view") && <TabsContent value="room-types"><RoomTypesTab /></TabsContent>}
+        {hasPermission("hotel_guests_view") && <TabsContent value="guests"><GuestsTab /></TabsContent>}
+        {hasPermission("hotel_companies_view") && <TabsContent value="companies"><CompaniesTab /></TabsContent>}
+        {hasPermission("housekeeping_view") && <TabsContent value="housekeeping"><HousekeepingTab /></TabsContent>}
+        {hasPermission("laundry_view") && <TabsContent value="laundry"><LaundryTab /></TabsContent>}
+        {hasPermission("linen_inventory_view") && <TabsContent value="linen"><LinenInventoryTab /></TabsContent>}
+        {hasPermission("hotel_corporate_reports_view") && <TabsContent value="reports"><CorporateReportsTab /></TabsContent>}
       </Tabs>
     </AppLayout>
   );

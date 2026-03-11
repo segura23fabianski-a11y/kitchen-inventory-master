@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRoles, type Role } from "@/hooks/use-roles";
 import { Shield, Layers, Plus, Pencil, Trash2, Users } from "lucide-react";
 
-const CATEGORIES = ["Inventario", "Catálogo", "Administración", "Reportes", "General"];
+const CATEGORIES = ["Inventario", "Catálogo", "Administración", "Reportes", "General", "Hotel", "Housekeeping", "Lavandería", "compras", "inventario", "Producción", "Análisis", "operacion", "admin"];
 
 export default function Roles() {
   const { toast } = useToast();
