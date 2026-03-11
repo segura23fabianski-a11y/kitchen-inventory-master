@@ -9,12 +9,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle } from "lucide-react";
+import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import SignaturePad from "./SignaturePad";
+import QuickGuestDialog from "./QuickGuestDialog";
+import QuickCompanyDialog from "./QuickCompanyDialog";
 
 const STATUS_LABELS: Record<string, string> = { checked_in: "Hospedado", checked_out: "Check-out", cancelled: "Cancelada" };
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> = { checked_in: "default", checked_out: "secondary", cancelled: "destructive" };
