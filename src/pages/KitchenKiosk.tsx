@@ -475,6 +475,7 @@ export default function KitchenKiosk() {
                     {cartLines.map((item) => {
                       const availableRecipes = getProductRecipes(item.productId);
                       const hasRecipe = !!item.recipeId;
+                      const useRecipe = item.recipeId !== null; // null = undecided/no, string = selected
                       return (
                         <div
                           key={item.productId}
@@ -482,23 +483,13 @@ export default function KitchenKiosk() {
                             item.insufficient ? "border-destructive/50 bg-destructive/5" : "border-border"
                           }`}
                         >
-                          {/* Product name + recipe indicator + delete */}
+                          {/* Product name + delete */}
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm leading-tight">{item.name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <p className="text-xs text-muted-foreground">
-                                  Stock: {item.currentStock} {item.baseUnit}
-                                </p>
-                                {hasRecipe ? (
-                                  <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
-                                    <UtensilsCrossed className="h-2.5 w-2.5" />
-                                    {recipeMap.get(item.recipeId!) ?? "Receta"}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground/60">Sin receta</span>
-                                )}
-                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Stock: {item.currentStock} {item.baseUnit}
+                              </p>
                             </div>
                             <Button
                               variant="ghost"
@@ -538,26 +529,66 @@ export default function KitchenKiosk() {
                             )}
                           </div>
 
-                          {/* Recipe selector */}
-                          {availableRecipes.length > 0 && (
-                            <Select
-                              value={item.recipeId ?? "none"}
-                              onValueChange={(v) =>
-                                updateCartItem(item.productId, { recipeId: v === "none" ? null : v })
-                              }
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <UtensilsCrossed className="h-3 w-3 mr-1 shrink-0" />
-                                <SelectValue placeholder="Asignar receta (opcional)" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Sin receta</SelectItem>
-                                {availableRecipes.map((r) => (
-                                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
+                          {/* Recipe toggle + selector */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateCartItem(item.productId, { recipeId: hasRecipe ? null : "__pending" as any })
+                                }
+                                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                                  hasRecipe
+                                    ? "bg-primary/10 text-primary border border-primary/30"
+                                    : "bg-muted text-muted-foreground border border-border"
+                                }`}
+                              >
+                                {hasRecipe ? (
+                                  <>
+                                    <span className="h-2 w-2 rounded-full bg-primary" />
+                                    Con receta
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+                                    Sin receta
+                                  </>
+                                )}
+                              </button>
+                              {hasRecipe && item.recipeId && item.recipeId !== "__pending" && (
+                                <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
+                                  <UtensilsCrossed className="h-2.5 w-2.5" />
+                                  {recipeMap.get(item.recipeId) ?? "Receta"}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Show recipe dropdown when toggled to "Con receta" */}
+                            {hasRecipe && (
+                              <Select
+                                value={item.recipeId === "__pending" ? "" : (item.recipeId ?? "")}
+                                onValueChange={(v) =>
+                                  updateCartItem(item.productId, { recipeId: v || null })
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <UtensilsCrossed className="h-3 w-3 mr-1 shrink-0" />
+                                  <SelectValue placeholder="Seleccionar receta..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableRecipes.length > 0 ? (
+                                    availableRecipes.map((r) => (
+                                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="__no_recipes" disabled>
+                                      No hay recetas con este producto
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
 
                           {item.insufficient && (
                             <p className="text-xs text-destructive flex items-center gap-1">
