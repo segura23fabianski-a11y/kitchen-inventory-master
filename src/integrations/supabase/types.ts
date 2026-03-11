@@ -109,6 +109,123 @@ export type Database = {
           },
         ]
       }
+      backup_inventory_movements_20260311: {
+        Row: {
+          created_at: string | null
+          evidence_url: string | null
+          id: string | null
+          loss_value: number | null
+          movement_date: string | null
+          notes: string | null
+          product_id: string | null
+          quantity: number | null
+          recipe_id: string | null
+          restaurant_id: string | null
+          service_id: string | null
+          total_cost: number | null
+          type: string | null
+          unit_cost: number | null
+          user_id: string | null
+          waste_reason: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          evidence_url?: string | null
+          id?: string | null
+          loss_value?: number | null
+          movement_date?: string | null
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          recipe_id?: string | null
+          restaurant_id?: string | null
+          service_id?: string | null
+          total_cost?: number | null
+          type?: string | null
+          unit_cost?: number | null
+          user_id?: string | null
+          waste_reason?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          evidence_url?: string | null
+          id?: string | null
+          loss_value?: number | null
+          movement_date?: string | null
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          recipe_id?: string | null
+          restaurant_id?: string | null
+          service_id?: string | null
+          total_cost?: number | null
+          type?: string | null
+          unit_cost?: number | null
+          user_id?: string | null
+          waste_reason?: string | null
+        }
+        Relationships: []
+      }
+      backup_products_20260311: {
+        Row: {
+          average_cost: number | null
+          barcode: string | null
+          category_id: string | null
+          created_at: string | null
+          current_stock: number | null
+          daily_consumption: number | null
+          id: string | null
+          image_url: string | null
+          last_unit_cost: number | null
+          min_stock: number | null
+          name: string | null
+          reorder_mode: string | null
+          restaurant_id: string | null
+          target_days_of_stock: number | null
+          unit: string | null
+          updated_at: string | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          average_cost?: number | null
+          barcode?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          current_stock?: number | null
+          daily_consumption?: number | null
+          id?: string | null
+          image_url?: string | null
+          last_unit_cost?: number | null
+          min_stock?: number | null
+          name?: string | null
+          reorder_mode?: string | null
+          restaurant_id?: string | null
+          target_days_of_stock?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          average_cost?: number | null
+          barcode?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          current_stock?: number | null
+          daily_consumption?: number | null
+          id?: string | null
+          image_url?: string | null
+          last_unit_cost?: number | null
+          min_stock?: number | null
+          name?: string | null
+          reorder_mode?: string | null
+          restaurant_id?: string | null
+          target_days_of_stock?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          warehouse_id?: string | null
+        }
+        Relationships: []
+      }
       branding_settings: {
         Row: {
           accent_color: string | null
