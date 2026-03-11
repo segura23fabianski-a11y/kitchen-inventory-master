@@ -177,6 +177,7 @@ export default function OrdersList() {
                 const stats = orderStats?.get(o.id);
                 return (
                   <TableRow key={o.id}>
+                    <TableCell className="font-mono text-xs font-semibold text-primary">{o.order_number || o.id.slice(0, 8).toUpperCase()}</TableCell>
                     <TableCell>{format(new Date(o.order_date), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{(o as any).suppliers?.name}</TableCell>
                     <TableCell>{statusBadge(o.status)}</TableCell>
