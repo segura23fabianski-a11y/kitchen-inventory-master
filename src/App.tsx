@@ -70,14 +70,14 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
     <Route path="/pending" element={<PendingRoute />} />
-    <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-    <Route path="/products" element={<ProtectedRoute roles={["admin", "bodega"]}><Products /></ProtectedRoute>} />
-    <Route path="/movements" element={<ProtectedRoute><Movements /></ProtectedRoute>} />
-    <Route path="/categories" element={<ProtectedRoute roles={["admin", "bodega"]}><Categories /></ProtectedRoute>} />
-    <Route path="/users" element={<ProtectedRoute roles={["admin"]}><Users /></ProtectedRoute>} />
-    <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
-    <Route path="/kitchen" element={<ProtectedRoute><KitchenKiosk /></ProtectedRoute>} />
-    <Route path="/operations" element={<ProtectedRoute><OperationsKiosk /></ProtectedRoute>} />
+    <Route path="/" element={<ProtectedRoute permKey="dashboard"><Dashboard /></ProtectedRoute>} />
+    <Route path="/products" element={<ProtectedRoute permKey="products"><Products /></ProtectedRoute>} />
+    <Route path="/movements" element={<ProtectedRoute permKey="movements"><Movements /></ProtectedRoute>} />
+    <Route path="/categories" element={<ProtectedRoute permKey="categories"><Categories /></ProtectedRoute>} />
+    <Route path="/users" element={<ProtectedRoute permKey="users"><Users /></ProtectedRoute>} />
+    <Route path="/recipes" element={<ProtectedRoute permKey="recipes"><Recipes /></ProtectedRoute>} />
+    <Route path="/kitchen" element={<ProtectedRoute permKey="kitchen_kiosk"><KitchenKiosk /></ProtectedRoute>} />
+    <Route path="/operations" element={<ProtectedRoute permKey="operations_kiosk"><OperationsKiosk /></ProtectedRoute>} />
     
     <Route path="/reports" element={<ProtectedRoute permKey="reports"><Reports /></ProtectedRoute>} />
     <Route path="/executive" element={<ProtectedRoute permKey="executive_dashboard"><ExecutiveDashboard /></ProtectedRoute>} />
