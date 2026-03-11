@@ -28,6 +28,7 @@ interface RoomDashboardProps {
 }
 
 export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardProps) {
+  const qc = useQueryClient();
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
