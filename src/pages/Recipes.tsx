@@ -309,6 +309,7 @@ export default function Recipes() {
     setEditComponents(comps.map((c: any) => ({
       id: c.id,
       component_name: c.component_name,
+      component_mode: c.component_mode ?? "product",
       quantity_per_service: Number(c.quantity_per_service),
       required: c.required,
       sort_order: c.sort_order,
