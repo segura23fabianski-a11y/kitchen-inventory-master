@@ -320,14 +320,13 @@ export default function Transformations() {
         <div key={line.id} className="grid grid-cols-12 gap-2 items-end">
           <div className={showQty ? "col-span-4" : "col-span-5"}>
             {idx === 0 && <Label className="text-xs">Producto</Label>}
-            <Select value={line.productId} onValueChange={(v) => update(line.id, "productId", v)}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.unit})`, searchTerms: p.name }))}
+              value={line.productId}
+              onValueChange={(v) => update(line.id, "productId", v)}
+              placeholder="Seleccionar..."
+              searchPlaceholder="Buscar producto..."
+            />
           </div>
           <div className="col-span-3">
             {idx === 0 && <Label className="text-xs">Tipo</Label>}
