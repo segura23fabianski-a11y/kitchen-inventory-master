@@ -353,21 +353,13 @@ export default function ManualConsumption() {
               {/* Service */}
               <div className="space-y-2">
                 <Label>Servicio / Área *</Label>
-                <Select
+                <SearchableSelect
+                  options={services?.map((s) => ({ value: s.id, label: s.name })) ?? []}
                   value={selectedServiceId ?? ""}
                   onValueChange={setSelectedServiceId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar servicio..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {services?.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Seleccionar servicio..."
+                  searchPlaceholder="Buscar servicio..."
+                />
                 {(!services || services.length === 0) && (
                   <p className="text-xs text-muted-foreground">
                     No hay servicios. Crea uno con el botón "Servicios".
