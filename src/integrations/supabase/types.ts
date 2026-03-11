@@ -315,12 +315,14 @@ export type Database = {
         Row: {
           actual_quantity: number | null
           component_name: string
+          cost_source: string
           created_at: string
           execution_id: string
           id: string
           is_recipe_component: boolean
           line_cost: number
           product_id: string
+          production_run_id: string | null
           quantity: number
           selected_recipe_id: string | null
           theoretical_quantity: number | null
@@ -329,12 +331,14 @@ export type Database = {
         Insert: {
           actual_quantity?: number | null
           component_name: string
+          cost_source?: string
           created_at?: string
           execution_id: string
           id?: string
           is_recipe_component?: boolean
           line_cost?: number
           product_id: string
+          production_run_id?: string | null
           quantity: number
           selected_recipe_id?: string | null
           theoretical_quantity?: number | null
@@ -343,12 +347,14 @@ export type Database = {
         Update: {
           actual_quantity?: number | null
           component_name?: string
+          cost_source?: string
           created_at?: string
           execution_id?: string
           id?: string
           is_recipe_component?: boolean
           line_cost?: number
           product_id?: string
+          production_run_id?: string | null
           quantity?: number
           selected_recipe_id?: string | null
           theoretical_quantity?: number | null
@@ -367,6 +373,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_execution_items_production_run_id_fkey"
+            columns: ["production_run_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_production_runs"
             referencedColumns: ["id"]
           },
           {
@@ -1475,6 +1488,120 @@ export type Database = {
           },
           {
             foreignKeyName: "recipe_ingredients_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_production_run_items: {
+        Row: {
+          actual_line_cost: number
+          actual_quantity: number
+          created_at: string
+          id: string
+          product_id: string
+          run_id: string
+          theoretical_line_cost: number
+          theoretical_quantity: number
+          unit: string
+          unit_cost: number
+        }
+        Insert: {
+          actual_line_cost?: number
+          actual_quantity?: number
+          created_at?: string
+          id?: string
+          product_id: string
+          run_id: string
+          theoretical_line_cost?: number
+          theoretical_quantity?: number
+          unit?: string
+          unit_cost?: number
+        }
+        Update: {
+          actual_line_cost?: number
+          actual_quantity?: number
+          created_at?: string
+          id?: string
+          product_id?: string
+          run_id?: string
+          theoretical_line_cost?: number
+          theoretical_quantity?: number
+          unit?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_production_run_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_production_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_production_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_production_runs: {
+        Row: {
+          actual_total_cost: number
+          actual_unit_cost: number
+          created_at: string
+          id: string
+          notes: string | null
+          produced_by: string
+          production_date: string
+          quantity_produced: number
+          recipe_id: string
+          restaurant_id: string
+          theoretical_total_cost: number
+          theoretical_unit_cost: number
+        }
+        Insert: {
+          actual_total_cost?: number
+          actual_unit_cost?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          produced_by: string
+          production_date?: string
+          quantity_produced?: number
+          recipe_id: string
+          restaurant_id: string
+          theoretical_total_cost?: number
+          theoretical_unit_cost?: number
+        }
+        Update: {
+          actual_total_cost?: number
+          actual_unit_cost?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          produced_by?: string
+          production_date?: string
+          quantity_produced?: number
+          recipe_id?: string
+          restaurant_id?: string
+          theoretical_total_cost?: number
+          theoretical_unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_production_runs_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_production_runs_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
