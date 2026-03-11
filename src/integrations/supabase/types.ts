@@ -1699,6 +1699,16 @@ export type Database = {
         Returns: boolean
       }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      recalculate_all_stock: {
+        Args: never
+        Returns: {
+          difference: number
+          new_stock: number
+          old_stock: number
+          product_id: string
+          product_name: string
+        }[]
+      }
       register_recipe_consumption:
         | {
             Args: {
