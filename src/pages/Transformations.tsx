@@ -490,26 +490,66 @@ export default function Transformations() {
                 </Card>
 
                 {/* Summary metrics */}
-                {inputQtyNum > 0 && execOutputs.some((o) => parseFloat(o.quantity) > 0) && (
-                  <div className="flex gap-3 flex-wrap items-center">
-                    <Badge variant="secondary" className="text-sm py-1 px-3">
-                      Total salidas: {totalAllOutputs.toFixed(2)} / {inputQtyNum}
-                    </Badge>
-                    {impliedWaste > 0.001 && (
-                      <Badge variant="outline" className="text-sm py-1 px-3">
-                        Merma implícita: {impliedWaste.toFixed(2)}
-                      </Badge>
-                    )}
-                    <Badge variant={parseFloat(overallYield) >= 70 ? "default" : "destructive"} className="text-sm py-1 px-3">
-                      Rendimiento: {overallYield}%
-                    </Badge>
-                    {overTotal && (
-                      <Badge variant="destructive" className="text-sm py-1 px-3">
-                        ⚠ Suma supera la entrada
-                      </Badge>
-                    )}
-                  </div>
-                )}
+                {inputQtyNum > 0 && execOutputs.some((o) => parseFloat(o.quantity) > 0) && (() => {
+                  const inputP = pMap[execInputId];
+                  const costOrigin = inputP ? (inputP.average_cost > 0 ? inputP.average_cost : (inputP.last_unit_cost || 0)) : 0;
+                  const totalCost = inputQtyNum * costOrigin;
+                  const calcOutputCosts = execOutputs
+                    .filter((o) => o.productId && parseFloat(o.quantity) > 0 && o.outputType !== "waste")
+                    .map((o) => {
+                      const q = parseFloat(o.quantity);
+                      const newUnitCost = totalOutputQty > 0 ? (totalCost * (q / totalOutputQty)) / q : 0;
+                      return { name: pMap[o.productId]?.name || "—", unit: pMap[o.productId]?.unit || "", newUnitCost, qty: q };
+                    });
+
+                  return (
+                    <Card className="border border-accent/40 bg-accent/5">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex gap-3 flex-wrap items-center">
+                          <Badge variant="secondary" className="text-sm py-1 px-3">
+                            Total salidas: {totalAllOutputs.toFixed(2)} / {inputQtyNum}
+                          </Badge>
+                          {impliedWaste > 0.001 && (
+                            <Badge variant="outline" className="text-sm py-1 px-3">
+                              Merma implícita: {impliedWaste.toFixed(2)}
+                            </Badge>
+                          )}
+                          <Badge variant={parseFloat(overallYield) >= 70 ? "default" : "destructive"} className="text-sm py-1 px-3">
+                            Rendimiento: {overallYield}%
+                          </Badge>
+                          {overTotal && (
+                            <Badge variant="destructive" className="text-sm py-1 px-3">
+                              ⚠ Suma supera la entrada
+                            </Badge>
+                          )}
+                        </div>
+
+                        {costOrigin > 0 && (
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-4 text-muted-foreground">
+                              <span>Costo origen: <strong className="text-foreground">${costOrigin.toLocaleString("es-CO", { minimumFractionDigits: 2 })}</strong> / {inputP?.unit}</span>
+                              <span>Costo total entrada: <strong className="text-foreground">${totalCost.toLocaleString("es-CO", { minimumFractionDigits: 2 })}</strong></span>
+                            </div>
+                            {calcOutputCosts.length > 0 && (
+                              <div className="border-t border-border pt-2 space-y-1">
+                                <span className="text-xs font-medium text-muted-foreground">Nuevo costo calculado por producto de salida:</span>
+                                {calcOutputCosts.map((c, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <ArrowRight className="h-3 w-3 text-primary" />
+                                    <span className="font-medium">{c.name}</span>
+                                    <span className="text-primary font-semibold">
+                                      ${c.newUnitCost.toLocaleString("es-CO", { minimumFractionDigits: 2 })} / {c.unit}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
 
                 <div>
                   <Label>Notas (opcional)</Label>
