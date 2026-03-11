@@ -255,14 +255,21 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
                           type="number"
                           min={0}
                           step="0.01"
-                          value={line.unit_cost ?? ""}
+                          value={line.unit_cost != null ? line.unit_cost : ""}
                           onChange={(e) => updateLine(idx, "unit_cost", e.target.value ? Number(e.target.value) : null)}
-                          className="h-8"
+                          className="h-8 text-right"
                           placeholder="$0.00"
                         />
+                        {line.unit_cost != null && (
+                          <span className="text-[10px] text-muted-foreground mt-0.5 block text-right">
+                            ${Number(line.unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${(line.quantity * (line.unit_cost || 0)).toFixed(2)}
+                        {line.unit_cost != null && line.quantity > 0
+                          ? `$${(line.quantity * line.unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })}`
+                          : "—"}
                       </TableCell>
                       <TableCell>
                         <Button size="icon" variant="ghost" onClick={() => removeLine(idx)} className="h-8 w-8">
