@@ -137,12 +137,23 @@ export default function KitchenKiosk() {
     return map;
   }, [variableComponents]);
 
-  // Map product → recipes that use it
+  // Map product → recipes that use it (for fixed recipes)
   const recipesForProduct = useMemo(() => {
     const map = new Map<string, Set<string>>();
     recipeIngredients?.forEach((ri) => {
       if (!map.has(ri.product_id)) map.set(ri.product_id, new Set());
       map.get(ri.product_id)!.add(ri.recipe_id);
+    });
+    return map;
+  }, [recipeIngredients]);
+
+  // Map recipe → ingredients with details
+  const ingredientsByRecipe = useMemo(() => {
+    const map = new Map<string, typeof recipeIngredients>();
+    recipeIngredients?.forEach((ri) => {
+      const arr = map.get(ri.recipe_id) || [];
+      arr.push(ri);
+      map.set(ri.recipe_id, arr);
     });
     return map;
   }, [recipeIngredients]);
