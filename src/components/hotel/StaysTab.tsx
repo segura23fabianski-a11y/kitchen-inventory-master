@@ -43,6 +43,9 @@ export default function StaysTab() {
   const [docUploading, setDocUploading] = useState(false);
   const [rateInfo, setRateInfo] = useState("");
   const [checkoutDialog, setCheckoutDialog] = useState<{ stayId: string; type: string } | null>(null);
+  const [quickGuestOpen, setQuickGuestOpen] = useState(false);
+  const [quickGuestTarget, setQuickGuestTarget] = useState<"primary" | "companion">("primary");
+  const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
