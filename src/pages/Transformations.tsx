@@ -265,13 +265,18 @@ export default function Transformations() {
       if (e3) throw e3;
 
       // 4. Log run outputs
-      const runOutputs = validOutputs.map((o) => ({
-        transformation_run_id: (run as any).id,
-        output_product_id: o.productId,
-        output_type: o.outputType,
-        quantity: Math.abs(parseFloat(o.quantity)),
-        yield_percent: inputQtyNum > 0 ? (Math.abs(parseFloat(o.quantity)) / inputQtyNum) * 100 : 0,
-      }));
+      const runOutputs = validOutputs.map((o) => {
+        const qty = Math.abs(parseFloat(o.quantity));
+        const calcCost = o.outputType === "waste" ? 0 : (totalOutputQty > 0 ? (totalCostInput * (qty / totalOutputQty)) / qty : 0);
+        return {
+          transformation_run_id: (run as any).id,
+          output_product_id: o.productId,
+          output_type: o.outputType,
+          quantity: qty,
+          yield_percent: inputQtyNum > 0 ? (qty / inputQtyNum) * 100 : 0,
+          calculated_unit_cost: calcCost,
+        };
+      });
       const { error: e4 } = await supabase.from("transformation_run_outputs" as any).insert(runOutputs as any);
       if (e4) throw e4;
 
