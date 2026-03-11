@@ -458,14 +458,13 @@ export default function Transformations() {
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Producto</Label>
-                      <Select value={execInputId} onValueChange={setExecInputId}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                        <SelectContent>
-                          {products.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit}) — Stock: {p.current_stock}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — Stock: ${p.current_stock}`, searchTerms: p.name }))}
+                        value={execInputId}
+                        onValueChange={setExecInputId}
+                        placeholder="Seleccionar..."
+                        searchPlaceholder="Buscar producto..."
+                      />
                     </div>
                     <div>
                       <Label>Cantidad</Label>
