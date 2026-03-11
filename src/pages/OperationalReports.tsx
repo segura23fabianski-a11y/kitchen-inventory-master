@@ -321,15 +321,14 @@ export default function OperationalReports() {
           </div>
           <div>
             <Label className="text-xs">Categoría</Label>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categories?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[{ value: "all", label: "Todas" }, ...(categories?.map((c) => ({ value: c.id, label: c.name })) ?? [])]}
+              value={filterCategory}
+              onValueChange={setFilterCategory}
+              placeholder="Todas"
+              searchPlaceholder="Buscar categoría..."
+              triggerClassName="w-[160px]"
+            />
           </div>
           {(filterService !== "all" || filterCategory !== "all") && (
             <Button variant="ghost" size="sm" onClick={() => { setFilterService("all"); setFilterCategory("all"); }}>
