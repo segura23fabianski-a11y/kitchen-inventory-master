@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
@@ -8,6 +9,7 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -342,13 +344,13 @@ export default function Transformations() {
           {showQty && (
             <div className="col-span-2">
               {idx === 0 && <Label className="text-xs">Cantidad</Label>}
-              <Input type="number" min="0" step="0.01" value={line.quantity} onChange={(e) => update(line.id, "quantity", e.target.value)} placeholder="0" />
+              <NumericKeypadInput value={line.quantity} onChange={(v) => update(line.id, "quantity", v)} placeholder="0" keypadLabel="Cantidad" />
             </div>
           )}
           {showYield && (
             <div className="col-span-2">
               {idx === 0 && <Label className="text-xs">Rend. %</Label>}
-              <Input type="number" min="0" max="100" step="0.1" value={line.expectedYield} onChange={(e) => update(line.id, "expectedYield", e.target.value)} placeholder="%" />
+              <NumericKeypadInput value={line.expectedYield} onChange={(v) => update(line.id, "expectedYield", v)} placeholder="%" keypadLabel="Rendimiento %" maxValue={100} />
             </div>
           )}
           <div className="col-span-1">
@@ -468,7 +470,7 @@ export default function Transformations() {
                     </div>
                     <div>
                       <Label>Cantidad</Label>
-                      <Input type="number" min="0" step="0.01" value={execInputQty} onChange={(e) => setExecInputQty(e.target.value)} placeholder="Ej: 10" />
+                      <NumericKeypadInput value={execInputQty} onChange={setExecInputQty} placeholder="Ej: 10" keypadLabel="Cantidad de entrada" />
                       {execInputId && pMap[execInputId] && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Stock: {pMap[execInputId].current_stock} {pMap[execInputId].unit}
