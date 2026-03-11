@@ -33,7 +33,6 @@ interface CartItem {
 export default function KitchenKiosk() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
-  const [serviceId, setServiceId] = useState("");
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const barcodeBufferRef = useRef("");
   const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
