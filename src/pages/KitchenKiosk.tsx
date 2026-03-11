@@ -10,13 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import {
   ChefHat, CheckCircle2, AlertTriangle, Package, Search,
-  Clock, Star, Trash2, ScanBarcode, Plus,
+  Clock, Star, Trash2, ScanBarcode, UtensilsCrossed,
 } from "lucide-react";
-import { convertToProductUnit, getCompatibleUnits } from "@/lib/unit-conversion";
+import { convertToProductUnit } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { UnitSelector } from "@/components/UnitSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CartItem {
   productId: string;
@@ -26,6 +27,7 @@ interface CartItem {
   quantity: number;
   currentStock: number;
   averageCost: number;
+  recipeId: string | null;
 }
 
 export default function KitchenKiosk() {
@@ -74,6 +76,46 @@ export default function KitchenKiosk() {
       return data;
     },
   });
+
+  const { data: recipes } = useQuery({
+    queryKey: ["recipes-food"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipes")
+        .select("id, name")
+        .eq("recipe_type", "food")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: recipeIngredients } = useQuery({
+    queryKey: ["recipe-ingredients-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_ingredients")
+        .select("recipe_id, product_id");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Map product → recipes that use it
+  const recipesForProduct = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    recipeIngredients?.forEach((ri) => {
+      if (!map.has(ri.product_id)) map.set(ri.product_id, new Set());
+      map.get(ri.product_id)!.add(ri.recipe_id);
+    });
+    return map;
+  }, [recipeIngredients]);
+
+  const recipeMap = useMemo(() => {
+    const map = new Map<string, string>();
+    recipes?.forEach((r) => map.set(r.id, r.name));
+    return map;
+  }, [recipes]);
 
   const { data: recentProductIds } = useQuery({
     queryKey: ["recent-products"],
@@ -127,7 +169,6 @@ export default function KitchenKiosk() {
     return map;
   }, [productCodes]);
 
-  // Reverse lookup: code → product id
   const productByCode = useMemo(() => {
     const map = new Map<string, string>();
     products?.forEach((p) => {
@@ -166,7 +207,6 @@ export default function KitchenKiosk() {
   const addProductToCart = useCallback((productId: string) => {
     const p = products?.find((x) => x.id === productId);
     if (!p) return;
-    // If already in cart, don't add again
     if (cart.some((c) => c.productId === p.id)) {
       setScanFeedback(`"${p.name}" ya está en la lista`);
       setTimeout(() => setScanFeedback(null), 2000);
@@ -182,6 +222,7 @@ export default function KitchenKiosk() {
         quantity: 0,
         currentStock: Number(p.current_stock ?? 0),
         averageCost: Number(p.average_cost ?? 0),
+        recipeId: null,
       },
     ]);
     setScanFeedback(`✓ ${p.name} agregado`);
@@ -202,7 +243,6 @@ export default function KitchenKiosk() {
   // Global keydown listener for barcode scanner
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is focused on an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
@@ -215,7 +255,6 @@ export default function KitchenKiosk() {
         return;
       }
 
-      // Only accumulate printable characters
       if (e.key.length === 1) {
         barcodeBufferRef.current += e.key;
         if (barcodeTimerRef.current) clearTimeout(barcodeTimerRef.current);
@@ -260,6 +299,9 @@ export default function KitchenKiosk() {
     mutationFn: async () => {
       for (const line of cartLines) {
         if (line.quantity <= 0) continue;
+        const recipeName = line.recipeId ? recipeMap.get(line.recipeId) : null;
+        const notesParts = ["Consumo kiosco cocina"];
+        if (recipeName) notesParts.push(`Receta: ${recipeName}`);
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: line.productId,
           user_id: user!.id,
@@ -267,9 +309,10 @@ export default function KitchenKiosk() {
           quantity: line.qtyInBase,
           unit_cost: line.averageCost,
           total_cost: line.totalCost,
-          notes: "Consumo kiosco cocina",
+          notes: notesParts.join(" — "),
           restaurant_id: restaurantId!,
           service_id: serviceId || null,
+          recipe_id: line.recipeId || null,
         });
         if (error) throw error;
       }
@@ -290,27 +333,44 @@ export default function KitchenKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // Get relevant recipes for a product
+  const getProductRecipes = (productId: string) => {
+    const recipeIds = recipesForProduct.get(productId);
+    if (!recipeIds || recipeIds.size === 0) return [];
+    return [...recipeIds]
+      .map((id) => ({ id, name: recipeMap.get(id) ?? "" }))
+      .filter((r) => r.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+
   const renderProductButton = (p: any) => {
     const inCart = cart.some((c) => c.productId === p.id);
     return (
-      <button
-        key={p.id}
-        type="button"
-        onClick={() => addProductToCart(p.id)}
-        className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
-          inCart
-            ? "border-primary bg-primary/10 ring-1 ring-primary"
-            : "border-border hover:bg-muted/50"
-        }`}
-      >
-        {p.image_url && (
-          <img src={p.image_url} alt={p.name} className="h-10 w-full rounded object-cover mb-1" />
-        )}
-        <p className="font-medium text-sm truncate">{p.name}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Stock: {p.current_stock} {p.unit}
-        </p>
-      </button>
+      <Tooltip key={p.id}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => addProductToCart(p.id)}
+            className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
+              inCart
+                ? "border-primary bg-primary/10 ring-1 ring-primary"
+                : "border-border hover:bg-muted/50"
+            }`}
+          >
+            {p.image_url && (
+              <img src={p.image_url} alt={p.name} className="h-10 w-full rounded object-cover mb-1" />
+            )}
+            <p className="font-medium text-sm leading-tight line-clamp-2 min-h-[2.5em]">{p.name}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Stock: {p.current_stock} {p.unit}
+            </p>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <p>{p.name}</p>
+          <p className="text-muted-foreground">Stock: {p.current_stock} {p.unit}</p>
+        </TooltipContent>
+      </Tooltip>
     );
   };
 
@@ -331,8 +391,8 @@ export default function KitchenKiosk() {
         {/* Barcode scan feedback */}
         {scanFeedback && (
           <div className={`text-center py-2 px-4 rounded-lg text-sm font-medium animate-in fade-in ${
-            scanFeedback.startsWith("✓") ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-              : scanFeedback.includes("ya está") ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+            scanFeedback.startsWith("✓") ? "bg-primary/10 text-primary"
+              : scanFeedback.includes("ya está") ? "bg-accent text-accent-foreground"
               : "bg-destructive/10 text-destructive"
           }`}>
             <ScanBarcode className="h-4 w-4 inline mr-2" />
@@ -426,62 +486,101 @@ export default function KitchenKiosk() {
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-                    {cartLines.map((item) => (
-                      <div
-                        key={item.productId}
-                        className={`rounded-lg border p-3 space-y-2 ${
-                          item.insufficient ? "border-destructive/50 bg-destructive/5" : "border-border"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium text-sm">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Stock: {item.currentStock} {item.baseUnit}
-                            </p>
+                    {cartLines.map((item) => {
+                      const availableRecipes = getProductRecipes(item.productId);
+                      const hasRecipe = !!item.recipeId;
+                      return (
+                        <div
+                          key={item.productId}
+                          className={`rounded-lg border p-3 space-y-2 ${
+                            item.insufficient ? "border-destructive/50 bg-destructive/5" : "border-border"
+                          }`}
+                        >
+                          {/* Product name + recipe indicator + delete */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm leading-tight">{item.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-xs text-muted-foreground">
+                                  Stock: {item.currentStock} {item.baseUnit}
+                                </p>
+                                {hasRecipe ? (
+                                  <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
+                                    <UtensilsCrossed className="h-2.5 w-2.5" />
+                                    {recipeMap.get(item.recipeId!) ?? "Receta"}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground/60">Sin receta</span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeFromCart(item.productId)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeFromCart(item.productId)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <NumericKeypadInput
-                            mode="decimal"
-                            value={item.quantity || ""}
-                            onChange={(v) =>
-                              updateCartItem(item.productId, {
-                                quantity: Math.max(0, Number(v) || 0),
-                              })
-                            }
-                            min="0"
-                            className="w-24 text-right"
-                            keypadLabel={item.name}
-                            forceKeypad
-                          />
-                          <UnitSelector
-                            productUnit={item.baseUnit}
-                            value={item.selectedUnit}
-                            onChange={(u) => updateCartItem(item.productId, { selectedUnit: u })}
-                            className="w-20"
-                          />
-                          {item.quantity > 0 && item.selectedUnit !== item.baseUnit && (
-                            <span className="text-xs text-muted-foreground">
-                              = {item.qtyInBase.toFixed(3)} {item.baseUnit}
-                            </span>
+
+                          {/* Quantity + unit */}
+                          <div className="flex items-center gap-2">
+                            <NumericKeypadInput
+                              mode="decimal"
+                              value={item.quantity || ""}
+                              onChange={(v) =>
+                                updateCartItem(item.productId, {
+                                  quantity: Math.max(0, Number(v) || 0),
+                                })
+                              }
+                              min="0"
+                              className="w-24 text-right"
+                              keypadLabel={item.name}
+                              forceKeypad
+                            />
+                            <UnitSelector
+                              productUnit={item.baseUnit}
+                              value={item.selectedUnit}
+                              onChange={(u) => updateCartItem(item.productId, { selectedUnit: u })}
+                              className="w-20"
+                            />
+                            {item.quantity > 0 && item.selectedUnit !== item.baseUnit && (
+                              <span className="text-xs text-muted-foreground">
+                                = {item.qtyInBase.toFixed(3)} {item.baseUnit}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Recipe selector */}
+                          {availableRecipes.length > 0 && (
+                            <Select
+                              value={item.recipeId ?? "none"}
+                              onValueChange={(v) =>
+                                updateCartItem(item.productId, { recipeId: v === "none" ? null : v })
+                              }
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <UtensilsCrossed className="h-3 w-3 mr-1 shrink-0" />
+                                <SelectValue placeholder="Asignar receta (opcional)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sin receta</SelectItem>
+                                {availableRecipes.map((r) => (
+                                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          {item.insufficient && (
+                            <p className="text-xs text-destructive flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> Stock insuficiente
+                            </p>
                           )}
                         </div>
-                        {item.insufficient && (
-                          <p className="text-xs text-destructive flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" /> Stock insuficiente
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
