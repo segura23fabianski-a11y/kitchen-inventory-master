@@ -959,6 +959,15 @@ export default function KitchenKiosk() {
           </p>
         </div>
 
+        {/* Production Run button */}
+        {fixedRecipes.length > 0 && (
+          <div className="flex justify-center">
+            <Button variant="outline" className="gap-2" onClick={() => setProductionRunOpen(true)}>
+              <Factory className="h-4 w-4" /> Registrar Producción de Receta
+            </Button>
+          </div>
+        )}
+
         {/* Barcode scan feedback */}
         {scanFeedback && (
           <div className={`text-center py-2 px-4 rounded-lg text-sm font-medium animate-in fade-in ${
