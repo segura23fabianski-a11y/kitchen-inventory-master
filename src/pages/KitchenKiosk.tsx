@@ -30,6 +30,7 @@ interface CartItem {
   currentStock: number;
   averageCost: number;
   recipeId: string | null;
+  comboComponentId: string | null; // which component this product fills in a combo
 }
 
 interface ComboExecution {
