@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar, Package } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
