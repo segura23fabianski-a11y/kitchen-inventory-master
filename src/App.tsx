@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import { BrandingProvider } from "@/hooks/use-branding";
 import Auth from "./pages/Auth";
 import PendingApproval from "./pages/PendingApproval";
@@ -39,12 +40,14 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
+function ProtectedRoute({ children, roles, permKey }: { children: React.ReactNode; roles?: string[]; permKey?: string }) {
   const { session, loading, hasRole, profileStatus } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
+  const { hasPermission, isLoading: permLoading } = usePermissions();
+  if (loading || permLoading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
   if (!session) return <Navigate to="/auth" replace />;
   if (profileStatus !== "active") return <Navigate to="/pending" replace />;
-  if (roles && !roles.some((r) => hasRole(r))) return <Navigate to="/" replace />;
+  if (permKey && !hasPermission(permKey)) return <Navigate to="/" replace />;
+  if (!permKey && roles && !roles.some((r) => hasRole(r))) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -88,9 +91,9 @@ const AppRoutes = () => (
     <Route path="/kardex" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/kardex/:productId" element={<ProtectedRoute><Kardex /></ProtectedRoute>} />
     <Route path="/physical-inventory" element={<ProtectedRoute roles={["admin", "bodega"]}><PhysicalInventory /></ProtectedRoute>} />
-    <Route path="/waste" element={<ProtectedRoute roles={["admin", "bodega"]}><WasteControl /></ProtectedRoute>} />
-    <Route path="/transformations" element={<ProtectedRoute roles={["admin", "bodega"]}><Transformations /></ProtectedRoute>} />
-    <Route path="/meal-planning" element={<ProtectedRoute roles={["admin", "bodega"]}><MealPlanning /></ProtectedRoute>} />
+    <Route path="/waste" element={<ProtectedRoute permKey="waste_control"><WasteControl /></ProtectedRoute>} />
+    <Route path="/transformations" element={<ProtectedRoute permKey="transformations"><Transformations /></ProtectedRoute>} />
+    <Route path="/meal-planning" element={<ProtectedRoute permKey="recipes"><MealPlanning /></ProtectedRoute>} />
     <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditLog /></ProtectedRoute>} />
     <Route path="/reset-inventory" element={<ProtectedRoute roles={["admin"]}><ResetInventory /></ProtectedRoute>} />
     <Route path="/recalculate-inventory" element={<ProtectedRoute roles={["admin"]}><RecalculateInventory /></ProtectedRoute>} />
