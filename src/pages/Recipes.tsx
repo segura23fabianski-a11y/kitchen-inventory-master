@@ -221,7 +221,7 @@ export default function Recipes() {
     setComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
   // Component operations for edit form
-  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length }]);
   const removeEditComponent = (i: number) => setEditComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
