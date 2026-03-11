@@ -3,7 +3,7 @@ import {
   ChefHat, UtensilsCrossed, BarChart3, Shield, Warehouse, PieChart, History,
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush,
-  HelpCircle, Calculator, FlaskConical
+  HelpCircle, Calculator, FlaskConical, Hotel
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -61,6 +61,14 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
       { to: "/meal-planning", icon: CalendarDays, label: "Planeación Minuta", permKey: "recipes" },
+    ],
+  },
+  {
+    id: "hotel",
+    label: "Hotel",
+    icon: Hotel,
+    items: [
+      { to: "/hotel", icon: Hotel, label: "Módulo Hotelero", permKey: "hotel" },
     ],
   },
   {

@@ -35,6 +35,7 @@ import Branding from "./pages/Branding";
 import UserManual from "./pages/UserManual";
 import RecalculateInventory from "./pages/RecalculateInventory";
 import Transformations from "./pages/Transformations";
+import Hotel from "./pages/Hotel";
 
 import NotFound from "./pages/NotFound";
 
@@ -99,6 +100,7 @@ const AppRoutes = () => (
     <Route path="/recalculate-inventory" element={<ProtectedRoute permKey="recalculate_inventory"><RecalculateInventory /></ProtectedRoute>} />
     <Route path="/branding" element={<ProtectedRoute permKey="branding"><Branding /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute permKey="user_manual"><UserManual /></ProtectedRoute>} />
+    <Route path="/hotel" element={<ProtectedRoute permKey="hotel"><Hotel /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
