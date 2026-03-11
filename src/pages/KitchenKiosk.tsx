@@ -383,8 +383,13 @@ export default function KitchenKiosk() {
       for (const line of cartLines) {
         if (line.quantity <= 0) continue;
         const recipeName = line.recipeId ? recipeMap.get(line.recipeId) : null;
+        const isCombo = line.recipeId ? comboRecipes.some(r => r.id === line.recipeId) : false;
+        const compName = line.comboComponentId && line.comboComponentId !== "__pending"
+          ? (componentsByRecipe.get(line.recipeId!)?.find((c: any) => c.id === line.comboComponentId) as any)?.component_name
+          : null;
         const notesParts = ["Consumo kiosco cocina"];
-        if (recipeName) notesParts.push(`Receta: ${recipeName}`);
+        if (recipeName) notesParts.push(isCombo ? `Combo: ${recipeName}` : `Receta: ${recipeName}`);
+        if (compName) notesParts.push(`Componente: ${compName}`);
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: line.productId,
           user_id: user!.id,
@@ -394,7 +399,7 @@ export default function KitchenKiosk() {
           total_cost: line.totalCost,
           notes: notesParts.join(" — "),
           restaurant_id: restaurantId!,
-           recipe_id: line.recipeId && line.recipeId !== "__pending" ? line.recipeId : null,
+          recipe_id: line.recipeId && line.recipeId !== "__pending" ? line.recipeId : null,
         });
         if (error) throw error;
       }
