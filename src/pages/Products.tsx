@@ -717,6 +717,12 @@ export default function Products() {
             </Table>
           </CardContent>
         </Card>
+
+        <CostRevaluationDialog
+          product={revalProduct}
+          open={!!revalProduct}
+          onOpenChange={(v) => { if (!v) setRevalProduct(null); }}
+        />
       </div>
     </AppLayout>
   );
