@@ -136,7 +136,6 @@ export default function CostRevaluationDialog({ product, open, onOpenChange }: P
                   value={newCost}
                   onChange={setNewCost}
                   placeholder="0.00"
-                  allowDecimals
                 />
               </div>
 
