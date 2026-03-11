@@ -90,6 +90,7 @@ const navGroups: NavGroup[] = [
       { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
       { to: "/branding", icon: Paintbrush, label: "Configuración Visual", permKey: "users" },
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
+      { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "audit" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "audit" },
       { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "dashboard" },
     ],
