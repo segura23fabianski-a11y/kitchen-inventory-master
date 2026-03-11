@@ -445,6 +445,70 @@ export type Database = {
           },
         ]
       }
+      company_rates: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          includes_breakfast: boolean
+          includes_housekeeping: boolean
+          includes_laundry: boolean
+          notes: string | null
+          rate_per_night: number
+          restaurant_id: string
+          room_type_id: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          includes_breakfast?: boolean
+          includes_housekeeping?: boolean
+          includes_laundry?: boolean
+          notes?: string | null
+          rate_per_night?: number
+          restaurant_id: string
+          room_type_id: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          includes_breakfast?: boolean
+          includes_housekeeping?: boolean
+          includes_laundry?: boolean
+          notes?: string | null
+          rate_per_night?: number
+          restaurant_id?: string
+          room_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_rates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_rates_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_rates_room_type_id_fkey"
+            columns: ["room_type_id"]
+            isOneToOne: false
+            referencedRelation: "room_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_signatures: {
         Row: {
           created_at: string
@@ -2203,6 +2267,7 @@ export type Database = {
           rate_per_night: number
           restaurant_id: string
           room_id: string
+          source_rate: string
           status: string
           total_amount: number
         }
@@ -2219,6 +2284,7 @@ export type Database = {
           rate_per_night?: number
           restaurant_id: string
           room_id: string
+          source_rate?: string
           status?: string
           total_amount?: number
         }
@@ -2235,6 +2301,7 @@ export type Database = {
           rate_per_night?: number
           restaurant_id?: string
           room_id?: string
+          source_rate?: string
           status?: string
           total_amount?: number
         }

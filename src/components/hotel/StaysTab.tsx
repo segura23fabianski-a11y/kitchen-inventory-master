@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, LogIn, LogOut, Eye, X, UserPlus, Camera } from "lucide-react";
+import { Plus, LogIn, LogOut, Eye, X, Camera, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import SignaturePad from "./SignaturePad";
@@ -23,8 +23,9 @@ interface StayForm {
   room_id: string; company_id: string; primary_guest_id: string;
   companion_ids: string[];
   expected_check_out: string; rate_per_night: number; payment_method: string; notes: string;
+  source_rate: string;
 }
-const emptyForm: StayForm = { room_id: "", company_id: "", primary_guest_id: "", companion_ids: [], expected_check_out: "", rate_per_night: 0, payment_method: "", notes: "" };
+const emptyForm: StayForm = { room_id: "", company_id: "", primary_guest_id: "", companion_ids: [], expected_check_out: "", rate_per_night: 0, payment_method: "", notes: "", source_rate: "standard" };
 
 export default function StaysTab() {
   const restaurantId = useRestaurantId();
@@ -36,6 +37,7 @@ export default function StaysTab() {
   const [detailStay, setDetailStay] = useState<any>(null);
   const [signatureStay, setSignatureStay] = useState<{ stayId: string; guestId: string; guestName: string } | null>(null);
   const [docUploading, setDocUploading] = useState(false);
+  const [rateInfo, setRateInfo] = useState<string>("");
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
@@ -56,6 +58,11 @@ export default function StaysTab() {
     queryFn: async () => { const { data, error } = await supabase.from("hotel_companies" as any).select("id, name").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
   });
 
+  const { data: allCompanyRates } = useQuery({
+    queryKey: ["all-company-rates"],
+    queryFn: async () => { const { data, error } = await supabase.from("company_rates" as any).select("*").eq("active", true); if (error) throw error; return data as any[]; },
+  });
+
   const { data: stays, isLoading } = useQuery({
     queryKey: ["stays"],
     queryFn: async () => {
@@ -67,10 +74,41 @@ export default function StaysTab() {
 
   const selectedRoom = rooms?.find((r: any) => r.id === form.room_id);
   const maxOccupancy = selectedRoom?.room_types?.max_occupancy || 99;
-  const totalGuests = 1 + form.companion_ids.length; // primary + companions
+  const totalGuests = 1 + form.companion_ids.length;
   const overCapacity = totalGuests > maxOccupancy;
 
   const availableCompanions = guests?.filter((g: any) => g.id !== form.primary_guest_id && !form.companion_ids.includes(g.id));
+
+  // Auto-detect corporate rate when company or room changes
+  useEffect(() => {
+    if (!form.room_id || !form.company_id || form.company_id === "none") {
+      // No company → use base rate from room type
+      if (form.room_id && selectedRoom) {
+        const baseRate = selectedRoom.room_types?.base_rate || 0;
+        setForm(prev => ({ ...prev, rate_per_night: baseRate, source_rate: "standard" }));
+        setRateInfo("");
+      }
+      return;
+    }
+
+    const roomTypeId = selectedRoom?.room_type_id;
+    if (!roomTypeId || !allCompanyRates) return;
+
+    const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
+
+    if (corpRate) {
+      setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
+      const includes: string[] = [];
+      if (corpRate.includes_laundry) includes.push("Lavandería");
+      if (corpRate.includes_housekeeping) includes.push("Housekeeping");
+      if (corpRate.includes_breakfast) includes.push("Desayuno");
+      setRateInfo(`Tarifa corporativa aplicada. Incluye: ${includes.join(", ") || "nada adicional"}`);
+    } else {
+      const baseRate = selectedRoom?.room_types?.base_rate || 0;
+      setForm(prev => ({ ...prev, rate_per_night: baseRate, source_rate: "standard" }));
+      setRateInfo("⚠ Sin tarifa corporativa para este tipo de habitación. Se usa tarifa base.");
+    }
+  }, [form.company_id, form.room_id, allCompanyRates, selectedRoom]);
 
   const addCompanion = (guestId: string) => {
     if (form.companion_ids.length + 1 >= maxOccupancy) {
@@ -86,7 +124,11 @@ export default function StaysTab() {
 
   const handleRoomChange = (roomId: string) => {
     const room = rooms?.find((r: any) => r.id === roomId);
-    setForm({ ...form, room_id: roomId, rate_per_night: room?.room_types?.base_rate || form.rate_per_night });
+    setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: room?.room_types?.base_rate || prev.rate_per_night }));
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setForm(prev => ({ ...prev, company_id: companyId }));
   };
 
   const checkInMutation = useMutation({
@@ -97,29 +139,26 @@ export default function StaysTab() {
 
       const rate = form.rate_per_night || selectedRoom?.room_types?.base_rate || 0;
 
-      // Create stay
       const { data: stay, error } = await supabase.from("stays" as any).insert({
         restaurant_id: restaurantId, room_id: form.room_id,
         company_id: form.company_id && form.company_id !== "none" ? form.company_id : null,
         expected_check_out: form.expected_check_out || null,
         rate_per_night: rate, payment_method: form.payment_method || null,
         notes: form.notes.trim() || null, created_by: user.id,
+        source_rate: form.source_rate,
       } as any).select("id").single();
       if (error) throw error;
       const stayId = (stay as any).id;
 
-      // Add primary guest
       const { error: gErr } = await supabase.from("stay_guests" as any).insert({ stay_id: stayId, guest_id: form.primary_guest_id, is_primary: true } as any);
       if (gErr) throw gErr;
 
-      // Add companions
       if (form.companion_ids.length > 0) {
         const companions = form.companion_ids.map(gid => ({ stay_id: stayId, guest_id: gid, is_primary: false }));
         const { error: cErr } = await supabase.from("stay_guests" as any).insert(companions as any);
         if (cErr) throw cErr;
       }
 
-      // Update room status
       const { error: rErr } = await supabase.from("rooms" as any).update({ status: "occupied" } as any).eq("id", form.room_id);
       if (rErr) throw rErr;
 
@@ -130,13 +169,14 @@ export default function StaysTab() {
       qc.invalidateQueries({ queryKey: ["rooms"] });
       qc.invalidateQueries({ queryKey: ["rooms-for-checkin"] });
       setOpen(false);
+      const savedForm = { ...form };
       setForm(emptyForm);
-      toast({ title: "Check-in registrado" });
+      setRateInfo("");
+      toast({ title: "Check-in registrado", description: savedForm.source_rate === "corporate" ? "Tarifa corporativa aplicada" : undefined });
 
-      // Prompt for signature
-      const primaryGuest = guests?.find((g: any) => g.id === form.primary_guest_id);
+      const primaryGuest = guests?.find((g: any) => g.id === savedForm.primary_guest_id);
       if (primaryGuest && stayId) {
-        setSignatureStay({ stayId, guestId: form.primary_guest_id, guestName: `${primaryGuest.first_name} ${primaryGuest.last_name}` });
+        setSignatureStay({ stayId, guestId: savedForm.primary_guest_id, guestName: `${primaryGuest.first_name} ${primaryGuest.last_name}` });
       }
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -152,23 +192,16 @@ export default function StaysTab() {
       const nights = Math.max(1, Math.ceil((now.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
       const total = nights * (stay.rate_per_night || 0);
 
-      // Update stay
       const { error } = await supabase.from("stays" as any).update({ check_out_at: now.toISOString(), status: "checked_out", total_amount: total } as any).eq("id", stayId);
       if (error) throw error;
 
-      // Room to cleaning
       const { error: rErr } = await supabase.from("rooms" as any).update({ status: "cleaning" } as any).eq("id", stay.room_id);
       if (rErr) throw rErr;
 
-      // Auto-create housekeeping task
       if (stay.restaurant_id) {
         const { error: hErr } = await supabase.from("housekeeping_tasks" as any).insert({
-          restaurant_id: stay.restaurant_id,
-          room_id: stay.room_id,
-          stay_id: stayId,
-          task_type: "checkout_clean",
-          status: "pending",
-          priority: "high",
+          restaurant_id: stay.restaurant_id, room_id: stay.room_id, stay_id: stayId,
+          task_type: "checkout_clean", status: "pending", priority: "high",
           notes: `Limpieza post check-out - Hab #${stay.rooms?.room_number || ""}`,
         } as any);
         if (hErr) console.error("Error creating housekeeping task:", hErr);
@@ -187,24 +220,16 @@ export default function StaysTab() {
   const saveSignature = useCallback(async (dataUrl: string) => {
     if (!signatureStay || !restaurantId) return;
     try {
-      // Convert data URL to blob
       const res = await fetch(dataUrl);
       const blob = await res.blob();
       const path = `signatures/${signatureStay.stayId}/${signatureStay.guestId}.png`;
-
       const { error: upErr } = await supabase.storage.from("hotel-documents").upload(path, blob, { upsert: true });
       if (upErr) throw upErr;
-
       const { data: urlData } = supabase.storage.from("hotel-documents").getPublicUrl(path);
-
       const { error } = await supabase.from("guest_signatures" as any).insert({
-        restaurant_id: restaurantId,
-        stay_id: signatureStay.stayId,
-        guest_id: signatureStay.guestId,
-        signature_url: urlData.publicUrl,
+        restaurant_id: restaurantId, stay_id: signatureStay.stayId, guest_id: signatureStay.guestId, signature_url: urlData.publicUrl,
       } as any);
       if (error) throw error;
-
       toast({ title: "Firma guardada" });
       setSignatureStay(null);
     } catch (e: any) {
@@ -219,21 +244,13 @@ export default function StaysTab() {
       const path = `documents/${stayId}/${guestId}_${Date.now()}.${file.name.split(".").pop()}`;
       const { error: upErr } = await supabase.storage.from("hotel-documents").upload(path, file);
       if (upErr) throw upErr;
-
       const { data: urlData } = supabase.storage.from("hotel-documents").getPublicUrl(path);
-
-      // Upsert signature record with document photo
       const { data: existing } = await supabase.from("guest_signatures" as any).select("id").eq("stay_id", stayId).eq("guest_id", guestId).maybeSingle();
-
       if ((existing as any)?.id) {
         await supabase.from("guest_signatures" as any).update({ document_photo_url: urlData.publicUrl } as any).eq("id", (existing as any).id);
       } else {
-        await supabase.from("guest_signatures" as any).insert({
-          restaurant_id: restaurantId, stay_id: stayId, guest_id: guestId,
-          document_photo_url: urlData.publicUrl,
-        } as any);
+        await supabase.from("guest_signatures" as any).insert({ restaurant_id: restaurantId, stay_id: stayId, guest_id: guestId, document_photo_url: urlData.publicUrl } as any);
       }
-
       toast({ title: "Foto de documento guardada" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -246,26 +263,33 @@ export default function StaysTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-foreground">Estancias</h3>
-        <Button size="sm" onClick={() => { setForm(emptyForm); setOpen(true); }}><Plus className="h-4 w-4 mr-1" />Nuevo Check-in</Button>
+        <Button size="sm" onClick={() => { setForm(emptyForm); setRateInfo(""); setOpen(true); }}><Plus className="h-4 w-4 mr-1" />Nuevo Check-in</Button>
       </div>
 
       <Table>
         <TableHeader>
-          <TableRow><TableHead>Habitación</TableHead><TableHead>Huésped</TableHead><TableHead>Huéspedes</TableHead><TableHead>Empresa</TableHead><TableHead>Check-in</TableHead><TableHead>Estado</TableHead><TableHead>Total</TableHead><TableHead className="w-24">Acciones</TableHead></TableRow>
+          <TableRow><TableHead>Habitación</TableHead><TableHead>Huésped</TableHead><TableHead>Huéspedes</TableHead><TableHead>Empresa</TableHead><TableHead>Tarifa</TableHead><TableHead>Check-in</TableHead><TableHead>Estado</TableHead><TableHead>Total</TableHead><TableHead className="w-24">Acciones</TableHead></TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow> :
-           stays?.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sin estancias</TableCell></TableRow> :
+          {isLoading ? <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow> :
+           stays?.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Sin estancias</TableCell></TableRow> :
            stays?.map((s: any) => {
             const primary = s.stay_guests?.find((sg: any) => sg.is_primary);
             const guestName = primary?.hotel_guests ? `${primary.hotel_guests.first_name} ${primary.hotel_guests.last_name}` : "—";
             const guestCount = s.stay_guests?.length || 0;
+            const isCorporate = s.source_rate === "corporate";
             return (
               <TableRow key={s.id}>
                 <TableCell className="font-medium">{s.rooms?.room_number || "—"}</TableCell>
                 <TableCell>{guestName}</TableCell>
                 <TableCell><Badge variant="outline">{guestCount}</Badge></TableCell>
                 <TableCell>{s.hotel_companies?.name || "—"}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <span>${(s.rate_per_night || 0).toLocaleString()}</span>
+                    {isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
+                  </div>
+                </TableCell>
                 <TableCell>{format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</TableCell>
                 <TableCell><Badge variant={STATUS_VARIANTS[s.status] || "secondary"}>{STATUS_LABELS[s.status] || s.status}</Badge></TableCell>
                 <TableCell>${(s.total_amount || 0).toLocaleString()}</TableCell>
@@ -292,7 +316,6 @@ export default function StaysTab() {
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nuevo Check-in</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            {/* Room */}
             <div>
               <Label>Habitación *</Label>
               <Select value={form.room_id} onValueChange={handleRoomChange}>
@@ -301,7 +324,6 @@ export default function StaysTab() {
               </Select>
             </div>
 
-            {/* Primary guest */}
             <div>
               <Label>Huésped Titular *</Label>
               <Select value={form.primary_guest_id} onValueChange={v => setForm({ ...form, primary_guest_id: v })}>
@@ -310,7 +332,6 @@ export default function StaysTab() {
               </Select>
             </div>
 
-            {/* Companions */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label>Acompañantes</Label>
@@ -334,20 +355,30 @@ export default function StaysTab() {
               {overCapacity && <p className="text-sm text-destructive mt-1">Excede la capacidad máxima ({maxOccupancy})</p>}
             </div>
 
-            {/* Company */}
             <div>
               <Label>Empresa (opcional)</Label>
-              <Select value={form.company_id} onValueChange={v => setForm({ ...form, company_id: v })}>
+              <Select value={form.company_id} onValueChange={handleCompanyChange}>
                 <SelectTrigger><SelectValue placeholder="Ninguna" /></SelectTrigger>
                 <SelectContent><SelectItem value="none">Ninguna</SelectItem>{companies?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
 
-            {/* Rate & dates */}
+            {/* Rate with corporate indicator */}
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Tarifa/Noche</Label><Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} /></div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label>Tarifa/Noche</Label>
+                  {form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                </div>
+                <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} />
+              </div>
               <div><Label>Check-out Esperado</Label><Input type="datetime-local" value={form.expected_check_out} onChange={e => setForm({ ...form, expected_check_out: e.target.value })} /></div>
             </div>
+            {rateInfo && (
+              <p className={`text-xs ${form.source_rate === "corporate" ? "text-primary" : "text-amber-600"}`}>
+                {rateInfo}
+              </p>
+            )}
 
             <div><Label>Método de Pago</Label><Input value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} placeholder="Efectivo, tarjeta, transferencia..." /></div>
             <div><Label>Notas</Label><Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
@@ -367,16 +398,8 @@ export default function StaysTab() {
             <SignaturePad onSave={saveSignature} />
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">Foto del documento</p>
-              <Input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                disabled={docUploading}
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file && signatureStay) uploadDocumentPhoto(file, signatureStay.stayId, signatureStay.guestId);
-                }}
-              />
+              <Input type="file" accept="image/*" capture="environment" disabled={docUploading}
+                onChange={e => { const file = e.target.files?.[0]; if (file && signatureStay) uploadDocumentPhoto(file, signatureStay.stayId, signatureStay.guestId); }} />
               {docUploading && <p className="text-sm text-muted-foreground">Subiendo...</p>}
             </div>
             <Button variant="outline" className="w-full" onClick={() => setSignatureStay(null)}>Cerrar</Button>
@@ -393,7 +416,10 @@ export default function StaysTab() {
               <p><span className="font-medium">Habitación:</span> #{detailStay.rooms?.room_number} ({detailStay.rooms?.room_types?.name})</p>
               <p><span className="font-medium">Check-in:</span> {format(new Date(detailStay.check_in_at), "PPpp", { locale: es })}</p>
               {detailStay.check_out_at && <p><span className="font-medium">Check-out:</span> {format(new Date(detailStay.check_out_at), "PPpp", { locale: es })}</p>}
-              <p><span className="font-medium">Tarifa:</span> ${detailStay.rate_per_night?.toLocaleString()}/noche</p>
+              <p>
+                <span className="font-medium">Tarifa:</span> ${detailStay.rate_per_night?.toLocaleString()}/noche
+                {detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+              </p>
               <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
               {detailStay.payment_method && <p><span className="font-medium">Pago:</span> {detailStay.payment_method}</p>}

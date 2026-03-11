@@ -1,12 +1,13 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles } from "lucide-react";
+import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles, BarChart3 } from "lucide-react";
 import RoomTypesTab from "@/components/hotel/RoomTypesTab";
 import RoomsTab from "@/components/hotel/RoomsTab";
 import GuestsTab from "@/components/hotel/GuestsTab";
 import CompaniesTab from "@/components/hotel/CompaniesTab";
 import StaysTab from "@/components/hotel/StaysTab";
 import HousekeepingTab from "@/components/hotel/HousekeepingTab";
+import CorporateReportsTab from "@/components/hotel/CorporateReportsTab";
 
 export default function Hotel() {
   return (
@@ -19,6 +20,7 @@ export default function Hotel() {
           <TabsTrigger value="guests" className="gap-1.5"><Users className="h-4 w-4" />Huéspedes</TabsTrigger>
           <TabsTrigger value="companies" className="gap-1.5"><Building2 className="h-4 w-4" />Empresas</TabsTrigger>
           <TabsTrigger value="housekeeping" className="gap-1.5"><Sparkles className="h-4 w-4" />Housekeeping</TabsTrigger>
+          <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" />Reportes Corp.</TabsTrigger>
         </TabsList>
         <TabsContent value="stays"><StaysTab /></TabsContent>
         <TabsContent value="rooms"><RoomsTab /></TabsContent>
@@ -26,6 +28,7 @@ export default function Hotel() {
         <TabsContent value="guests"><GuestsTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="housekeeping"><HousekeepingTab /></TabsContent>
+        <TabsContent value="reports"><CorporateReportsTab /></TabsContent>
       </Tabs>
     </AppLayout>
   );
