@@ -397,9 +397,9 @@ export async function generatePurchaseOrderPdf(
       .replace(/\s+/g, "_")
       .toUpperCase();
 
-  const orderNum2 = order.order_id.slice(0, 8).toUpperCase();
+  const orderNumClean = (order.order_number || order.order_id.slice(0, 8)).toUpperCase().replace(/[^A-Z0-9-]/g, '');
   const supplierClean = sanitize(order.supplier_name);
-  const fileName = `ORDEN_COMPRA_${orderNum2}_${supplierClean}.pdf`;
+  const fileName = `ORDEN_COMPRA_${orderNumClean}_${supplierClean}.pdf`;
 
   if (action === "preview") {
     const blob = doc.output("blob");

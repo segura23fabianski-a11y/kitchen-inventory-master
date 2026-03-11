@@ -233,7 +233,9 @@ export default function OrdersList() {
       <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Pedido — {viewOrder && (viewOrder as any).suppliers?.name}</DialogTitle>
+            <DialogTitle>
+              <span className="font-mono text-primary">{viewOrder?.order_number}</span> — {viewOrder && (viewOrder as any).suppliers?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="text-sm text-muted-foreground mb-2">
             Fecha: {viewOrder && format(new Date(viewOrder.order_date), "dd/MM/yyyy")} · {viewOrder && statusBadge(viewOrder.status)}
