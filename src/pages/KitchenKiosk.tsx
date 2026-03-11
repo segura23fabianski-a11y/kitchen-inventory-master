@@ -21,6 +21,7 @@ import { UnitSelector } from "@/components/UnitSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ProductionRunDialog } from "@/components/ProductionRunDialog";
 
 interface CartItem {
   productId: string;
