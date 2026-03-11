@@ -40,8 +40,19 @@ interface ComboExecution {
   components: {
     componentId: string;
     componentName: string;
+    componentMode: "product" | "recipe";
     quantityPerService: number;
-    selectedProductId: string;
+    selectedProductId: string; // for product mode
+    selectedRecipeId: string; // for recipe mode
+    recipeIngredients: {
+      ingredientId: string;
+      productId: string;
+      productName: string;
+      productUnit: string;
+      theoreticalQty: number; // per service × servings
+      actualQty: number; // editable real quantity
+      unitCost: number;
+    }[];
   }[];
 }
 
@@ -84,7 +95,7 @@ export default function KitchenKiosk() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, recipe_mode")
+        .select("id, name, recipe_mode, recipe_type")
         .eq("recipe_type", "food")
         .order("name");
       if (error) throw error;
@@ -97,7 +108,7 @@ export default function KitchenKiosk() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipe_ingredients")
-        .select("recipe_id, product_id");
+        .select("recipe_id, product_id, quantity, unit");
       if (error) throw error;
       return data;
     },
@@ -126,12 +137,23 @@ export default function KitchenKiosk() {
     return map;
   }, [variableComponents]);
 
-  // Map product → recipes that use it
+  // Map product → recipes that use it (for fixed recipes)
   const recipesForProduct = useMemo(() => {
     const map = new Map<string, Set<string>>();
     recipeIngredients?.forEach((ri) => {
       if (!map.has(ri.product_id)) map.set(ri.product_id, new Set());
       map.get(ri.product_id)!.add(ri.recipe_id);
+    });
+    return map;
+  }, [recipeIngredients]);
+
+  // Map recipe → ingredients with details
+  const ingredientsByRecipe = useMemo(() => {
+    const map = new Map<string, typeof recipeIngredients>();
+    recipeIngredients?.forEach((ri) => {
+      const arr = map.get(ri.recipe_id) || [];
+      arr.push(ri);
+      map.set(ri.recipe_id, arr);
     });
     return map;
   }, [recipeIngredients]);
@@ -334,8 +356,11 @@ export default function KitchenKiosk() {
       components: comps.map((c: any) => ({
         componentId: c.id,
         componentName: c.component_name,
+        componentMode: (c.component_mode ?? "product") as "product" | "recipe",
         quantityPerService: Number(c.quantity_per_service),
         selectedProductId: "",
+        selectedRecipeId: "",
+        recipeIngredients: [],
       })),
     });
   };
@@ -352,17 +377,97 @@ export default function KitchenKiosk() {
     });
   };
 
+  // When a recipe is selected for a recipe-type component, load its ingredients
+  const updateComboRecipeComponent = (componentId: string, recipeId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      const ings = ingredientsByRecipe.get(recipeId) ?? [];
+      return {
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.componentId !== componentId) return c;
+          const recipeIngs = ings.map((ri: any) => {
+            const prod = products?.find(p => p.id === ri.product_id);
+            const qtyPerService = Number(ri.quantity);
+            const totalQty = qtyPerService * prev.servings;
+            return {
+              ingredientId: ri.product_id + "_" + recipeId,
+              productId: ri.product_id,
+              productName: prod?.name ?? "?",
+              productUnit: ri.unit ?? prod?.unit ?? "unidad",
+              theoreticalQty: totalQty,
+              actualQty: totalQty,
+              unitCost: Number(prod?.average_cost ?? 0),
+            };
+          });
+          return { ...c, selectedRecipeId: recipeId, recipeIngredients: recipeIngs };
+        }),
+      };
+    });
+  };
+
+  // Recalculate theoretical quantities when servings change
+  const updateComboServings = (newServings: number) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        servings: newServings,
+        components: prev.components.map((c) => {
+          if (c.componentMode !== "recipe" || !c.selectedRecipeId) return c;
+          const ings = ingredientsByRecipe.get(c.selectedRecipeId) ?? [];
+          return {
+            ...c,
+            recipeIngredients: c.recipeIngredients.map((ri) => {
+              const origIng = ings.find((i: any) => i.product_id === ri.productId);
+              const qtyPerService = origIng ? Number((origIng as any).quantity) : 0;
+              const newTheoretical = qtyPerService * newServings;
+              return { ...ri, theoreticalQty: newTheoretical, actualQty: newTheoretical };
+            }),
+          };
+        }),
+      };
+    });
+  };
+
+  const updateRecipeIngredientActualQty = (componentId: string, productId: string, actualQty: number) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.componentId !== componentId) return c;
+          return {
+            ...c,
+            recipeIngredients: c.recipeIngredients.map((ri) =>
+              ri.productId === productId ? { ...ri, actualQty } : ri
+            ),
+          };
+        }),
+      };
+    });
+  };
+
   const comboIsValid = useMemo(() => {
     if (!comboExecution) return false;
     if (comboExecution.servings <= 0) return false;
-    const allSelected = comboExecution.components.every((c) => c.selectedProductId);
-    if (!allSelected) return false;
-    // Check stock
     for (const comp of comboExecution.components) {
-      const prod = products?.find((p) => p.id === comp.selectedProductId);
-      if (!prod) return false;
-      const needed = comboExecution.servings * comp.quantityPerService;
-      if (needed > Number(prod.current_stock ?? 0)) return false;
+      if (comp.componentMode === "product") {
+        if (!comp.selectedProductId) return false;
+        const prod = products?.find((p) => p.id === comp.selectedProductId);
+        if (!prod) return false;
+        const needed = comboExecution.servings * comp.quantityPerService;
+        if (needed > Number(prod.current_stock ?? 0)) return false;
+      } else {
+        // recipe mode
+        if (!comp.selectedRecipeId) return false;
+        if (comp.recipeIngredients.length === 0) return false;
+        for (const ri of comp.recipeIngredients) {
+          const prod = products?.find((p) => p.id === ri.productId);
+          if (!prod) return false;
+          if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+        }
+      }
     }
     return true;
   }, [comboExecution, products]);
@@ -370,10 +475,15 @@ export default function KitchenKiosk() {
   const comboTotalCost = useMemo(() => {
     if (!comboExecution) return 0;
     return comboExecution.components.reduce((sum, comp) => {
-      const prod = products?.find((p) => p.id === comp.selectedProductId);
-      if (!prod) return sum;
-      const cost = Number(prod.average_cost ?? 0);
-      return sum + (cost * comp.quantityPerService * comboExecution.servings);
+      if (comp.componentMode === "product") {
+        const prod = products?.find((p) => p.id === comp.selectedProductId);
+        if (!prod) return sum;
+        const cost = Number(prod.average_cost ?? 0);
+        return sum + (cost * comp.quantityPerService * comboExecution.servings);
+      } else {
+        // recipe mode: sum actual ingredient costs
+        return sum + comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+      }
     }, 0);
   }, [comboExecution, products]);
 
@@ -424,32 +534,67 @@ export default function KitchenKiosk() {
     mutationFn: async () => {
       if (!comboExecution) throw new Error("No combo");
 
-      // Calculate total cost
       let totalCost = 0;
-      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number }[] = [];
+      const itemsForLog: { componentName: string; productId: string; qty: number; unitCost: number; lineCost: number; isRecipeComponent: boolean; selectedRecipeId: string | null; theoreticalQty: number | null; actualQty: number | null }[] = [];
 
       for (const comp of comboExecution.components) {
-        const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
-        const qty = comp.quantityPerService * comboExecution.servings;
-        const cost = Number(prod.average_cost ?? 0);
-        const lineCost = qty * cost;
-        totalCost += lineCost;
-        itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost });
+        if (comp.componentMode === "product") {
+          // Direct product component
+          const prod = products?.find((p) => p.id === comp.selectedProductId);
+          if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
+          const qty = comp.quantityPerService * comboExecution.servings;
+          const cost = Number(prod.average_cost ?? 0);
+          const lineCost = qty * cost;
+          totalCost += lineCost;
+          itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null });
 
-        // Insert inventory movement
-        const { error } = await supabase.from("inventory_movements").insert({
-          product_id: comp.selectedProductId,
-          user_id: user!.id,
-          type: "salida",
-          quantity: qty,
-          unit_cost: cost,
-          total_cost: lineCost,
-          notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
-          restaurant_id: restaurantId!,
-          recipe_id: comboExecution.recipeId,
-        });
-        if (error) throw error;
+          const { error } = await supabase.from("inventory_movements").insert({
+            product_id: comp.selectedProductId,
+            user_id: user!.id,
+            type: "salida",
+            quantity: qty,
+            unit_cost: cost,
+            total_cost: lineCost,
+            notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
+            restaurant_id: restaurantId!,
+            recipe_id: comboExecution.recipeId,
+          });
+          if (error) throw error;
+        } else {
+          // Recipe component - deduct each ingredient with actual quantities
+          const selectedRecipeName = recipeMap.get(comp.selectedRecipeId) ?? "Receta";
+          for (const ri of comp.recipeIngredients) {
+            const prod = products?.find((p) => p.id === ri.productId);
+            if (!prod) continue;
+            const cost = Number(prod.average_cost ?? 0);
+            const lineCost = ri.actualQty * cost;
+            totalCost += lineCost;
+            itemsForLog.push({
+              componentName: comp.componentName,
+              productId: ri.productId,
+              qty: ri.actualQty,
+              unitCost: cost,
+              lineCost,
+              isRecipeComponent: true,
+              selectedRecipeId: comp.selectedRecipeId,
+              theoreticalQty: ri.theoreticalQty,
+              actualQty: ri.actualQty,
+            });
+
+            const { error } = await supabase.from("inventory_movements").insert({
+              product_id: ri.productId,
+              user_id: user!.id,
+              type: "salida",
+              quantity: ri.actualQty,
+              unit_cost: cost,
+              total_cost: lineCost,
+              notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
+              restaurant_id: restaurantId!,
+              recipe_id: comboExecution.recipeId,
+            });
+            if (error) throw error;
+          }
+        }
       }
 
       // Save combo execution log
@@ -479,6 +624,10 @@ export default function KitchenKiosk() {
             quantity: item.qty,
             unit_cost: item.unitCost,
             line_cost: item.lineCost,
+            is_recipe_component: item.isRecipeComponent,
+            selected_recipe_id: item.selectedRecipeId,
+            theoretical_quantity: item.theoreticalQty,
+            actual_quantity: item.actualQty,
           })) as any
         );
       if (itemsError) throw itemsError;
@@ -559,7 +708,7 @@ export default function KitchenKiosk() {
               <Layers className="h-8 w-8 text-primary" />
               {comboExecution.recipeName}
             </h1>
-            <p className="text-muted-foreground text-sm">Selecciona un producto para cada componente</p>
+            <p className="text-muted-foreground text-sm">Selecciona un producto o receta para cada componente</p>
           </div>
 
           <Card>
@@ -572,7 +721,10 @@ export default function KitchenKiosk() {
               <NumericKeypadInput
                 mode="integer"
                 value={comboExecution.servings || ""}
-                onChange={(v) => setComboExecution((prev) => prev ? { ...prev, servings: Math.max(1, Number(v) || 1) } : null)}
+                onChange={(v) => {
+                  const newVal = Math.max(1, Number(v) || 1);
+                  updateComboServings(newVal);
+                }}
                 min="1"
                 className="w-32 text-center text-lg"
                 keypadLabel="Cantidad de servicios"
@@ -583,46 +735,118 @@ export default function KitchenKiosk() {
 
           <div className="space-y-3">
             {comboExecution.components.map((comp) => {
-              const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
-              const needed = comp.quantityPerService * comboExecution.servings;
-              const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
-              const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
-              const lineCost = unitCost * needed;
+              if (comp.componentMode === "product") {
+                // ── Product component ──
+                const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
+                const needed = comp.quantityPerService * comboExecution.servings;
+                const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
+                const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
+                const lineCost = unitCost * needed;
 
-              return (
-                <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
-                  <CardContent className="pt-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="font-semibold capitalize">{comp.componentName}</Label>
-                      <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
-                    </div>
-                    <SearchableSelect
-                      options={products?.map((p) => ({
-                        value: p.id,
-                        label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
-                        searchTerms: p.name + " " + (p.barcode || ""),
-                      })) ?? []}
-                      value={comp.selectedProductId}
-                      onValueChange={(v) => updateComboComponent(comp.componentId, v)}
-                      placeholder="Buscar y seleccionar producto..."
-                      searchPlaceholder="Buscar producto..."
-                    />
-                    {selectedProd && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
-                        </span>
-                        <span className="font-medium">${lineCost.toFixed(2)}</span>
+                return (
+                  <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-semibold capitalize flex items-center gap-1.5">
+                          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                          {comp.componentName}
+                        </Label>
+                        <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
                       </div>
-                    )}
-                    {insufficient && (
-                      <p className="text-xs text-destructive flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
+                      <SearchableSelect
+                        options={products?.map((p) => ({
+                          value: p.id,
+                          label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+                          searchTerms: p.name + " " + (p.barcode || ""),
+                        })) ?? []}
+                        value={comp.selectedProductId}
+                        onValueChange={(v) => updateComboComponent(comp.componentId, v)}
+                        placeholder="Buscar y seleccionar producto..."
+                        searchPlaceholder="Buscar producto..."
+                      />
+                      {selectedProd && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
+                          </span>
+                          <span className="font-medium">${lineCost.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {insufficient && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              } else {
+                // ── Recipe component ──
+                const selectedRecipeName = comp.selectedRecipeId ? recipeMap.get(comp.selectedRecipeId) : null;
+                const compIngCost = comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+
+                return (
+                  <Card key={comp.componentId}>
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-semibold capitalize flex items-center gap-1.5">
+                          <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
+                          {comp.componentName}
+                          <Badge variant="outline" className="text-[10px] ml-1">Receta</Badge>
+                        </Label>
+                      </div>
+                      <SearchableSelect
+                        options={fixedRecipes.map((r) => ({
+                          value: r.id,
+                          label: r.name,
+                          searchTerms: r.name,
+                        }))}
+                        value={comp.selectedRecipeId}
+                        onValueChange={(v) => updateComboRecipeComponent(comp.componentId, v)}
+                        placeholder="Buscar y seleccionar receta..."
+                        searchPlaceholder="Buscar receta..."
+                      />
+                      {selectedRecipeName && comp.recipeIngredients.length > 0 && (
+                        <div className="space-y-1.5 rounded-md border p-3 bg-muted/30">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            Ingredientes de "{selectedRecipeName}" × {comboExecution.servings} servicios
+                          </p>
+                          <div className="space-y-1">
+                            {comp.recipeIngredients.map((ri) => {
+                              const prod = products?.find(p => p.id === ri.productId);
+                              const stock = prod ? Number(prod.current_stock ?? 0) : 0;
+                              const insuf = ri.actualQty > stock;
+                              return (
+                                <div key={ri.productId} className="flex items-center gap-2 text-sm">
+                                  <span className="flex-1 truncate">{ri.productName}</span>
+                                  <span className="text-xs text-muted-foreground shrink-0">
+                                    Teórico: {ri.theoreticalQty.toFixed(2)} {ri.productUnit}
+                                  </span>
+                                  <NumericKeypadInput
+                                    mode="decimal"
+                                    value={ri.actualQty || ""}
+                                    onChange={(v) => updateRecipeIngredientActualQty(comp.componentId, ri.productId, Math.max(0, Number(v) || 0))}
+                                    min="0"
+                                    className="w-20 text-right text-sm h-8"
+                                    keypadLabel={`${ri.productName} (real)`}
+                                    forceKeypad
+                                  />
+                                  <span className="text-xs text-muted-foreground shrink-0 w-10">{ri.productUnit}</span>
+                                  {insuf && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex justify-between text-xs pt-1 border-t">
+                            <span className="text-muted-foreground">Costo ingredientes</span>
+                            <span className="font-medium">${compIngCost.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              }
             })}
           </div>
 

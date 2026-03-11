@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar, Package } from "lucide-react";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
@@ -43,6 +43,7 @@ interface IngredientLine {
 interface ComponentLine {
   id?: string;
   component_name: string;
+  component_mode: "product" | "recipe";
   quantity_per_service: number;
   required: boolean;
   sort_order: number;
@@ -214,13 +215,13 @@ export default function Recipes() {
     );
 
   // Component operations for create form
-  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length }]);
   const removeComponent = (i: number) => setComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
   const updateComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
   // Component operations for edit form
-  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length }]);
   const removeEditComponent = (i: number) => setEditComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
@@ -244,7 +245,7 @@ export default function Recipes() {
         const validComponents = components.filter((c) => c.component_name.trim());
         if (validComponents.length > 0) {
           const { error: compError } = await supabase.from("recipe_variable_components" as any).insert(
-            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, restaurant_id: restaurantId! }))
+            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), component_mode: c.component_mode, quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, restaurant_id: restaurantId! }))
           );
           if (compError) throw compError;
         }
@@ -308,6 +309,7 @@ export default function Recipes() {
     setEditComponents(comps.map((c: any) => ({
       id: c.id,
       component_name: c.component_name,
+      component_mode: c.component_mode ?? "product",
       quantity_per_service: Number(c.quantity_per_service),
       required: c.required,
       sort_order: c.sort_order,
@@ -379,6 +381,7 @@ export default function Recipes() {
             validComponents.map((c, i) => ({
               recipe_id: recipeId,
               component_name: c.component_name.trim(),
+              component_mode: c.component_mode,
               quantity_per_service: c.quantity_per_service,
               required: c.required,
               sort_order: i,
@@ -463,10 +466,23 @@ export default function Recipes() {
             <KioskTextInput
               value={comp.component_name}
               onChange={(v) => updateFn(i, "component_name", v)}
-              placeholder="Ej: bebida, fruta, ponqué..."
+              placeholder="Ej: bebida, fruta, caliente principal..."
               keyboardLabel="Nombre del componente"
             />
           </div>
+          <Select value={comp.component_mode} onValueChange={(v) => updateFn(i, "component_mode" as any, v)}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="product">
+                <span className="flex items-center gap-1"><Package className="h-3 w-3" /> Producto</span>
+              </SelectItem>
+              <SelectItem value="recipe">
+                <span className="flex items-center gap-1"><ChefHat className="h-3 w-3" /> Receta</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <div className="w-20">
             <NumericKeypadInput
               mode="decimal"
@@ -882,6 +898,9 @@ export default function Recipes() {
                                 {i + 1}
                               </Badge>
                               <span className="flex-1 font-medium">{c.component_name}</span>
+                              <Badge variant="outline" className="text-xs gap-1">
+                                {(c.component_mode ?? "product") === "recipe" ? <><ChefHat className="h-3 w-3" /> Receta</> : <><Package className="h-3 w-3" /> Producto</>}
+                              </Badge>
                               <span className="text-sm text-muted-foreground">{Number(c.quantity_per_service)} c/u</span>
                             </div>
                           ))}
