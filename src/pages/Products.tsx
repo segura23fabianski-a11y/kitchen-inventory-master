@@ -67,6 +67,7 @@ export default function Products() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [revalProduct, setRevalProduct] = useState<any>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
