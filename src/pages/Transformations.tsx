@@ -255,6 +255,7 @@ export default function Transformations() {
         transformation_definition_id: selDefId || null,
         input_product_id: execInputId,
         input_quantity: inputQtyNum,
+        input_unit_cost: unitCostInput,
         total_output: totalOutputQty,
         total_waste: totalWasteQty + impliedWaste,
         overall_yield: yieldPct,
