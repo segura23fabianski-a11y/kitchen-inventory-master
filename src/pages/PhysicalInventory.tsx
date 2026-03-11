@@ -415,13 +415,13 @@ export default function PhysicalInventory() {
               </div>
               <div>
                 <label className="text-sm font-medium">Bodega (opcional)</label>
-                <Select value={formWarehouse} onValueChange={setFormWarehouse}>
-                  <SelectTrigger><SelectValue placeholder="Todas las bodegas" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={[{ value: "all", label: "Todas" }, ...(warehouses?.map((w) => ({ value: w.id, label: w.name })) ?? [])]}
+                  value={formWarehouse}
+                  onValueChange={setFormWarehouse}
+                  placeholder="Todas las bodegas"
+                  searchPlaceholder="Buscar bodega..."
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Categoría (opcional)</label>
