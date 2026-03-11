@@ -360,10 +360,10 @@ export default function HousekeepingTab() {
             </div>
             <div>
               <Label>Responsable (opcional)</Label>
-              <Select value={taskForm.assigned_to} onValueChange={v => setTaskForm({ ...taskForm, assigned_to: v })}>
+              <Select value={taskForm.assigned_to || "unassigned"} onValueChange={v => setTaskForm({ ...taskForm, assigned_to: v === "unassigned" ? "" : v })}>
                 <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin asignar</SelectItem>
+                  <SelectItem value="unassigned">Sin asignar</SelectItem>
                   {staff?.map(s => (
                     <SelectItem key={s.user_id} value={s.user_id}>{s.full_name}</SelectItem>
                   ))}
@@ -386,10 +386,10 @@ export default function HousekeepingTab() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Asignar Responsable</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <Select value={assignValue} onValueChange={setAssignValue}>
+            <Select value={assignValue || "unassigned"} onValueChange={v => setAssignValue(v === "unassigned" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin asignar</SelectItem>
+                <SelectItem value="unassigned">Sin asignar</SelectItem>
                 {staff?.map(s => (
                   <SelectItem key={s.user_id} value={s.user_id}>{s.full_name}</SelectItem>
                 ))}
