@@ -700,6 +700,11 @@ export default function Products() {
                           <TableCell>
                             <div className="flex gap-1">
                               {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
+                              {hasRole("admin") && (
+                                <Button variant="ghost" size="icon" onClick={() => setRevalProduct(p)} title="Corregir costo">
+                                  <DollarSign className="h-4 w-4 text-amber-600" />
+                                </Button>
+                              )}
                               {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                             </div>
                           </TableCell>
