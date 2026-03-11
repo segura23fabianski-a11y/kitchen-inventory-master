@@ -1286,6 +1286,13 @@ export default function KitchenKiosk() {
           </div>
         </div>
       </div>
+      <ProductionRunDialog
+        open={productionRunOpen}
+        onOpenChange={setProductionRunOpen}
+        fixedRecipes={fixedRecipes}
+        recipeIngredientsByRecipe={ingredientsByRecipe}
+        products={products ?? []}
+      />
     </AppLayout>
   );
 }
