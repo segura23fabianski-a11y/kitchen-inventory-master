@@ -470,7 +470,7 @@ export default function Transformations() {
                     </div>
                     <div>
                       <Label>Cantidad</Label>
-                      <Input type="number" min="0" step="0.01" value={execInputQty} onChange={(e) => setExecInputQty(e.target.value)} placeholder="Ej: 10" />
+                      <NumericKeypadInput value={execInputQty} onChange={setExecInputQty} placeholder="Ej: 10" keypadLabel="Cantidad de entrada" />
                       {execInputId && pMap[execInputId] && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Stock: {pMap[execInputId].current_stock} {pMap[execInputId].unit}
