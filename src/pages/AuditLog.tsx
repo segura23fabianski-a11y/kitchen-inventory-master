@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Undo2, Eye, Clock, User, Filter } from "lucide-react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -33,6 +34,13 @@ const ACTION_LABELS: Record<string, string> = {
   REMOVE_CODE: "Código eliminado",
   COST_CHANGE: "Cambio de costo",
   ROLLBACK: "Reversión",
+  PRODUCT_COST_REVALUATION: "Revalorización de costo de producto",
+  INVENTORY_RESET: "Reset de inventario",
+  BACKDATED_MOVEMENT: "Movimiento con fecha retroactiva",
+  TRANSFORMATION_RUN: "Transformación de producto",
+  WASTE_REGISTERED: "Registro de desperdicio",
+  MEAL_PLAN_CREATED: "Planeación de minuta creada",
+  MEAL_PLAN_UPDATED: "Planeación de minuta actualizada",
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -43,6 +51,13 @@ const ACTION_COLORS: Record<string, string> = {
   REMOVE_CODE: "bg-orange-500/10 text-orange-700 border-orange-200",
   COST_CHANGE: "bg-amber-500/10 text-amber-700 border-amber-200",
   ROLLBACK: "bg-slate-500/10 text-slate-700 border-slate-200",
+  PRODUCT_COST_REVALUATION: "bg-amber-500/10 text-amber-700 border-amber-200",
+  INVENTORY_RESET: "bg-red-500/10 text-red-700 border-red-200",
+  BACKDATED_MOVEMENT: "bg-amber-500/10 text-amber-700 border-amber-200",
+  TRANSFORMATION_RUN: "bg-blue-500/10 text-blue-700 border-blue-200",
+  WASTE_REGISTERED: "bg-red-500/10 text-red-700 border-red-200",
+  MEAL_PLAN_CREATED: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  MEAL_PLAN_UPDATED: "bg-blue-500/10 text-blue-700 border-blue-200",
 };
 
 export default function AuditLog() {
@@ -52,17 +67,45 @@ export default function AuditLog() {
   const [detailEvent, setDetailEvent] = useState<any>(null);
   const [rollbackEvent, setRollbackEvent] = useState<any>(null);
   const [rollbackReason, setRollbackReason] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: events, isLoading } = useQuery({
-    queryKey: ["audit-events", entityFilter, actionFilter],
+  // Reset page when filters change
+  const handleEntityFilter = useCallback((v: string) => { setEntityFilter(v); setPage(1); }, []);
+  const handleActionFilter = useCallback((v: string) => { setActionFilter(v); setPage(1); }, []);
+  const handleSearch = useCallback((v: string) => { setSearch(v); setPage(1); }, []);
+
+  const { data: countData } = useQuery({
+    queryKey: ["audit-events-count", entityFilter, actionFilter, search],
     queryFn: async () => {
+      let query = supabase
+        .from("audit_events" as any)
+        .select("id", { count: "exact", head: true });
+
+      if (entityFilter !== "all") query = query.eq("entity_type", entityFilter);
+      if (actionFilter !== "all") query = query.eq("action", actionFilter);
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const totalCount = countData ?? 0;
+
+  const { data: events, isLoading } = useQuery({
+    queryKey: ["audit-events", entityFilter, actionFilter, page, pageSize],
+    queryFn: async () => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from("audit_events" as any)
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .range(from, to);
 
       if (entityFilter !== "all") {
         query = query.eq("entity_type", entityFilter);
@@ -175,9 +218,9 @@ export default function AuditLog() {
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10" placeholder="Buscar por usuario o entidad..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-10" placeholder="Buscar por usuario o entidad..." value={search} onChange={(e) => handleSearch(e.target.value)} />
           </div>
-          <Select value={entityFilter} onValueChange={setEntityFilter}>
+          <Select value={entityFilter} onValueChange={handleEntityFilter}>
             <SelectTrigger className="w-[160px]">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Entidad" />
@@ -189,7 +232,7 @@ export default function AuditLog() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={actionFilter} onValueChange={setActionFilter}>
+          <Select value={actionFilter} onValueChange={handleActionFilter}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Acción" />
             </SelectTrigger>
@@ -268,6 +311,13 @@ export default function AuditLog() {
                 )}
               </TableBody>
             </Table>
+            <PaginationControls
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </CardContent>
         </Card>
 
