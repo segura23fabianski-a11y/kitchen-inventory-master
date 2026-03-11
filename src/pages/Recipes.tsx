@@ -113,12 +113,57 @@ export default function Recipes() {
     },
   });
 
+  // Fetch combo execution logs
+  const { data: comboExecutionLogs } = useQuery({
+    queryKey: ["combo-execution-logs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combo_execution_logs" as any)
+        .select("*")
+        .order("executed_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Fetch combo execution items
+  const { data: comboExecutionItems } = useQuery({
+    queryKey: ["combo-execution-items"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combo_execution_items" as any)
+        .select("*");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const componentsByRecipe = new Map<string, any[]>();
   allVariableComponents?.forEach((c: any) => {
     const arr = componentsByRecipe.get(c.recipe_id) || [];
     arr.push(c);
     componentsByRecipe.set(c.recipe_id, arr);
   });
+
+  const executionItemsByLog = useMemo(() => {
+    const map = new Map<string, any[]>();
+    comboExecutionItems?.forEach((item: any) => {
+      const arr = map.get(item.execution_id) || [];
+      arr.push(item);
+      map.set(item.execution_id, arr);
+    });
+    return map;
+  }, [comboExecutionItems]);
+
+  const getComboStats = (recipeId: string) => {
+    const logs = comboExecutionLogs?.filter((l: any) => l.recipe_id === recipeId) ?? [];
+    if (logs.length === 0) return null;
+    const costs = logs.map((l: any) => Number(l.unit_cost));
+    const avg = costs.reduce((a: number, b: number) => a + b, 0) / costs.length;
+    const min = Math.min(...costs);
+    const max = Math.max(...costs);
+    return { logs, avg, min, max, count: logs.length };
+  };
 
   const getProductCost = (productId: string): number => {
     const prod = productMap.get(productId);
