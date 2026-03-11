@@ -1,44 +1,46 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { ChefHat, CheckCircle2, AlertTriangle, Package, ClipboardList, Search, Clock, Star, Shirt, SprayCan } from "lucide-react";
-import { convertToProductUnit } from "@/lib/unit-conversion";
+import {
+  ChefHat, CheckCircle2, AlertTriangle, Package, Search,
+  Clock, Star, Trash2, ScanBarcode, Plus,
+} from "lucide-react";
+import { convertToProductUnit, getCompatibleUnits } from "@/lib/unit-conversion";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
+import { UnitSelector } from "@/components/UnitSelector";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Step = "products" | "recipe" | "quantities";
-
-interface SelectedProduct {
-  id: string;
+interface CartItem {
+  productId: string;
   name: string;
-  unit: string;
-  current_stock: number;
-  average_cost: number;
-  barcode: string | null;
+  baseUnit: string;
+  selectedUnit: string;
+  quantity: number;
+  currentStock: number;
+  averageCost: number;
 }
 
 export default function KitchenKiosk() {
-  const [step, setStep] = useState<Step>("products");
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
-  const [recipeId, setRecipeId] = useState("");
-  const [customQuantities, setCustomQuantities] = useState<Record<string, number>>({});
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+  const barcodeBufferRef = useRef("");
+  const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const restaurantId = useRestaurantId();
   const qc = useQueryClient();
 
-  // All products
+  // ──── Data queries ────
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
@@ -47,11 +49,10 @@ export default function KitchenKiosk() {
         .select("id, name, unit, current_stock, average_cost, barcode, image_url")
         .order("name");
       if (error) throw error;
-      return data as (SelectedProduct & { image_url: string | null })[];
+      return data;
     },
   });
 
-  // Product codes for search
   const { data: productCodes } = useQuery({
     queryKey: ["product-codes"],
     queryFn: async () => {
@@ -61,7 +62,19 @@ export default function KitchenKiosk() {
     },
   });
 
-  // Recent products (last 20 distinct products used)
+  const { data: services } = useQuery({
+    queryKey: ["operational-services"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("operational_services")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: recentProductIds } = useQuery({
     queryKey: ["recent-products"],
     queryFn: async () => {
@@ -85,7 +98,6 @@ export default function KitchenKiosk() {
     },
   });
 
-  // Frequent products (most used in last 30 days)
   const { data: frequentProductIds } = useQuery({
     queryKey: ["frequent-products"],
     queryFn: async () => {
@@ -99,71 +111,12 @@ export default function KitchenKiosk() {
         .limit(500);
       if (error) throw error;
       const counts = new Map<string, number>();
-      for (const m of data ?? []) {
-        counts.set(m.product_id, (counts.get(m.product_id) ?? 0) + 1);
-      }
-      return [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([id]) => id);
+      for (const m of data ?? []) counts.set(m.product_id, (counts.get(m.product_id) ?? 0) + 1);
+      return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id]) => id);
     },
   });
 
-  const recentProducts = useMemo(() => {
-    if (!products || !recentProductIds) return [];
-    return recentProductIds.map((id) => products.find((p) => p.id === id)).filter(Boolean) as SelectedProduct[];
-  }, [products, recentProductIds]);
-
-  const frequentProducts = useMemo(() => {
-    if (!products || !frequentProductIds) return [];
-    return frequentProductIds.map((id) => products.find((p) => p.id === id)).filter(Boolean) as SelectedProduct[];
-  }, [products, frequentProductIds]);
-
-  // All recipes
-  const { data: recipes } = useQuery({
-    queryKey: ["recipes"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, recipe_type").order("name");
-      if (error) throw error;
-      return data as { id: string; name: string; recipe_type: string }[];
-    },
-  });
-
-  // Recipe ingredients for selected recipe
-  const { data: recipeIngredients } = useQuery({
-    queryKey: ["recipe-ingredients", recipeId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("recipe_ingredients")
-        .select("*, products(id, name, unit, current_stock, average_cost)")
-        .eq("recipe_id", recipeId);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!recipeId,
-  });
-
-  const filteredRecipes = useMemo(() => recipes ?? [], [recipes]);
-
-  // When recipe is selected, pre-fill quantities from recipe ingredients
-  const initializeQuantities = (ingredients: typeof recipeIngredients) => {
-    if (!ingredients) return;
-    const qtys: Record<string, number> = {};
-    ingredients.forEach((ing) => {
-      const product = (ing as any).products;
-      const productQty = convertToProductUnit(Number(ing.quantity), ing.unit, product?.unit ?? ing.unit);
-      qtys[ing.product_id] = productQty;
-    });
-    setCustomQuantities(qtys);
-  };
-
-  // Selected products data
-  const selectedProducts: SelectedProduct[] = useMemo(() => {
-    if (!products) return [];
-    return products.filter((p) => selectedProductIds.has(p.id));
-  }, [products, selectedProductIds]);
-
-  // Build code lookup
+  // ──── Derived data ────
   const codesByProduct = useMemo(() => {
     const map = new Map<string, string[]>();
     productCodes?.forEach((c) => {
@@ -174,7 +127,28 @@ export default function KitchenKiosk() {
     return map;
   }, [productCodes]);
 
-  // Filter products by name, barcode, or product codes
+  // Reverse lookup: code → product id
+  const productByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    products?.forEach((p) => {
+      if (p.barcode) map.set(p.barcode.toLowerCase(), p.id);
+    });
+    productCodes?.forEach((c) => {
+      map.set(c.code.toLowerCase(), c.product_id);
+    });
+    return map;
+  }, [products, productCodes]);
+
+  const recentProducts = useMemo(() => {
+    if (!products || !recentProductIds) return [];
+    return recentProductIds.map((id) => products.find((p) => p.id === id)).filter(Boolean);
+  }, [products, recentProductIds]);
+
+  const frequentProducts = useMemo(() => {
+    if (!products || !frequentProductIds) return [];
+    return frequentProductIds.map((id) => products.find((p) => p.id === id)).filter(Boolean);
+  }, [products, frequentProductIds]);
+
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     const q = productSearch.toLowerCase().trim();
@@ -188,82 +162,116 @@ export default function KitchenKiosk() {
     });
   }, [products, productSearch, codesByProduct]);
 
-  // Build lines for the quantities step
-  const lines = useMemo(() => {
-    return selectedProducts.map((product) => {
-      const qty = customQuantities[product.id] ?? 0;
-      const stock = Number(product.current_stock ?? 0);
-      const unitCost = Number(product.average_cost ?? 0);
-      const totalCost = qty * unitCost;
-      const insufficient = qty > stock;
-      return { product, qty, stock, unitCost, totalCost, insufficient };
-    });
-  }, [selectedProducts, customQuantities]);
-
-  const hasInsufficient = lines.some((l) => l.insufficient);
-  const grandTotal = lines.reduce((s, l) => s + l.totalCost, 0);
-  const hasQuantities = lines.some((l) => l.qty > 0);
-  const isValid = selectedProducts.length > 0 && hasQuantities && !hasInsufficient;
-
-  const selectedRecipe = recipes?.find((r) => r.id === recipeId);
-
-  const toggleProduct = (productId: string) => {
-    setSelectedProductIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
-      else next.add(productId);
-      return next;
-    });
-  };
-
-  const goToRecipeStep = () => {
-    setRecipeId("");
-    setCustomQuantities({});
-    setStep("recipe");
-  };
-
-  const goToQuantitiesStep = () => {
-    if (recipeIngredients) {
-      initializeQuantities(recipeIngredients);
-      const newIds = new Set(selectedProductIds);
-      recipeIngredients.forEach((ing) => newIds.add(ing.product_id));
-      setSelectedProductIds(newIds);
+  // ──── Barcode scanner detection ────
+  const addProductToCart = useCallback((productId: string) => {
+    const p = products?.find((x) => x.id === productId);
+    if (!p) return;
+    // If already in cart, don't add again
+    if (cart.some((c) => c.productId === p.id)) {
+      setScanFeedback(`"${p.name}" ya está en la lista`);
+      setTimeout(() => setScanFeedback(null), 2000);
+      return;
     }
-    setStep("quantities");
+    setCart((prev) => [
+      ...prev,
+      {
+        productId: p.id,
+        name: p.name,
+        baseUnit: p.unit,
+        selectedUnit: p.unit,
+        quantity: 0,
+        currentStock: Number(p.current_stock ?? 0),
+        averageCost: Number(p.average_cost ?? 0),
+      },
+    ]);
+    setScanFeedback(`✓ ${p.name} agregado`);
+    setTimeout(() => setScanFeedback(null), 2000);
+  }, [products, cart]);
+
+  const handleBarcodeInput = useCallback((code: string) => {
+    const normalizedCode = code.toLowerCase().trim();
+    const productId = productByCode.get(normalizedCode);
+    if (productId) {
+      addProductToCart(productId);
+    } else {
+      setScanFeedback("Producto no encontrado");
+      setTimeout(() => setScanFeedback(null), 2500);
+    }
+  }, [productByCode, addProductToCart]);
+
+  // Global keydown listener for barcode scanner
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is focused on an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "Enter") {
+        if (barcodeBufferRef.current.length >= 3) {
+          handleBarcodeInput(barcodeBufferRef.current);
+        }
+        barcodeBufferRef.current = "";
+        if (barcodeTimerRef.current) clearTimeout(barcodeTimerRef.current);
+        return;
+      }
+
+      // Only accumulate printable characters
+      if (e.key.length === 1) {
+        barcodeBufferRef.current += e.key;
+        if (barcodeTimerRef.current) clearTimeout(barcodeTimerRef.current);
+        barcodeTimerRef.current = setTimeout(() => {
+          barcodeBufferRef.current = "";
+        }, 300);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleBarcodeInput]);
+
+  // ──── Cart operations ────
+  const updateCartItem = (productId: string, updates: Partial<CartItem>) => {
+    setCart((prev) =>
+      prev.map((item) => (item.productId === productId ? { ...item, ...updates } : item))
+    );
   };
 
-  const skipRecipe = () => {
-    setRecipeId("");
-    setCustomQuantities({});
-    setStep("quantities");
+  const removeFromCart = (productId: string) => {
+    setCart((prev) => prev.filter((item) => item.productId !== productId));
   };
 
+  // ──── Computed values ────
+  const cartLines = useMemo(() => {
+    return cart.map((item) => {
+      const qtyInBase = convertToProductUnit(item.quantity, item.selectedUnit, item.baseUnit);
+      const totalCost = qtyInBase * item.averageCost;
+      const insufficient = qtyInBase > item.currentStock;
+      return { ...item, qtyInBase, totalCost, insufficient };
+    });
+  }, [cart]);
+
+  const hasInsufficient = cartLines.some((l) => l.insufficient);
+  const hasQuantities = cartLines.some((l) => l.quantity > 0);
+  const grandTotal = cartLines.reduce((s, l) => s + l.totalCost, 0);
+  const isValid = cart.length > 0 && hasQuantities && !hasInsufficient;
+
+  // ──── Confirm mutation ────
   const confirmConsumption = useMutation({
     mutationFn: async () => {
-      if (recipeId) {
-        const recipeName = selectedRecipe?.name ?? "";
-        const { error } = await supabase.rpc("register_recipe_consumption", {
-          _recipe_id: recipeId,
-          _user_id: user!.id,
-          _portions: 1,
-          _notes: `Consumo kiosco: ${recipeName} (cantidades personalizadas)`,
+      for (const line of cartLines) {
+        if (line.quantity <= 0) continue;
+        const { error } = await supabase.from("inventory_movements").insert({
+          product_id: line.productId,
+          user_id: user!.id,
+          type: "salida",
+          quantity: line.qtyInBase,
+          unit_cost: line.averageCost,
+          total_cost: line.totalCost,
+          notes: "Consumo kiosco cocina",
+          restaurant_id: restaurantId!,
+          service_id: serviceId || null,
         });
         if (error) throw error;
-      } else {
-        for (const line of lines) {
-          if (line.qty <= 0) continue;
-          const { error } = await supabase.from("inventory_movements").insert({
-            product_id: line.product.id,
-            user_id: user!.id,
-            type: "salida",
-            quantity: -line.qty,
-            unit_cost: line.unitCost,
-            total_cost: line.totalCost,
-            notes: `Consumo kiosco manual`,
-            restaurant_id: restaurantId!,
-          });
-          if (error) throw error;
-        }
       }
     },
     onSuccess: () => {
@@ -271,29 +279,26 @@ export default function KitchenKiosk() {
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["recent-products"] });
       qc.invalidateQueries({ queryKey: ["frequent-products"] });
-      toast({ title: "Consumo registrado", description: `${lines.filter((l) => l.qty > 0).length} productos descontados` });
-      resetAll();
+      toast({
+        title: "Consumo registrado",
+        description: `${cartLines.filter((l) => l.quantity > 0).length} productos descontados`,
+      });
+      setCart([]);
+      setServiceId("");
+      setProductSearch("");
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const resetAll = () => {
-    setStep("products");
-    setSelectedProductIds(new Set());
-    setRecipeId("");
-    setCustomQuantities({});
-    setProductSearch("");
-  };
-
-  const renderProductButton = (p: SelectedProduct & { image_url?: string | null }) => {
-    const selected = selectedProductIds.has(p.id);
+  const renderProductButton = (p: any) => {
+    const inCart = cart.some((c) => c.productId === p.id);
     return (
       <button
         key={p.id}
         type="button"
-        onClick={() => toggleProduct(p.id)}
+        onClick={() => addProductToCart(p.id)}
         className={`rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
-          selected
+          inCart
             ? "border-primary bg-primary/10 ring-1 ring-primary"
             : "border-border hover:bg-muted/50"
         }`}
@@ -311,33 +316,42 @@ export default function KitchenKiosk() {
 
   return (
     <AppLayout>
-      <div className="mx-auto max-w-2xl space-y-6">
-         <div className="text-center">
-          <h1 className="font-heading text-3xl font-bold">Kiosco Operativo</h1>
-          <p className="text-muted-foreground">Registrar consumo de ingredientes e insumos</p>
+      <div className="mx-auto max-w-4xl space-y-4">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="font-heading text-3xl font-bold flex items-center justify-center gap-2">
+            <ChefHat className="h-8 w-8 text-primary" />
+            Kiosco Cocina
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Escanea códigos o selecciona productos — ingresa cantidades — confirma
+          </p>
         </div>
 
-        {/* Step indicators */}
-        <div className="flex items-center justify-center gap-2 text-sm">
-          <Badge variant={step === "products" ? "default" : "secondary"}>1. Productos</Badge>
-          <span className="text-muted-foreground">→</span>
-          <Badge variant={step === "recipe" ? "default" : "secondary"}>2. Receta</Badge>
-          <span className="text-muted-foreground">→</span>
-          <Badge variant={step === "quantities" ? "default" : "secondary"}>3. Cantidades</Badge>
-        </div>
+        {/* Barcode scan feedback */}
+        {scanFeedback && (
+          <div className={`text-center py-2 px-4 rounded-lg text-sm font-medium animate-in fade-in ${
+            scanFeedback.startsWith("✓") ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : scanFeedback.includes("ya está") ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+              : "bg-destructive/10 text-destructive"
+          }`}>
+            <ScanBarcode className="h-4 w-4 inline mr-2" />
+            {scanFeedback}
+          </div>
+        )}
 
-        {/* Step 1: Select Products */}
-        {step === "products" && (
-          <Card>
-            <CardHeader className="space-y-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Package className="h-5 w-5 text-primary" /> Seleccionar productos
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* LEFT: Product selection */}
+          <Card className="lg:max-h-[70vh] flex flex-col">
+            <CardHeader className="space-y-2 pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Package className="h-4 w-4 text-primary" /> Agregar productos
               </CardTitle>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <KioskTextInput
                   className="pl-10"
-                  placeholder="Buscar por nombre o código de barras..."
+                  placeholder="Buscar por nombre o código..."
                   value={productSearch}
                   onChange={setProductSearch}
                   forceKeyboard
@@ -345,187 +359,182 @@ export default function KitchenKiosk() {
                   inputType="search"
                 />
               </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <ScanBarcode className="h-3 w-3" />
+                Escanea un código de barras en cualquier momento
+              </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Recent and Frequent products when no search */}
+            <CardContent className="flex-1 overflow-y-auto space-y-3 pb-4">
+              {/* Recent / Frequent */}
               {!productSearch && (
                 <>
                   {recentProducts.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5" /> Recientes
+                    <div className="space-y-1.5">
+                      <h3 className="text-xs font-medium flex items-center gap-1 text-muted-foreground">
+                        <Clock className="h-3 w-3" /> Recientes
                       </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {recentProducts.map(renderProductButton)}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {recentProducts.map((p: any) => renderProductButton(p))}
                       </div>
                     </div>
                   )}
                   {frequentProducts.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                        <Star className="h-3.5 w-3.5" /> Más usados
+                    <div className="space-y-1.5">
+                      <h3 className="text-xs font-medium flex items-center gap-1 text-muted-foreground">
+                        <Star className="h-3 w-3" /> Más usados
                       </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {frequentProducts.map(renderProductButton)}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {frequentProducts.map((p: any) => renderProductButton(p))}
                       </div>
                     </div>
                   )}
                   {(recentProducts.length > 0 || frequentProducts.length > 0) && (
-                    <div className="border-t pt-3">
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Todos los productos</h3>
+                    <div className="border-t pt-2">
+                      <h3 className="text-xs font-medium text-muted-foreground mb-1.5">Todos</h3>
                     </div>
                   )}
                 </>
               )}
-
-              <div className="max-h-[28rem] overflow-y-auto">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {filteredProducts.map(renderProductButton)}
-                </div>
-                {filteredProducts.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">Sin resultados</p>
-                )}
+              <div className="grid grid-cols-2 gap-1.5">
+                {filteredProducts.map((p: any) => renderProductButton(p))}
               </div>
-              <Button
-                className="w-full"
-                disabled={selectedProductIds.size === 0}
-                onClick={goToRecipeStep}
-              >
-                Siguiente ({selectedProductIds.size} productos)
-              </Button>
+              {filteredProducts.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Sin resultados</p>
+              )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Step 2: Select Recipe (optional) */}
-        {step === "recipe" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ChefHat className="h-5 w-5 text-primary" /> Asignar receta (opcional)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Selecciona una receta para pre-cargar las cantidades, o salta este paso para ingresar cantidades manualmente.
-              </p>
-              <Select value={recipeId} onValueChange={setRecipeId}>
-                <SelectTrigger><SelectValue placeholder="Elegir receta..." /></SelectTrigger>
-                <SelectContent>
-                  {filteredRecipes?.map((r) => {
-                    const rType = (r as any).recipe_type ?? "food";
-                    const icon = rType === "laundry" ? "🧺" : rType === "housekeeping" ? "🧹" : "👨‍🍳";
-                    return (
-                      <SelectItem key={r.id} value={r.id}>{icon} {r.name}</SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setStep("products")}>
-                  Atrás
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={skipRecipe}>
-                  Sin receta
-                </Button>
-                <Button className="flex-1" disabled={!recipeId} onClick={goToQuantitiesStep}>
-                  Siguiente
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 3: Edit Quantities & Confirm */}
-        {step === "quantities" && (
-          <>
+          {/* RIGHT: Cart / quantities */}
+          <div className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <ClipboardList className="h-5 w-5 text-primary" /> Cantidades a descontar
-                  {selectedRecipe && (
-                    <Badge variant="outline" className="ml-auto">{selectedRecipe.name}</Badge>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    Lista de consumo
+                  </span>
+                  {cart.length > 0 && (
+                    <Badge variant="secondary">{cart.length} productos</Badge>
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead className="text-right">Cantidad</TableHead>
-                      <TableHead className="text-right">Stock</TableHead>
-                      <TableHead className="text-right">Costo</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lines.map((l) => (
-                      <TableRow key={l.product.id}>
-                        <TableCell className="font-medium">{l.product.name}</TableCell>
-                        <TableCell className="text-right">
+              <CardContent className="space-y-2">
+                {cart.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    <ScanBarcode className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    Escanea un código o selecciona productos para comenzar
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+                    {cartLines.map((item) => (
+                      <div
+                        key={item.productId}
+                        className={`rounded-lg border p-3 space-y-2 ${
+                          item.insufficient ? "border-destructive/50 bg-destructive/5" : "border-border"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Stock: {item.currentStock} {item.baseUnit}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeFromCart(item.productId)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <NumericKeypadInput
                             mode="decimal"
-                            value={l.qty || ""}
+                            value={item.quantity || ""}
                             onChange={(v) =>
-                              setCustomQuantities((prev) => ({
-                                ...prev,
-                                [l.product.id]: Math.max(0, Number(v) || 0),
-                              }))
+                              updateCartItem(item.productId, {
+                                quantity: Math.max(0, Number(v) || 0),
+                              })
                             }
                             min="0"
-                            className="w-24 text-right ml-auto"
-                            keypadLabel={l.product.name}
+                            className="w-24 text-right"
+                            keypadLabel={item.name}
                             forceKeypad
                           />
-                          <span className="text-xs text-muted-foreground">{l.product.unit}</span>
-                        </TableCell>
-                        <TableCell className="text-right">{l.stock} {l.product.unit}</TableCell>
-                        <TableCell className="text-right font-semibold">${l.totalCost.toFixed(2)}</TableCell>
-                        <TableCell className="w-8">
-                          {l.insufficient ? (
-                            <AlertTriangle className="h-4 w-4 text-destructive" />
-                          ) : l.qty > 0 ? (
-                            <CheckCircle2 className="h-4 w-4 text-success" />
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
+                          <UnitSelector
+                            productUnit={item.baseUnit}
+                            value={item.selectedUnit}
+                            onChange={(u) => updateCartItem(item.productId, { selectedUnit: u })}
+                            className="w-20"
+                          />
+                          {item.quantity > 0 && item.selectedUnit !== item.baseUnit && (
+                            <span className="text-xs text-muted-foreground">
+                              = {item.qtyInBase.toFixed(3)} {item.baseUnit}
+                            </span>
+                          )}
+                        </div>
+                        {item.insufficient && (
+                          <p className="text-xs text-destructive flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Stock insuficiente
+                          </p>
+                        )}
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {hasInsufficient && (
-              <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                Stock insuficiente en uno o más productos
-              </div>
-            )}
+            {cart.length > 0 && (
+              <>
+                {/* Service selector */}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-foreground">Servicio (opcional)</label>
+                  <Select value={serviceId} onValueChange={setServiceId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin servicio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin servicio</SelectItem>
+                      {services?.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="rounded-md bg-muted p-4 flex justify-between items-center">
-              <span className="text-muted-foreground">Costo total estimado</span>
-              <span className="font-heading font-bold text-2xl">${grandTotal.toFixed(2)}</span>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep("recipe")}>
-                Atrás
-              </Button>
-              <Button
-                className="flex-1 h-14 text-lg"
-                disabled={!isValid || confirmConsumption.isPending}
-                onClick={() => confirmConsumption.mutate()}
-              >
-                {confirmConsumption.isPending ? (
-                  "Registrando..."
-                ) : (
-                  <><CheckCircle2 className="mr-2 h-5 w-5" /> Confirmar Consumo</>
+                {hasInsufficient && (
+                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Stock insuficiente en uno o más productos
+                  </div>
                 )}
-              </Button>
-            </div>
-          </>
-        )}
+
+                <div className="rounded-md bg-muted p-4 flex justify-between items-center">
+                  <span className="text-muted-foreground text-sm">Costo total estimado</span>
+                  <span className="font-heading font-bold text-2xl">${grandTotal.toFixed(2)}</span>
+                </div>
+
+                <Button
+                  className="w-full h-14 text-lg"
+                  disabled={!isValid || confirmConsumption.isPending}
+                  onClick={() => confirmConsumption.mutate()}
+                >
+                  {confirmConsumption.isPending ? (
+                    "Registrando..."
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-5 w-5" />
+                      Confirmar Consumo ({cartLines.filter((l) => l.quantity > 0).length})
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </AppLayout>
   );
