@@ -115,6 +115,7 @@ export default function OrdersList() {
 
     const pdfOrder: PdfOrderData = {
       order_id: order.id,
+      order_number: order.order_number,
       order_date: order.order_date,
       expected_delivery_date: order.expected_delivery_date,
       supplier_name: supplier?.name || order.suppliers?.name || "",
