@@ -78,6 +78,7 @@ export default function Recipes() {
   const canManage = canCreate || canUpdate;
   const restaurantId = useRestaurantId();
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "costs">("cards");
 
   const { data: products } = useQuery({
     queryKey: ["products"],
