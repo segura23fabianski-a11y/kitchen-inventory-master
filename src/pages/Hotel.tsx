@@ -29,7 +29,7 @@ const hotelTabs: TabDef[] = [
   { value: "rooms", label: "Habitaciones", icon: BedDouble, permKey: "hotel_rooms_view" },
   { value: "room-types", label: "Tipos", icon: HotelIcon, permKey: "hotel_room_types_view" },
   { value: "guests", label: "Huéspedes", icon: Users, permKey: "hotel_guests_view" },
-  { value: "companies", label: "Empresas", icon: Building2, permKey: "hotel_companies_view" },
+  
   { value: "housekeeping", label: "Housekeeping", icon: Sparkles, permKey: "housekeeping_view" },
   { value: "laundry", label: "Lavandería", icon: Shirt, permKey: "laundry_view" },
   { value: "linen", label: "Lencería", icon: Package, permKey: "linen_inventory_view" },
