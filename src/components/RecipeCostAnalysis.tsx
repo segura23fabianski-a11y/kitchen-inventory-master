@@ -459,7 +459,7 @@ function RecipeDetailDialog({
 
         {/* Cost summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {!isCombo && (
+          {row.theoreticalUnitCost > 0 && (
             <Card>
               <CardContent className="pt-3 pb-2 px-3 text-center">
                 <p className="text-xs text-muted-foreground">Teórico Unit.</p>
