@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -13,7 +13,6 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No autorizado");
 
-    // Verify the calling user is admin
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -27,7 +26,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check caller is admin
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) throw new Error("Solo administradores pueden crear usuarios");
 
@@ -35,9 +33,15 @@ serve(async (req) => {
 
     if (!email || !password || !role) throw new Error("email, password y role son requeridos");
     if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres");
-    if (!["admin", "cocina", "bodega"].includes(role)) throw new Error("Rol inválido");
 
-    // Create user (trigger will create profile with status='pending' and restaurant_id=NULL)
+    // Validate role exists in the roles table
+    const { data: validRole } = await adminClient
+      .from("roles")
+      .select("name")
+      .eq("name", role)
+      .maybeSingle();
+    if (!validRole) throw new Error(`Rol inválido: ${role}`);
+
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -46,7 +50,6 @@ serve(async (req) => {
     });
     if (createError) throw createError;
 
-    // Set profile as active with restaurant_id (admin-created users are pre-approved)
     await adminClient.from("profiles").update({
       full_name: full_name || "",
       restaurant_id: restaurant_id,
@@ -54,7 +57,6 @@ serve(async (req) => {
       approved_at: new Date().toISOString(),
     }).eq("user_id", newUser.user.id);
 
-    // Assign role
     const { error: roleError } = await adminClient.from("user_roles").insert({
       user_id: newUser.user.id,
       role,
