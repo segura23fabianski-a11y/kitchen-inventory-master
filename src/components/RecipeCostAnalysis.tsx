@@ -144,8 +144,9 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
           totalProduced = logs.reduce((s: number, l: any) => s + Number(l.servings), 0);
           lastProductionDate = logs[0].executed_at;
         }
-        // Theoretical from average_component_cost sum (passed via variableComponents prop)
-        theoreticalUnitCost = 0;
+        // Theoretical from average_component_cost sum
+        const recipeComponents = variableComponents?.filter((vc: any) => vc.recipe_id === recipe.id) ?? [];
+        theoreticalUnitCost = recipeComponents.reduce((s: number, vc: any) => s + Number(vc.average_component_cost ?? 0), 0);
       } else {
         // Fixed recipe
         theoreticalUnitCost = calcRecipeTheoreticalCost(ings);
