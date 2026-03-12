@@ -197,11 +197,11 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
         status: "confirmed",
         notes: form.notes || null,
         created_by: user.id,
-      } as any).select("id").single();
+      } as any).select("id").single() as { data: any; error: any };
       if (error) throw error;
 
       const items = form.items.map(item => ({
-        reservation_id: res.id,
+        reservation_id: (res as any).id,
         restaurant_id: restaurantId,
         room_type_id: item.room_type_id,
         quantity: item.quantity,
