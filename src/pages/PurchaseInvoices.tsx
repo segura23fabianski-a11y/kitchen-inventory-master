@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { convertToProductUnit } from "@/lib/unit-conversion";
 import { UnitSelector } from "@/components/UnitSelector";
