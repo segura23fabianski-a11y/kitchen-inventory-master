@@ -637,7 +637,7 @@ export default function POSRestaurantTab() {
                 </>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* RIGHT: Cart / Order Summary */}
