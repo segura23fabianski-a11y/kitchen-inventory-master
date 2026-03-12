@@ -83,10 +83,13 @@ const navGroups: NavGroup[] = [
     label: "POS",
     icon: ShoppingCart,
     items: [
-      { to: "/pos", icon: ShoppingCart, label: "Pedidos", permKey: "pos_orders", tabParam: "orders" },
+      { to: "/pos", icon: Utensils, label: "Restaurante", permKey: "pos_restaurant", tabParam: "restaurant" },
+      { to: "/pos", icon: Building2, label: "Corporativo", permKey: "pos_corporate", tabParam: "corporate" },
       { to: "/pos", icon: UtensilsCrossed, label: "Cocina", permKey: "pos_kitchen", tabParam: "kitchen" },
       { to: "/pos", icon: List, label: "Menú", permKey: "pos_menu", tabParam: "menu" },
+      { to: "/pos", icon: Tag, label: "Tarifas", permKey: "pos_menu", tabParam: "rates" },
       { to: "/pos", icon: LayoutGrid, label: "Mesas", permKey: "pos_tables", tabParam: "tables" },
+      { to: "/pos", icon: Shield, label: "Admin", permKey: "pos_admin", tabParam: "admin" },
     ],
   },
   {
