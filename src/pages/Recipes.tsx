@@ -389,6 +389,7 @@ export default function Recipes() {
               quantity_per_service: c.quantity_per_service,
               required: c.required,
               sort_order: i,
+              average_component_cost: c.average_component_cost || 0,
               restaurant_id: restaurantId!,
             }))
           );
