@@ -22,7 +22,7 @@ const ORDER_TYPE_ICON: Record<string, typeof Building2> = {
 };
 
 export default function POSKitchenTab() {
-  const { restaurantId } = useRestaurant();
+  const restaurantId = useRestaurantId();
   const qc = useQueryClient();
 
   const { data: orders = [] } = useQuery({
