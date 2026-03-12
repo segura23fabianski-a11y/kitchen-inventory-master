@@ -425,16 +425,22 @@ function RecipeDetailDialog({
   };
 
   const historyEntries = isCombo
-    ? logs.map((l: any) => ({
-        date: l.executed_at,
-        qty: Number(l.servings),
-        theoreticalTotal: null as number | null,
-        realTotal: Number(l.total_cost),
-        theoreticalUnit: null as number | null,
-        realUnit: Number(l.unit_cost),
-        source: "Kiosco Cocina",
-        items: itemsByLog.get(l.id) ?? [],
-      }))
+    ? logs.map((l: any) => {
+        const logItems = itemsByLog.get(l.id) ?? [];
+        // Calculate theoretical total from component average costs if available
+        const recipeComponents = variableComponents?.filter((vc: any) => vc.recipe_id === recipeId) ?? [];
+        const theoreticalUnit = recipeComponents.reduce((s: number, vc: any) => s + Number(vc.average_component_cost ?? 0), 0);
+        return {
+          date: l.executed_at,
+          qty: Number(l.servings),
+          theoreticalTotal: theoreticalUnit > 0 ? theoreticalUnit * Number(l.servings) : null,
+          realTotal: Number(l.total_cost),
+          theoreticalUnit: theoreticalUnit > 0 ? theoreticalUnit : null,
+          realUnit: Number(l.unit_cost),
+          source: "Kiosco Cocina",
+          items: logItems,
+        };
+      })
     : runs.map((r: any) => ({
         date: r.production_date,
         qty: Number(r.quantity_produced),
