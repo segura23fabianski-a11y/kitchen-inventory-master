@@ -12,11 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useRoles, type Role } from "@/hooks/use-roles";
-import { Shield, Layers, Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Shield, Layers, Plus, Pencil, Trash2, Users, ChevronRight } from "lucide-react";
 
-const CATEGORIES = ["Inventario", "Catálogo", "Administración", "Reportes", "General", "Hotel", "Housekeeping", "Lavandería", "compras", "inventario", "Producción", "Análisis", "operacion", "admin"];
+const CATEGORIES = ["General", "Inventario", "Compras", "Producción", "Análisis", "Hotel", "Housekeeping", "Lavandería", "POS", "Operación", "Administración"];
 
 export default function Roles() {
   const { toast } = useToast();
