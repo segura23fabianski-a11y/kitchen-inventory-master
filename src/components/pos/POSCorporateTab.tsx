@@ -252,18 +252,31 @@ export default function POSCorporateTab() {
       });
 
       if (directItems.length > 0) {
+        // Fetch product costs for accurate movement records
+        const productIds = directItems.map(c => {
+          const mi = menuItems.find((m: any) => m.id === c.menu_item_id) as any;
+          return mi.linked_product_id;
+        });
+        const { data: productCosts } = await supabase
+          .from("products")
+          .select("id, average_cost")
+          .in("id", productIds);
+        const costMap = new Map((productCosts || []).map(p => [p.id, Number(p.average_cost) || 0]));
+
         const movements = directItems.map(c => {
           const mi = menuItems.find((m: any) => m.id === c.menu_item_id) as any;
+          const avgCost = costMap.get(mi.linked_product_id) || 0;
           return {
             product_id: mi.linked_product_id,
             restaurant_id: restaurantId!,
             user_id: user!.id,
-            type: "salida",
+            type: "pos_sale",
             quantity: c.quantity,
-            unit_cost: 0,
-            total_cost: 0,
+            unit_cost: avgCost,
+            total_cost: c.quantity * avgCost,
             notes: `Venta POS #${order.order_number} — ${c.name}`,
             movement_date: new Date().toISOString(),
+            source_module: "POS",
           };
         });
         await supabase.from("inventory_movements").insert(movements);
