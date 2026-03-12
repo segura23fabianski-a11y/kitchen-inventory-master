@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -12,11 +12,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard, Tag, ScanBarcode, Printer, Receipt } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus,
+  CreditCard, Tag, ScanBarcode, Printer, Receipt, ChevronLeft, Search,
+  MessageSquare,
+} from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { printKitchenComanda, printTicket } from "@/lib/pos-printing";
 import { openCashDrawer } from "@/lib/pos-hardware";
+import { fuzzyMatch } from "@/lib/search-utils";
 
 const SERVICE_OPTIONS = [
   { value: "breakfast", label: "Desayuno" },
@@ -97,6 +104,14 @@ export default function POSOrdersTab() {
   const barcodeBufferRef = useRef("");
   const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [guestSearch, setGuestSearch] = useState("");
+
+  // Category-grid state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [menuSearch, setMenuSearch] = useState("");
+  const [notesItemId, setNotesItemId] = useState<string | null>(null);
+
+  // Step management: 'details' → 'menu' flow
+  const [step, setStep] = useState<"details" | "menu">("details");
 
   // Queries
   const { data: orders = [] } = useQuery({
@@ -225,6 +240,21 @@ export default function POSOrdersTab() {
     enabled: !!restaurantId && orderType === "table",
   });
 
+  // Derived: categories from active menu items
+  const categories = useMemo(() => {
+    const cats = new Set(menuItems.map((i: any) => i.category || "General"));
+    return Array.from(cats).sort();
+  }, [menuItems]);
+
+  // Items for selected category (or search results)
+  const visibleItems = useMemo(() => {
+    if (menuSearch.trim()) {
+      return menuItems.filter((i: any) => fuzzyMatch(`${i.name} ${i.category} ${i.barcode || ""}`, menuSearch));
+    }
+    if (!selectedCategory) return [];
+    return menuItems.filter((i: any) => (i.category || "General") === selectedCategory);
+  }, [menuItems, selectedCategory, menuSearch]);
+
   const createOrder = useMutation({
     mutationFn: async () => {
       if (cart.length === 0) throw new Error("Agrega al menos un ítem");
@@ -325,20 +355,23 @@ export default function POSOrdersTab() {
     setCart([]);
     setGuestSearch("");
     setIsTestRecord(false);
+    setSelectedCategory(null);
+    setMenuSearch("");
+    setStep("details");
+    setNotesItemId(null);
   };
 
-  // Determine consumption mode for rate resolution
   const getConsumptionMode = () => {
     if (billingMode === "corporate_charge" || orderType === "company") return "corporate_charge";
     if (destType === "takeaway") return "takeaway";
     return "dine_in";
   };
 
-  const addToCart = (item: any) => {
+  const addToCart = useCallback((item: any) => {
     const mode = getConsumptionMode();
     const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
     const resolved = resolveRate(item.id, Number(item.price), mode, effectiveCompanyId);
-    
+
     setCart(prev => {
       const existing = prev.find(c => c.menu_item_id === item.id);
       if (existing) {
@@ -354,7 +387,7 @@ export default function POSOrdersTab() {
         notes: "",
       }];
     });
-  };
+  }, [companyId, billingMode, orderType, destType, resolveRate]);
 
   // Global barcode listener
   useEffect(() => {
@@ -378,9 +411,8 @@ export default function POSOrdersTab() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [creating, menuItems]);
+  }, [creating, menuItems, addToCart]);
 
-  // Print kitchen comanda for an order
   const handlePrintComanda = async (orderId: string) => {
     const { data: order } = await supabase
       .from("pos_orders")
@@ -404,7 +436,6 @@ export default function POSOrdersTab() {
     });
   };
 
-  // Print sales ticket
   const handlePrintTicket = async (orderId: string) => {
     const { data: order } = await supabase
       .from("pos_orders")
@@ -427,7 +458,6 @@ export default function POSOrdersTab() {
       total: Number(order.total),
       createdAt: order.created_at,
     });
-    // Open cash drawer on cash billing
     if ((order as any).billing_mode === "cash") {
       openCashDrawer();
     }
@@ -456,26 +486,22 @@ export default function POSOrdersTab() {
     setCart(prev => prev.filter(c => c.menu_item_id !== menuItemId));
   };
 
+  const updateCartNotes = (menuItemId: string, notes: string) => {
+    setCart(prev => prev.map(c => c.menu_item_id === menuItemId ? { ...c, notes } : c));
+  };
+
   const cartTotal = cart.reduce((sum, c) => sum + c.quantity * c.unit_price, 0);
 
   const getClientLabel = (o: any) => {
     if (o.order_type === "company") return o.hotel_companies?.name || "Empresa";
     if (o.order_type === "table") return o.pos_tables?.name || "Mesa";
-    // For individual: show guest name if available
     if (o.hotel_guests) return `${o.hotel_guests.first_name} ${o.hotel_guests.last_name}`;
     return o.customer_name || "Individual";
   };
 
-  // Group menu items by category
-  const grouped = menuItems.reduce((acc: Record<string, any[]>, item) => {
-    const cat = item.category || "General";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(item);
-    return acc;
-  }, {});
-
   const selectedGuest = guests.find(g => g.id === guestId);
 
+  // ─── RENDER ───────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Top bar */}
@@ -540,21 +566,15 @@ export default function POSOrdersTab() {
                     </>
                   )}
                 </div>
-                {/* Show company association for individual orders */}
                 {order.order_type === "individual" && (order as any).hotel_companies?.name && (
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <Building2 className="h-3 w-3" /> {(order as any).hotel_companies.name}
                   </div>
                 )}
-                {/* Show contract/group info */}
                 {((order as any).contracts?.name || (order as any).contract_groups?.name) && (
                   <div className="text-xs text-muted-foreground">
-                    {(order as any).contracts?.name && (
-                      <span className="font-medium">{(order as any).contracts.name}</span>
-                    )}
-                    {(order as any).contract_groups?.name && (
-                      <span> → {(order as any).contract_groups.name}</span>
-                    )}
+                    {(order as any).contracts?.name && <span className="font-medium">{(order as any).contracts.name}</span>}
+                    {(order as any).contract_groups?.name && <span> → {(order as any).contract_groups.name}</span>}
                   </div>
                 )}
                 {(order as any).is_test_record && (
@@ -565,7 +585,7 @@ export default function POSOrdersTab() {
                 {order.status === "open" && (
                   <>
                     <Button size="sm" variant="default" onClick={() => sendToKitchen.mutate(order.id)}>
-                      <Send className="h-3.5 w-3.5 mr-1" />Enviar a cocina
+                      <Send className="h-3.5 w-3.5 mr-1" />Cocina
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => cancelOrder.mutate(order.id)}>
                       <X className="h-3.5 w-3.5 mr-1" />Cancelar
@@ -589,259 +609,321 @@ export default function POSOrdersTab() {
         </div>
       )}
 
-      {/* New order dialog */}
+      {/* ═══ NEW ORDER DIALOG ═══ */}
       <Dialog open={creating} onOpenChange={v => !v && closeCreateDialog()}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nuevo Pedido</DialogTitle></DialogHeader>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Left: Order details */}
-            <div className="space-y-3">
-              <div>
-                <Label>Tipo de pedido</Label>
-                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setContractId(""); setContractGroupId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="company">Empresa</SelectItem>
-                    <SelectItem value="individual">Individual</SelectItem>
-                    <SelectItem value="table">Mesa</SelectItem>
-                  </SelectContent>
-                </Select>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden p-0">
+          <div className="flex flex-col h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/30">
+              <DialogTitle className="text-lg">Nuevo Pedido</DialogTitle>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ScanBarcode className="h-3.5 w-3.5" />
+                  Lector activo
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Switch checked={isTestRecord} onCheckedChange={setIsTestRecord} id="test-toggle" />
+                  <Label htmlFor="test-toggle" className="text-xs cursor-pointer">Prueba</Label>
+                </div>
               </div>
+            </div>
 
-              {/* Company selector - shown for company AND individual (optional association) */}
-              {(orderType === "company" || orderType === "individual") && (
-                <div>
-                  <Label>{orderType === "company" ? "Empresa" : "Empresa asociada (opcional)"}</Label>
-                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setContractId(""); setContractGroupId(""); setTimeout(recalcCartPrices, 0); }}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
-                    <SelectContent>
-                      {orderType === "individual" && <SelectItem value="none">Sin empresa</SelectItem>}
-                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Contract selector - shown when a company is selected */}
-              {companyId && companyId !== "none" && contracts.length > 0 && (
-                <div>
-                  <Label>Contrato / Frente (opcional)</Label>
-                  <Select value={contractId || "none"} onValueChange={(v) => { setContractId(v === "none" ? "" : v); setContractGroupId(""); }}>
-                    <SelectTrigger><SelectValue placeholder="Sin contrato" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin contrato</SelectItem>
-                      {contracts.map(c => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}{c.code ? ` (${c.code})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Contract group selector */}
-              {contractId && contractGroups.length > 0 && (
-                <div>
-                  <Label>Subgrupo / Centro de consumo (opcional)</Label>
-                  <Select value={contractGroupId || "none"} onValueChange={(v) => setContractGroupId(v === "none" ? "" : v)}>
-                    <SelectTrigger><SelectValue placeholder="Sin subgrupo" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin subgrupo</SelectItem>
-                      {contractGroups.map(g => (
-                        <SelectItem key={g.id} value={g.id}>
-                          {g.name}{g.group_type ? ` (${g.group_type})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Guest/client selector for individual orders */}
-              {orderType === "individual" && (
-                <div className="space-y-1">
-                  <Label>Cliente / Trabajador</Label>
-                  <Input
-                    value={guestSearch}
-                    onChange={e => { setGuestSearch(e.target.value); setGuestId(""); }}
-                    placeholder="Buscar por nombre o documento..."
-                    className="mb-1"
-                  />
-                  {guestSearch.length >= 2 && !guestId && guests.length > 0 && (
-                    <div className="border rounded-md max-h-32 overflow-y-auto">
-                      {guests.map(g => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                          onClick={() => {
-                            setGuestId(g.id);
-                            setCustomerName(`${g.first_name} ${g.last_name}`);
-                            setGuestSearch(`${g.first_name} ${g.last_name}`);
-                          }}
-                        >
-                          <span className="font-medium">{g.first_name} {g.last_name}</span>
-                          <span className="text-muted-foreground ml-2 text-xs">{g.document_number}</span>
-                        </button>
-                      ))}
+            <div className="flex flex-1 overflow-hidden">
+              {/* ─── LEFT: Order config + Cart ─── */}
+              <div className="w-[340px] border-r flex flex-col bg-background">
+                <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-3">
+                    {/* Order type */}
+                    <div>
+                      <Label className="text-xs">Tipo</Label>
+                      <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setContractId(""); setContractGroupId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="company">Empresa</SelectItem>
+                          <SelectItem value="individual">Individual</SelectItem>
+                          <SelectItem value="table">Mesa</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                  {selectedGuest && (
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      Seleccionado: {selectedGuest.first_name} {selectedGuest.last_name}
-                    </div>
-                  )}
-                  {!guestId && (
-                    <Input
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      placeholder="O escribir nombre manualmente"
-                      className="mt-1"
-                    />
-                  )}
-                </div>
-              )}
 
-              {orderType === "table" && (
-                <div>
-                  <Label>Mesa</Label>
-                  <Select value={tableId} onValueChange={setTableId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {tables.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                    {/* Company */}
+                    {(orderType === "company" || orderType === "individual") && (
+                      <div>
+                        <Label className="text-xs">{orderType === "company" ? "Empresa" : "Empresa (opc.)"}</Label>
+                        <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setContractId(""); setContractGroupId(""); setTimeout(recalcCartPrices, 0); }}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                          <SelectContent>
+                            {orderType === "individual" && <SelectItem value="none">Sin empresa</SelectItem>}
+                            {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-              <div>
-                <Label>Servicio</Label>
-                <Select value={servicePeriod} onValueChange={setServicePeriod}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {SERVICE_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+                    {/* Contract */}
+                    {companyId && companyId !== "none" && contracts.length > 0 && (
+                      <div>
+                        <Label className="text-xs">Contrato (opc.)</Label>
+                        <Select value={contractId || "none"} onValueChange={(v) => { setContractId(v === "none" ? "" : v); setContractGroupId(""); }}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Sin contrato" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin contrato</SelectItem>
+                            {contracts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-              <div>
-                <Label>Modo de cobro</Label>
-                <Select value={billingMode} onValueChange={(v) => { setBillingMode(v); setTimeout(recalcCartPrices, 0); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {BILLING_MODE_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+                    {/* Contract group */}
+                    {contractId && contractGroups.length > 0 && (
+                      <div>
+                        <Label className="text-xs">Subgrupo (opc.)</Label>
+                        <Select value={contractGroupId || "none"} onValueChange={(v) => setContractGroupId(v === "none" ? "" : v)}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Sin subgrupo" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin subgrupo</SelectItem>
+                            {contractGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}{g.group_type ? ` (${g.group_type})` : ""}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-              <div>
-                <Label>Destino de entrega</Label>
-                <Select value={destType} onValueChange={(v) => { setDestType(v); setTimeout(recalcCartPrices, 0); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DEST_OPTIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Detalle destino</Label>
-                <Input value={destDetail} onChange={e => setDestDetail(e.target.value)} placeholder="Ej: Mesa 4, Portería, Hab. 203" />
-              </div>
-
-              {/* Cart */}
-              <div className="border rounded-lg p-3 space-y-2">
-                <div className="font-semibold flex items-center gap-1">
-                  <ShoppingCart className="h-4 w-4" /> Pedido ({cart.length} ítems)
-                </div>
-                {cart.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Selecciona ítems del menú →</p>
-                ) : (
-                  <>
-                    {cart.map(c => (
-                      <div key={c.menu_item_id} className="space-y-0.5">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, -1)}>
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="font-medium w-6 text-center">{c.quantity}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, 1)}>
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <span className="ml-1">{c.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span>${(c.quantity * c.unit_price).toLocaleString()}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.menu_item_id)}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        {c.rate_source !== "menu_base" && (
-                          <div className="flex items-center gap-1 ml-16 text-[10px] text-muted-foreground">
-                            <Tag className="h-2.5 w-2.5" />
-                            Tarifa: {RATE_SOURCE_LABELS[c.rate_source] || c.rate_source}
-                            {c.base_price !== c.unit_price && (
-                              <span>(base: ${c.base_price.toLocaleString()})</span>
-                            )}
+                    {/* Guest/client */}
+                    {orderType === "individual" && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Cliente</Label>
+                        <Input value={guestSearch} onChange={e => { setGuestSearch(e.target.value); setGuestId(""); }} placeholder="Buscar..." className="h-9" />
+                        {guestSearch.length >= 2 && !guestId && guests.length > 0 && (
+                          <div className="border rounded-md max-h-24 overflow-y-auto">
+                            {guests.map(g => (
+                              <button key={g.id} type="button" className="w-full text-left px-2 py-1 text-sm hover:bg-accent" onClick={() => { setGuestId(g.id); setCustomerName(`${g.first_name} ${g.last_name}`); setGuestSearch(`${g.first_name} ${g.last_name}`); }}>
+                                <span className="font-medium">{g.first_name} {g.last_name}</span>
+                                <span className="text-muted-foreground ml-1 text-xs">{g.document_number}</span>
+                              </button>
+                            ))}
                           </div>
                         )}
+                        {!guestId && <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nombre manual" className="h-9" />}
                       </div>
-                    ))}
-                    <div className="border-t pt-2 flex justify-between font-semibold">
-                      <span>Total</span>
-                      <span>${cartTotal.toLocaleString()}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                    )}
 
-            {/* Right: Menu */}
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto border rounded-lg p-3">
-              <div className="font-semibold sticky top-0 bg-background pb-2">Menú</div>
-              {Object.entries(grouped).map(([cat, items]) => (
-                <div key={cat}>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{cat}</div>
-                  <div className="space-y-1">
-                    {(items as any[]).map(item => (
-                      <Button
-                        key={item.id}
-                        variant="outline"
-                        className="w-full justify-between h-auto py-2"
-                        onClick={() => addToCart(item)}
-                      >
-                        <span className="text-left">{item.name}</span>
-                        <span className="text-muted-foreground">${Number(item.price).toLocaleString()}</span>
+                    {orderType === "table" && (
+                      <div>
+                        <Label className="text-xs">Mesa</Label>
+                        <Select value={tableId} onValueChange={setTableId}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                          <SelectContent>
+                            {tables.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Service, billing, dest */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Servicio</Label>
+                        <Select value={servicePeriod} onValueChange={setServicePeriod}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {SERVICE_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Cobro</Label>
+                        <Select value={billingMode} onValueChange={(v) => { setBillingMode(v); setTimeout(recalcCartPrices, 0); }}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {BILLING_MODE_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Destino</Label>
+                        <Select value={destType} onValueChange={(v) => { setDestType(v); setTimeout(recalcCartPrices, 0); }}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {DEST_OPTIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Detalle</Label>
+                        <Input value={destDetail} onChange={e => setDestDetail(e.target.value)} placeholder="Ej: Mesa 4" className="h-9" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ─── CART ─── */}
+                  <div className="border-t p-4 space-y-2">
+                    <div className="font-semibold flex items-center gap-1 text-sm">
+                      <ShoppingCart className="h-4 w-4" /> Pedido ({cart.length})
+                    </div>
+                    {cart.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Selecciona productos del menú →</p>
+                    ) : (
+                      <>
+                        {cart.map(c => (
+                          <div key={c.menu_item_id} className="space-y-0.5">
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-0.5">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, -1)}>
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="font-medium w-5 text-center text-xs">{c.quantity}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, 1)}>
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                                <span className="ml-0.5 text-xs truncate max-w-[120px]">{c.name}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs">${(c.quantity * c.unit_price).toLocaleString()}</span>
+                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setNotesItemId(notesItemId === c.menu_item_id ? null : c.menu_item_id)}>
+                                  <MessageSquare className={`h-3 w-3 ${c.notes ? "text-primary" : "text-muted-foreground"}`} />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFromCart(c.menu_item_id)}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            {c.rate_source !== "menu_base" && (
+                              <div className="flex items-center gap-1 ml-14 text-[10px] text-muted-foreground">
+                                <Tag className="h-2.5 w-2.5" />
+                                {RATE_SOURCE_LABELS[c.rate_source] || c.rate_source}
+                              </div>
+                            )}
+                            {notesItemId === c.menu_item_id && (
+                              <div className="ml-14 mr-2">
+                                <Textarea
+                                  value={c.notes}
+                                  onChange={e => updateCartNotes(c.menu_item_id, e.target.value)}
+                                  placeholder="Sin sopa, sin arroz..."
+                                  className="text-xs h-16 resize-none"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <div className="border-t pt-2 flex justify-between font-semibold text-sm">
+                          <span>Total</span>
+                          <span>${cartTotal.toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {/* Bottom actions */}
+                <div className="border-t p-3 flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={closeCreateDialog}>Cancelar</Button>
+                  <Button className="flex-1" onClick={() => createOrder.mutate()} disabled={cart.length === 0 || createOrder.isPending}>
+                    Crear Pedido
+                  </Button>
+                </div>
+              </div>
+
+              {/* ─── RIGHT: Category Grid + Products ─── */}
+              <div className="flex-1 flex flex-col overflow-hidden bg-muted/10">
+                {/* Search bar */}
+                <div className="px-4 py-3 border-b">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={menuSearch}
+                      onChange={e => { setMenuSearch(e.target.value); if (e.target.value.trim()) setSelectedCategory(null); }}
+                      placeholder="Buscar producto..."
+                      className="pl-9 h-10"
+                    />
+                    {menuSearch && (
+                      <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setMenuSearch("")}>
+                        <X className="h-3 w-3" />
                       </Button>
-                    ))}
+                    )}
                   </div>
                 </div>
-              ))}
-              {menuItems.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No hay ítems en el menú. Configúralos en la pestaña Menú.</p>
-              )}
-            </div>
-          </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <div className="flex items-center gap-2 mr-auto">
-              <ScanBarcode className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Lector de código activo</span>
-              <div className="border-l pl-2 flex items-center gap-2">
-                <Switch checked={isTestRecord} onCheckedChange={setIsTestRecord} id="test-toggle" />
-                <Label htmlFor="test-toggle" className="text-xs cursor-pointer">Registro de prueba</Label>
+                {/* Category selection OR product grid */}
+                <ScrollArea className="flex-1">
+                  {!selectedCategory && !menuSearch.trim() ? (
+                    /* ── CATEGORY BUTTONS ── */
+                    <div className="p-4">
+                      <p className="text-sm font-semibold text-muted-foreground mb-3">Selecciona una categoría</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {categories.map(cat => {
+                          const count = menuItems.filter((i: any) => (i.category || "General") === cat).length;
+                          return (
+                            <button
+                              key={cat}
+                              onClick={() => { setSelectedCategory(cat); setMenuSearch(""); }}
+                              className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-border bg-card p-6 text-center transition-all hover:border-primary hover:bg-primary/5 hover:shadow-md active:scale-[0.97]"
+                            >
+                              <span className="text-lg font-bold">{cat}</span>
+                              <span className="text-xs text-muted-foreground">{count} {count === 1 ? "producto" : "productos"}</span>
+                            </button>
+                          );
+                        })}
+                        {categories.length === 0 && (
+                          <p className="col-span-full text-center text-muted-foreground py-8">No hay ítems en el menú. Configúralos en la pestaña Menú.</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── PRODUCT GRID ── */
+                    <div className="p-4">
+                      {selectedCategory && !menuSearch.trim() && (
+                        <div className="flex items-center gap-2 mb-3">
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedCategory(null)} className="gap-1">
+                            <ChevronLeft className="h-4 w-4" /> Categorías
+                          </Button>
+                          <span className="text-sm font-bold">{selectedCategory}</span>
+                          <Badge variant="outline" className="ml-auto">{visibleItems.length}</Badge>
+                        </div>
+                      )}
+                      {menuSearch.trim() && (
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Resultados para "<span className="font-medium">{menuSearch}</span>" ({visibleItems.length})
+                        </p>
+                      )}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {visibleItems.map((item: any) => {
+                          const inCart = cart.find(c => c.menu_item_id === item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => addToCart(item)}
+                              className={`relative flex flex-col items-center justify-center rounded-lg border-2 p-4 text-center transition-all hover:shadow-md active:scale-[0.97] ${
+                                inCart
+                                  ? "border-primary bg-primary/10 shadow-sm"
+                                  : "border-border bg-card hover:border-primary/50"
+                              }`}
+                            >
+                              {inCart && (
+                                <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shadow">
+                                  {inCart.quantity}
+                                </span>
+                              )}
+                              <span className="font-semibold text-sm leading-tight">{item.name}</span>
+                              <span className="text-xs text-muted-foreground mt-1">${Number(item.price).toLocaleString()}</span>
+                              {menuSearch.trim() && (
+                                <span className="text-[10px] text-muted-foreground mt-0.5">{item.category}</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {visibleItems.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8">No se encontraron productos</p>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
             </div>
-            <Button variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
-            <Button onClick={() => createOrder.mutate()} disabled={cart.length === 0 || createOrder.isPending}>
-              Crear Pedido
-            </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
