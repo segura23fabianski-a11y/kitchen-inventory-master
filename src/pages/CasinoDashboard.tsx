@@ -142,30 +142,44 @@ export default function CasinoDashboard() {
   const menuRows = useMemo(() => {
     const rows: any[] = [];
 
+    // Build theoretical cost map for variable combos from their components
+    const comboTheoreticalMap = new Map<string, number>();
+    if (variableComponents?.length) {
+      for (const vc of variableComponents) {
+        const current = comboTheoreticalMap.get(vc.recipe_id) ?? 0;
+        comboTheoreticalMap.set(vc.recipe_id, current + Number(vc.average_component_cost ?? 0));
+      }
+    }
+
     todayCombos?.forEach((c: any) => {
+      const recipeId = c.recipe_id;
+      const theoreticalUnit = comboTheoreticalMap.get(recipeId) ?? null;
       rows.push({
         name: c.recipes?.name ?? "Combo",
         qty: Number(c.servings),
         realUnit: Number(c.unit_cost),
         realTotal: Number(c.total_cost),
-        theoreticalUnit: null, // combos don't have theoretical
+        theoreticalUnit,
+        theoreticalTotal: theoreticalUnit !== null ? theoreticalUnit * Number(c.servings) : null,
         source: "combo",
       });
     });
 
     todayRuns?.forEach((r: any) => {
+      const theoreticalUnit = Number(r.theoretical_unit_cost);
       rows.push({
         name: r.recipes?.name ?? "Producción",
         qty: Number(r.quantity_produced),
         realUnit: Number(r.actual_unit_cost),
         realTotal: Number(r.actual_total_cost),
-        theoreticalUnit: Number(r.theoretical_unit_cost),
+        theoreticalUnit,
+        theoreticalTotal: theoreticalUnit * Number(r.quantity_produced),
         source: "production",
       });
     });
 
     return rows;
-  }, [todayCombos, todayRuns]);
+  }, [todayCombos, todayRuns, variableComponents]);
 
   // Sales by service period
   const salesByPeriod = useMemo(() => {
