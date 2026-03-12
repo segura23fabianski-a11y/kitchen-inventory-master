@@ -220,7 +220,7 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 border rounded-md max-h-[50vh]">
+        <div className="flex-1 min-h-0 border rounded-md overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
