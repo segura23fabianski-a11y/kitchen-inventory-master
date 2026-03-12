@@ -71,6 +71,18 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
     },
   });
 
+  const { data: variableComponents } = useQuery({
+    queryKey: ["recipe-variable-components"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_variable_components" as any)
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const { data: productionRuns } = useQuery({
     queryKey: ["recipe-production-runs"],
     queryFn: async () => {
@@ -132,8 +144,9 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
           totalProduced = logs.reduce((s: number, l: any) => s + Number(l.servings), 0);
           lastProductionDate = logs[0].executed_at;
         }
-        // No theoretical for variable combos (depends on execution)
-        theoreticalUnitCost = 0;
+        // Theoretical from average_component_cost sum
+        const recipeComponents = variableComponents?.filter((vc: any) => vc.recipe_id === recipe.id) ?? [];
+        theoreticalUnitCost = recipeComponents.reduce((s: number, vc: any) => s + Number(vc.average_component_cost ?? 0), 0);
       } else {
         // Fixed recipe
         theoreticalUnitCost = calcRecipeTheoreticalCost(ings);
@@ -170,7 +183,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
         executionCount,
       };
     });
-  }, [recipes, comboLogs, productionRuns, productMap]);
+  }, [recipes, comboLogs, productionRuns, productMap, variableComponents]);
 
   const filteredRows = useMemo(() => {
     let rows = summaryRows.filter((r) =>
@@ -304,7 +317,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
-                    {row.recipeMode === "variable_combo" ? "—" : formatCost(row.theoreticalUnitCost)}
+                    {formatCost(row.theoreticalUnitCost)}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
                     {formatCost(row.lastRealUnitCost)}
@@ -321,7 +334,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
                       : "—"}
                   </TableCell>
                   <TableCell>
-                    {row.deviation !== null && row.recipeMode !== "variable_combo" ? (
+                    {row.deviation !== null && row.theoreticalUnitCost > 0 ? (
                       <div className="flex items-center gap-1">
                         {row.deviation > 0 ? (
                           <TrendingUp className="h-3.5 w-3.5 text-destructive" />
@@ -339,8 +352,8 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
                           </span>
                         )}
                       </div>
-                    ) : row.recipeMode === "variable_combo" && row.executionCount > 0 ? (
-                      <span className="text-xs text-muted-foreground">Variable</span>
+                    ) : row.executionCount > 0 && row.theoreticalUnitCost === 0 ? (
+                      <span className="text-xs text-muted-foreground">Sin teórico</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">Sin datos</span>
                     )}
@@ -446,7 +459,7 @@ function RecipeDetailDialog({
 
         {/* Cost summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {!isCombo && (
+          {row.theoreticalUnitCost > 0 && (
             <Card>
               <CardContent className="pt-3 pb-2 px-3 text-center">
                 <p className="text-xs text-muted-foreground">Teórico Unit.</p>
@@ -472,7 +485,7 @@ function RecipeDetailDialog({
               <p className="font-heading text-lg font-bold">{row.totalProduced}</p>
             </CardContent>
           </Card>
-          {!isCombo && row.deviation !== null && (
+          {row.theoreticalUnitCost > 0 && row.deviation !== null && (
             <Card>
               <CardContent className="pt-3 pb-2 px-3 text-center">
                 <p className="text-xs text-muted-foreground">Desviación</p>

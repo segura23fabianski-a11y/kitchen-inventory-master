@@ -48,6 +48,7 @@ interface ComponentLine {
   quantity_per_service: number;
   required: boolean;
   sort_order: number;
+  average_component_cost: number;
 }
 
 export default function Recipes() {
@@ -217,13 +218,13 @@ export default function Recipes() {
     );
 
   // Component operations for create form
-  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const addComponent = () => setComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length, average_component_cost: 0 }]);
   const removeComponent = (i: number) => setComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
   const updateComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
   // Component operations for edit form
-  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length }]);
+  const addEditComponent = () => setEditComponents((prev) => [...prev, { component_name: "", component_mode: "product", quantity_per_service: 1, required: true, sort_order: prev.length, average_component_cost: 0 }]);
   const removeEditComponent = (i: number) => setEditComponents((prev) => prev.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, sort_order: idx })));
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
@@ -247,7 +248,7 @@ export default function Recipes() {
         const validComponents = components.filter((c) => c.component_name.trim());
         if (validComponents.length > 0) {
           const { error: compError } = await supabase.from("recipe_variable_components" as any).insert(
-            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), component_mode: c.component_mode, quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, restaurant_id: restaurantId! }))
+            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), component_mode: c.component_mode, quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, average_component_cost: c.average_component_cost || 0, restaurant_id: restaurantId! }))
           );
           if (compError) throw compError;
         }
@@ -315,6 +316,7 @@ export default function Recipes() {
       quantity_per_service: Number(c.quantity_per_service),
       required: c.required,
       sort_order: c.sort_order,
+      average_component_cost: Number(c.average_component_cost ?? 0),
     })));
     setEditMode(true);
   };
@@ -387,6 +389,7 @@ export default function Recipes() {
               quantity_per_service: c.quantity_per_service,
               required: c.required,
               sort_order: i,
+              average_component_cost: c.average_component_cost || 0,
               restaurant_id: restaurantId!,
             }))
           );
@@ -495,6 +498,16 @@ export default function Recipes() {
             />
           </div>
           <Label className="text-xs text-muted-foreground shrink-0">c/u</Label>
+          <div className="w-28">
+            <NumericKeypadInput
+              mode="decimal"
+              value={comp.average_component_cost || 0}
+              onChange={(v) => updateFn(i, "average_component_cost", Number(v) || 0)}
+              min="0"
+              keypadLabel="Costo prom. estimado"
+            />
+          </div>
+          <Label className="text-xs text-muted-foreground shrink-0">$/u</Label>
           <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeFn(i)}>
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
@@ -502,9 +515,14 @@ export default function Recipes() {
       ))}
 
       {comps.length > 0 && (
-        <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          <Layers className="h-4 w-4 inline mr-1" />
-          {comps.filter(c => c.component_name.trim()).length} componente(s) definidos — el costo se calculará al ejecutar según los productos seleccionados
+        <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground flex items-center justify-between">
+          <span>
+            <Layers className="h-4 w-4 inline mr-1" />
+            {comps.filter(c => c.component_name.trim()).length} componente(s) definidos
+          </span>
+          <span className="font-mono font-semibold text-foreground">
+            Costo teórico: ${comps.reduce((s, c) => s + (c.average_component_cost || 0), 0).toLocaleString("es-CO")}
+          </span>
         </div>
       )}
     </div>
