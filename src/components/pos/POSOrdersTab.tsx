@@ -462,6 +462,17 @@ export default function POSOrdersTab() {
                     <Building2 className="h-3 w-3" /> {(order as any).hotel_companies.name}
                   </div>
                 )}
+                {/* Show contract/group info */}
+                {((order as any).contracts?.name || (order as any).contract_groups?.name) && (
+                  <div className="text-xs text-muted-foreground">
+                    {(order as any).contracts?.name && (
+                      <span className="font-medium">{(order as any).contracts.name}</span>
+                    )}
+                    {(order as any).contract_groups?.name && (
+                      <span> → {(order as any).contract_groups.name}</span>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="flex gap-1 flex-wrap">
                 {order.status === "open" && (
