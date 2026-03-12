@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ export default function CompaniesTab() {
     enabled: !!ratesCompany,
   });
 
-  const filtered = companies?.filter((c: any) => `${c.name} ${c.nit || ""}`.toLowerCase().includes(search.toLowerCase()));
+  const filtered = companies?.filter((c: any) => fuzzyMatch(buildHaystack(c.name, c.nit), search));
 
   const saveMutation = useMutation({
     mutationFn: async () => {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export default function GuestsTab() {
   });
 
   const filtered = guests?.filter((g: any) =>
-    `${g.first_name} ${g.last_name} ${g.document_number}`.toLowerCase().includes(search.toLowerCase())
+    fuzzyMatch(buildHaystack(g.first_name, g.last_name, g.document_number), search)
   );
 
   const saveMutation = useMutation({

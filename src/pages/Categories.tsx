@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fuzzyMatch } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -146,7 +147,7 @@ export default function Categories() {
                   <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">Sin categorías</TableCell></TableRow>
                 ) : (
                   categories
-                    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+                    .filter((c) => fuzzyMatch(c.name, search))
                     .map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.name}</TableCell>

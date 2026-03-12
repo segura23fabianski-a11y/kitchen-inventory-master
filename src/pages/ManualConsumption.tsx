@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { fuzzyMatch } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -114,8 +115,7 @@ export default function ManualConsumption() {
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     if (!search.trim()) return products;
-    const q = search.toLowerCase();
-    return products.filter((p) => p.name.toLowerCase().includes(q));
+    return products.filter((p) => fuzzyMatch(p.name, search));
   }, [products, search]);
 
   // Mutations

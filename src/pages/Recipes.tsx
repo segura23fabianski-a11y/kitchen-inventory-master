@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { fuzzyMatch } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -436,7 +437,7 @@ export default function Recipes() {
 
   const filteredRecipes = recipes
     ?.filter((r) => filterType === "all" || (r as any).recipe_type === filterType)
-    .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+    .filter((r) => fuzzyMatch(r.name, search));
 
   // Render component editor (shared between create and edit)
   const renderComponentEditor = (

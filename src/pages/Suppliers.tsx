@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
@@ -118,9 +119,7 @@ export default function Suppliers() {
   };
 
   const filtered = suppliers?.filter((s: any) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.nit || "").toLowerCase().includes(search.toLowerCase()) ||
-    (s.contact_name || "").toLowerCase().includes(search.toLowerCase())
+    fuzzyMatch(buildHaystack(s.name, s.nit, s.contact_name), search)
   );
 
   return (
