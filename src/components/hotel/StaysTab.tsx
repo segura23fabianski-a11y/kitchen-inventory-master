@@ -647,12 +647,19 @@ export default function StaysTab() {
             <AlertDialogAction onClick={async () => {
               if (!deleteStayId) return;
               try {
+                // Get room_id before deleting
+                const { data: stayData } = await supabase.from("stays").select("room_id, status").eq("id", deleteStayId).single();
                 await supabase.from("stay_guests").delete().eq("stay_id", deleteStayId);
                 await supabase.from("guest_signatures").delete().eq("stay_id", deleteStayId);
                 const { error } = await supabase.from("stays").delete().eq("id", deleteStayId);
                 if (error) throw error;
+                // Release room if stay was active
+                if (stayData?.room_id && stayData.status === "checked_in") {
+                  await supabase.from("rooms").update({ status: "available" }).eq("id", stayData.room_id);
+                  qc.invalidateQueries({ queryKey: ["rooms"] });
+                }
                 qc.invalidateQueries({ queryKey: ["stays"] });
-                toast({ title: "Estancia eliminada" });
+                toast({ title: "Estancia eliminada y habitación liberada" });
               } catch (e: any) {
                 toast({ title: "Error", description: e.message, variant: "destructive" });
               }
