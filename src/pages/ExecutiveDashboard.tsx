@@ -119,6 +119,7 @@ export default function ExecutiveDashboard() {
         name: recipeNameMap.get(id) ?? "Desconocida",
         totalCost: Math.round(cost),
         count: countMap.get(id) ?? 0,
+        avgCost: Math.round(cost / (countMap.get(id) ?? 1)),
       }))
       .sort((a, b) => b.totalCost - a.totalCost)
       .slice(0, 5);
