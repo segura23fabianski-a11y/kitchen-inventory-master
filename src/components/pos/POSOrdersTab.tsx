@@ -62,10 +62,18 @@ interface CartItem {
   notes: string;
 }
 
+const RATE_SOURCE_LABELS: Record<string, string> = {
+  company_mode: "Empresa + modalidad",
+  company_general: "Empresa",
+  mode_general: "Modalidad",
+  menu_base: "Base",
+};
+
 export default function POSOrdersTab() {
   const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { resolveRate } = useServiceRates();
 
   const [creating, setCreating] = useState(false);
   const [orderType, setOrderType] = useState<"company" | "individual" | "table">("individual");
