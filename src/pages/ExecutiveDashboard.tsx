@@ -349,9 +349,12 @@ export default function ExecutiveDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{r.name}</p>
-                        <p className="text-xs text-muted-foreground">{r.count} consumos</p>
+                        <p className="text-xs text-muted-foreground">{r.count} consumos · Prom: ${r.avgCost.toLocaleString()}/u</p>
                       </div>
-                      <p className="text-sm font-bold font-heading">${r.totalCost.toLocaleString()}</p>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold font-heading">${r.totalCost.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">total acum.</p>
+                      </div>
                     </div>
                   ))}
                 </div>
