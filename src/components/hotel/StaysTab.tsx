@@ -635,6 +635,32 @@ export default function StaysTab() {
           )}
         </DialogContent>
       </Dialog>
+      {/* ── Delete Stay Dialog (Admin) ── */}
+      <AlertDialog open={!!deleteStayId} onOpenChange={() => setDeleteStayId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar estancia?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción eliminará la estancia y sus registros asociados. No se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!deleteStayId) return;
+              try {
+                await supabase.from("stay_guests").delete().eq("stay_id", deleteStayId);
+                await supabase.from("guest_signatures").delete().eq("stay_id", deleteStayId);
+                const { error } = await supabase.from("stays").delete().eq("id", deleteStayId);
+                if (error) throw error;
+                qc.invalidateQueries({ queryKey: ["stays"] });
+                toast({ title: "Estancia eliminada" });
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setDeleteStayId(null);
+            }}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
