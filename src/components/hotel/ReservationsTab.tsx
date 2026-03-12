@@ -357,6 +357,11 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                         <LogIn className="h-4 w-4" />
                       </Button>
                     )}
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteResId(res.id)} title="Eliminar (Admin)">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
