@@ -78,6 +78,8 @@ export default function POSOrdersTab() {
   const [creating, setCreating] = useState(false);
   const [orderType, setOrderType] = useState<"company" | "individual" | "table">("individual");
   const [companyId, setCompanyId] = useState("");
+  const [contractId, setContractId] = useState("");
+  const [contractGroupId, setContractGroupId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [guestId, setGuestId] = useState("");
   const [tableId, setTableId] = useState("");
