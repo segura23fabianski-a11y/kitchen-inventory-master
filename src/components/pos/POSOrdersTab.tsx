@@ -150,6 +150,42 @@ export default function POSOrdersTab() {
     enabled: !!restaurantId,
   });
 
+  const { data: contracts = [] } = useQuery({
+    queryKey: ["contracts-active", restaurantId, companyId],
+    queryFn: async () => {
+      let q = supabase
+        .from("contracts")
+        .select("id, name, code, company_id")
+        .eq("restaurant_id", restaurantId!)
+        .eq("active", true)
+        .order("name");
+      if (companyId && companyId !== "none") {
+        q = q.eq("company_id", companyId);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId && !!companyId && companyId !== "none",
+  });
+
+  const { data: contractGroups = [] } = useQuery({
+    queryKey: ["contract-groups-active", restaurantId, contractId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contract_groups")
+        .select("id, name, group_type")
+        .eq("restaurant_id", restaurantId!)
+        .eq("contract_id", contractId)
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId && !!contractId,
+  });
+  });
+
   const { data: guests = [] } = useQuery({
     queryKey: ["hotel-guests-pos", restaurantId, guestSearch],
     queryFn: async () => {
