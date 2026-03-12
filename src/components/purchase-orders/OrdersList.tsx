@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye } from "lucide-react";
 import { generatePurchaseOrderPdf, PdfOrderData, PdfSettings } from "./generatePurchaseOrderPdf";
 import { usePdfSettings } from "@/hooks/use-pdf-settings";
+import { useAuth } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import NewOrderDialog from "./NewOrderDialog";
@@ -19,6 +20,8 @@ export default function OrdersList() {
   const { toast } = useToast();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission("purchase_orders_create");
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const qc = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewOrder, setViewOrder] = useState<any>(null);
@@ -219,6 +222,11 @@ export default function OrdersList() {
                               <XCircle className="h-4 w-4 text-amber-500" />
                             </Button>
                           </>
+                        )}
+                        {o.status !== "draft" && isAdmin && (
+                          <Button size="icon" variant="ghost" onClick={() => setDeleteId(o.id)} title="Eliminar (Admin)">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
