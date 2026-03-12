@@ -558,7 +558,7 @@ export default function POSOrdersTab() {
 
               <div>
                 <Label>Destino de entrega</Label>
-                <Select value={destType} onValueChange={setDestType}>
+                <Select value={destType} onValueChange={(v) => { setDestType(v); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DEST_OPTIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
