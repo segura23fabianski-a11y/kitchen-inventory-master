@@ -68,7 +68,7 @@ export default function Hotel() {
         {hasPermission("hotel_rooms_view") && <TabsContent value="rooms"><RoomsTab /></TabsContent>}
         {hasPermission("hotel_room_types_view") && <TabsContent value="room-types"><RoomTypesTab /></TabsContent>}
         {hasPermission("hotel_guests_view") && <TabsContent value="guests"><GuestsTab /></TabsContent>}
-        {hasPermission("hotel_companies_view") && <TabsContent value="companies"><CompaniesTab /></TabsContent>}
+        
         {hasPermission("housekeeping_view") && <TabsContent value="housekeeping"><HousekeepingTab /></TabsContent>}
         {hasPermission("laundry_view") && <TabsContent value="laundry"><LaundryTab /></TabsContent>}
         {hasPermission("linen_inventory_view") && <TabsContent value="linen"><LinenInventoryTab /></TabsContent>}
