@@ -168,8 +168,9 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const isItemActive = (item: NavItem) => {
     if (item.tabParam) {
-      if (location.pathname !== "/hotel") return false;
-      const activeTab = currentTab || "dashboard";
+      if (location.pathname !== item.to) return false;
+      const defaultTab = item.to === "/hotel" ? "dashboard" : "orders";
+      const activeTab = currentTab || defaultTab;
       return activeTab === item.tabParam;
     }
     return location.pathname === item.to;
