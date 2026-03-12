@@ -132,7 +132,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
           totalProduced = logs.reduce((s: number, l: any) => s + Number(l.servings), 0);
           lastProductionDate = logs[0].executed_at;
         }
-        // No theoretical for variable combos (depends on execution)
+        // Theoretical from average_component_cost sum (passed via variableComponents prop)
         theoreticalUnitCost = 0;
       } else {
         // Fixed recipe

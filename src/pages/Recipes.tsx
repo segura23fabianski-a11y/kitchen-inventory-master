@@ -498,6 +498,16 @@ export default function Recipes() {
             />
           </div>
           <Label className="text-xs text-muted-foreground shrink-0">c/u</Label>
+          <div className="w-28">
+            <NumericKeypadInput
+              mode="decimal"
+              value={comp.average_component_cost || 0}
+              onChange={(v) => updateFn(i, "average_component_cost", Number(v) || 0)}
+              min="0"
+              keypadLabel="Costo prom. estimado"
+            />
+          </div>
+          <Label className="text-xs text-muted-foreground shrink-0">$/u</Label>
           <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeFn(i)}>
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
@@ -505,9 +515,14 @@ export default function Recipes() {
       ))}
 
       {comps.length > 0 && (
-        <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          <Layers className="h-4 w-4 inline mr-1" />
-          {comps.filter(c => c.component_name.trim()).length} componente(s) definidos — el costo se calculará al ejecutar según los productos seleccionados
+        <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground flex items-center justify-between">
+          <span>
+            <Layers className="h-4 w-4 inline mr-1" />
+            {comps.filter(c => c.component_name.trim()).length} componente(s) definidos
+          </span>
+          <span className="font-mono font-semibold text-foreground">
+            Costo teórico: ${comps.reduce((s, c) => s + (c.average_component_cost || 0), 0).toLocaleString("es-CO")}
+          </span>
         </div>
       )}
     </div>
