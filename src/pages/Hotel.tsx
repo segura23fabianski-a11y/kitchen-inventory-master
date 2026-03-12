@@ -4,7 +4,7 @@ import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkle
 import RoomTypesTab from "@/components/hotel/RoomTypesTab";
 import RoomsTab from "@/components/hotel/RoomsTab";
 import GuestsTab from "@/components/hotel/GuestsTab";
-import CompaniesTab from "@/components/hotel/CompaniesTab";
+
 import StaysTab from "@/components/hotel/StaysTab";
 import HousekeepingTab from "@/components/hotel/HousekeepingTab";
 import CorporateReportsTab from "@/components/hotel/CorporateReportsTab";
@@ -29,7 +29,7 @@ const hotelTabs: TabDef[] = [
   { value: "rooms", label: "Habitaciones", icon: BedDouble, permKey: "hotel_rooms_view" },
   { value: "room-types", label: "Tipos", icon: HotelIcon, permKey: "hotel_room_types_view" },
   { value: "guests", label: "Huéspedes", icon: Users, permKey: "hotel_guests_view" },
-  { value: "companies", label: "Empresas", icon: Building2, permKey: "hotel_companies_view" },
+  
   { value: "housekeeping", label: "Housekeeping", icon: Sparkles, permKey: "housekeeping_view" },
   { value: "laundry", label: "Lavandería", icon: Shirt, permKey: "laundry_view" },
   { value: "linen", label: "Lencería", icon: Package, permKey: "linen_inventory_view" },
@@ -68,7 +68,7 @@ export default function Hotel() {
         {hasPermission("hotel_rooms_view") && <TabsContent value="rooms"><RoomsTab /></TabsContent>}
         {hasPermission("hotel_room_types_view") && <TabsContent value="room-types"><RoomTypesTab /></TabsContent>}
         {hasPermission("hotel_guests_view") && <TabsContent value="guests"><GuestsTab /></TabsContent>}
-        {hasPermission("hotel_companies_view") && <TabsContent value="companies"><CompaniesTab /></TabsContent>}
+        
         {hasPermission("housekeeping_view") && <TabsContent value="housekeeping"><HousekeepingTab /></TabsContent>}
         {hasPermission("laundry_view") && <TabsContent value="laundry"><LaundryTab /></TabsContent>}
         {hasPermission("linen_inventory_view") && <TabsContent value="linen"><LinenInventoryTab /></TabsContent>}

@@ -42,7 +42,7 @@ const navGroups: NavGroup[] = [
       { to: "/hotel", icon: BedDouble, label: "Habitaciones", permKey: "hotel_rooms_view", tabParam: "rooms" },
       { to: "/hotel", icon: Hotel, label: "Tipos", permKey: "hotel_room_types_view", tabParam: "room-types" },
       { to: "/hotel", icon: UsersIcon, label: "Huéspedes", permKey: "hotel_guests_view", tabParam: "guests" },
-      { to: "/hotel", icon: Building2, label: "Empresas", permKey: "hotel_companies_view", tabParam: "companies" },
+      
       { to: "/hotel", icon: Sparkles, label: "Housekeeping", permKey: "housekeeping_view", tabParam: "housekeeping" },
       { to: "/hotel", icon: Shirt, label: "Lavandería", permKey: "laundry_view", tabParam: "laundry" },
       { to: "/hotel", icon: Package, label: "Lencería", permKey: "linen_inventory_view", tabParam: "linen" },
@@ -87,7 +87,7 @@ const navGroups: NavGroup[] = [
       { to: "/pos", icon: Building2, label: "Corporativo", permKey: "pos_corporate", tabParam: "corporate" },
       { to: "/pos", icon: UtensilsCrossed, label: "Cocina", permKey: "pos_kitchen", tabParam: "kitchen" },
       { to: "/pos", icon: List, label: "Menú", permKey: "pos_menu", tabParam: "menu" },
-      { to: "/pos", icon: Tag, label: "Tarifas", permKey: "pos_menu", tabParam: "rates" },
+      
       { to: "/pos", icon: LayoutGrid, label: "Mesas", permKey: "pos_tables", tabParam: "tables" },
       { to: "/pos", icon: Shield, label: "Admin", permKey: "pos_admin", tabParam: "admin" },
     ],
@@ -99,6 +99,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
       { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
+      { to: "/corporate-masters", icon: Building2, label: "Maestros Corp.", permKey: "corporate_masters" },
       { to: "/branding", icon: Paintbrush, label: "Branding", permKey: "branding" },
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
       { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "recalculate_inventory" },
