@@ -391,10 +391,10 @@ export default function POSRestaurantTab() {
       <div className="h-[calc(100vh-140px)] flex flex-col">
         {/* Mode switcher */}
         <div className="flex items-center gap-2 mb-4">
-          <Button variant={mode === "quick" ? "default" : "outline"} size="sm" onClick={() => setMode("quick")}>
+          <Button variant="outline" size="sm" onClick={() => setMode("quick")}>
             <Zap className="h-4 w-4 mr-1" />Venta Rápida
           </Button>
-          <Button variant={mode === "table" ? "default" : "outline"} size="sm" onClick={() => setMode("table")}>
+          <Button variant="default" size="sm" onClick={() => setMode("table")}>
             <LayoutGrid className="h-4 w-4 mr-1" />Mesa
           </Button>
         </div>
