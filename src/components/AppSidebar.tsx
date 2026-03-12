@@ -109,7 +109,7 @@ function getActiveGroupId(pathname: string, tabParam: string | null): string | n
   for (const g of navGroups) {
     for (const item of g.items) {
       if (item.tabParam) {
-        if (pathname === "/hotel" && tabParam === item.tabParam) return g.id;
+        if (pathname === item.to && tabParam === item.tabParam) return g.id;
       } else {
         if (item.to === pathname) return g.id;
       }
