@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   LayoutGrid, List, LogIn, LogOut, Sparkles, Wrench, Eye,
-  AlertTriangle, Users, Building2, Search, BedDouble
+  AlertTriangle, Users, Building2, Search, BedDouble, CalendarPlus
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
