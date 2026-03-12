@@ -518,23 +518,46 @@ export default function KitchenKiosk() {
     return true;
   }, [comboExecution, products]);
 
-  const comboTotalCost = useMemo(() => {
-    if (!comboExecution) return 0;
-    return comboExecution.components.reduce((sum, comp) => {
+  const comboCostBreakdown = useMemo(() => {
+    if (!comboExecution) return { totalCost: 0, components: [] as { name: string; totalCost: number; unitCost: number; source: string; lotTotal?: number; lotQty?: number }[] };
+    const servings = comboExecution.servings;
+    const components: { name: string; totalCost: number; unitCost: number; source: string; lotTotal?: number; lotQty?: number }[] = [];
+    let totalCost = 0;
+
+    for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
         const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) return sum;
+        if (!prod) continue;
         const cost = Number(prod.average_cost ?? 0);
-        return sum + (cost * comp.quantityPerService * comboExecution.servings);
+        const lineCost = cost * comp.quantityPerService * servings;
+        totalCost += lineCost;
+        components.push({ name: comp.componentName, totalCost: lineCost, unitCost: lineCost / servings, source: "CPP" });
       } else {
-        // recipe mode: use production run unit cost if available, else sum ingredient costs
         if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
-          return sum + (comp.productionRunUnitCost * comp.quantityPerService * comboExecution.servings);
+          const qty = comp.quantityPerService * servings;
+          const lineCost = comp.productionRunUnitCost * qty;
+          totalCost += lineCost;
+          // Find the production run to get lot info
+          const run = todayRunByRecipe.get(comp.selectedRecipeId);
+          components.push({
+            name: comp.componentName,
+            totalCost: lineCost,
+            unitCost: comp.productionRunUnitCost * comp.quantityPerService,
+            source: "Lote del día",
+            lotTotal: run ? Number(run.actual_total_cost) : undefined,
+            lotQty: run ? Number(run.quantity_produced) : undefined,
+          });
+        } else {
+          const ingCost = comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+          totalCost += ingCost;
+          components.push({ name: comp.componentName, totalCost: ingCost, unitCost: ingCost / servings, source: "Teórico" });
         }
-        return sum + comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
       }
-    }, 0);
-  }, [comboExecution, products]);
+    }
+    return { totalCost, components };
+  }, [comboExecution, products, todayRunByRecipe]);
+
+  const comboTotalCost = comboCostBreakdown.totalCost;
 
   // ──── Confirm mutation (individual products) ────
   const confirmConsumption = useMutation({
@@ -911,17 +934,41 @@ export default function KitchenKiosk() {
             })}
           </div>
 
-          <div className="rounded-md bg-muted p-4 flex justify-between items-center">
-            <span className="text-muted-foreground text-sm">Costo total del combo</span>
-            <div className="text-right">
-              <span className="font-heading font-bold text-2xl">${comboTotalCost.toFixed(2)}</span>
-              {comboExecution.servings > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  ${(comboTotalCost / comboExecution.servings).toFixed(2)} / servicio
-                </p>
-              )}
-            </div>
-          </div>
+          {/* Cost breakdown */}
+          <Card>
+            <CardContent className="pt-4 space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Desglose de costos por componente</p>
+              {comboCostBreakdown.components.map((comp, idx) => (
+                <div key={idx} className="flex items-center justify-between text-sm border-b last:border-0 pb-1.5 last:pb-0">
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium capitalize">{comp.name}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({comp.source})</span>
+                    {comp.lotTotal !== undefined && comp.lotQty !== undefined && (
+                      <p className="text-xs text-muted-foreground">
+                        Lote: ${comp.lotTotal.toLocaleString("es-CO", { maximumFractionDigits: 0 })} / {comp.lotQty} unidades = ${(comp.lotTotal / comp.lotQty).toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="font-mono text-sm">${comp.unitCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u</p>
+                    <p className="font-mono text-xs text-muted-foreground">${comp.totalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })} total</p>
+                  </div>
+                </div>
+              ))}
+              <div className="border-t pt-2 flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-muted-foreground">Costo total del lote</p>
+                  <p className="text-xs text-muted-foreground">{comboExecution.servings} servicios</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-heading font-bold text-2xl">${comboTotalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</span>
+                  <p className="text-sm font-semibold text-primary">
+                    ${(comboTotalCost / comboExecution.servings).toLocaleString("es-CO", { maximumFractionDigits: 0 })} / servicio
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => setComboExecution(null)}>
