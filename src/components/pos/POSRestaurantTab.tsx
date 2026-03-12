@@ -701,7 +701,7 @@ export default function POSRestaurantTab() {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Cart totals & actions */}
           {cart.length > 0 && (
