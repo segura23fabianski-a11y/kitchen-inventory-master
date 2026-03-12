@@ -26,7 +26,7 @@ export default function POSKitchenTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pos_orders")
-        .select(`*, pos_order_items(*, menu_items(name)), hotel_companies(name), pos_tables(name)`)
+        .select(`*, pos_order_items(*, menu_items(name)), hotel_companies(name), pos_tables(name), contracts(name, code)`)
         .eq("restaurant_id", restaurantId!)
         .eq("status", "sent_to_kitchen")
         .order("created_at", { ascending: true });
