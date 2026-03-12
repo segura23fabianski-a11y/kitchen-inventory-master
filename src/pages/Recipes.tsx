@@ -634,7 +634,7 @@ export default function Recipes() {
                 <BarChart3 className="mr-1 h-4 w-4" /> Costos
               </Button>
             </div>
-          {canCreate && (
+          {canCreate && viewMode === "cards" && (
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nueva Receta</Button>
