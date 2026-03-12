@@ -19,7 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar, Package } from "lucide-react";
+import { Plus, Trash2, ChefHat, DollarSign, Eye, Search, Shirt, SprayCan, Pencil, Save, X, Layers, GripVertical, TrendingUp, TrendingDown, Calendar, Package, BarChart3, LayoutGrid } from "lucide-react";
+import RecipeCostAnalysis from "@/components/RecipeCostAnalysis";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
@@ -77,6 +78,7 @@ export default function Recipes() {
   const canManage = canCreate || canUpdate;
   const restaurantId = useRestaurantId();
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "costs">("cards");
 
   const { data: products } = useQuery({
     queryKey: ["products"],
@@ -613,7 +615,27 @@ export default function Recipes() {
             <h1 className="font-heading text-3xl font-bold">Recetas</h1>
             <p className="text-muted-foreground">Preparaciones de cocina, lavandería y aseo con ingredientes y costo teórico</p>
           </div>
-          {canCreate && (
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border">
+              <Button
+                variant={viewMode === "cards" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-r-none"
+                onClick={() => setViewMode("cards")}
+              >
+                <LayoutGrid className="mr-1 h-4 w-4" /> Recetas
+              </Button>
+              <Button
+                variant={viewMode === "costs" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setViewMode("costs")}
+              >
+                <BarChart3 className="mr-1 h-4 w-4" /> Costos
+              </Button>
+            </div>
+          </div>
+          {canCreate && viewMode === "cards" && (
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nueva Receta</Button>
@@ -682,108 +704,114 @@ export default function Recipes() {
           )}
         </div>
 
-        {/* Type filter tabs */}
-        <Tabs value={filterType} onValueChange={(v) => setFilterType(v as RecipeType | "all")}>
-          <TabsList>
-            <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="food" className="gap-1"><ChefHat className="h-3.5 w-3.5" /> Cocina</TabsTrigger>
-            <TabsTrigger value="laundry" className="gap-1"><Shirt className="h-3.5 w-3.5" /> Lavandería</TabsTrigger>
-            <TabsTrigger value="housekeeping" className="gap-1"><SprayCan className="h-3.5 w-3.5" /> Aseo</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {viewMode === "costs" ? (
+          <RecipeCostAnalysis restaurantId={restaurantId!} />
+        ) : (
+          <>
+            {/* Type filter tabs */}
+            <Tabs value={filterType} onValueChange={(v) => setFilterType(v as RecipeType | "all")}>
+              <TabsList>
+                <TabsTrigger value="all">Todas</TabsTrigger>
+                <TabsTrigger value="food" className="gap-1"><ChefHat className="h-3.5 w-3.5" /> Cocina</TabsTrigger>
+                <TabsTrigger value="laundry" className="gap-1"><Shirt className="h-3.5 w-3.5" /> Lavandería</TabsTrigger>
+                <TabsTrigger value="housekeeping" className="gap-1"><SprayCan className="h-3.5 w-3.5" /> Aseo</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <KioskTextInput className="pl-10" placeholder="Buscar receta..." value={search} onChange={setSearch} keyboardLabel="Buscar receta" inputType="search" />
-        </div>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <KioskTextInput className="pl-10" placeholder="Buscar receta..." value={search} onChange={setSearch} keyboardLabel="Buscar receta" inputType="search" />
+            </div>
 
-        {/* Recipe list */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            <p className="text-muted-foreground col-span-full text-center py-12">Cargando...</p>
-          ) : !filteredRecipes?.length ? (
-            <p className="text-muted-foreground col-span-full text-center py-12">Sin recetas registradas</p>
-          ) : (
-            filteredRecipes.map((recipe) => {
-              const rType = ((recipe as any).recipe_type ?? "food") as RecipeType;
-              const rMode = ((recipe as any).recipe_mode ?? "fixed") as RecipeMode;
-              const cfg = RECIPE_TYPE_CONFIG[rType];
-              const Icon = cfg.icon;
-              const ings = (recipe.recipe_ingredients ?? []).map((ri) => ({
-                product_id: ri.product_id,
-                quantity: Number(ri.quantity),
-                unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
-                yield_per_portion: Number((ri as any).yield_per_portion ?? 0),
-              }));
-              const cost = calcRecipeCost(ings);
-              const totalYield = ings.reduce((s, i) => s + i.yield_per_portion, 0);
-              const ingCount = ings.length;
-              const comps = componentsByRecipe.get(recipe.id) ?? [];
-              return (
-                <Card key={recipe.id} className="group hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        {rMode === "variable_combo" ? <Layers className="h-5 w-5 text-primary" /> : <Icon className="h-5 w-5 text-primary" />}
-                        <CardTitle className="text-lg">{recipe.name}</CardTitle>
-                      </div>
-                      <div className="flex gap-1">
-                        {rMode === "variable_combo" && (
-                          <Badge variant="outline" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Combo</Badge>
-                        )}
-                        <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
-                      </div>
-                    </div>
-                    {recipe.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{recipe.description}</p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {rMode === "fixed" ? (
-                      <>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
-                          <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
+            {/* Recipe list */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {isLoading ? (
+                <p className="text-muted-foreground col-span-full text-center py-12">Cargando...</p>
+              ) : !filteredRecipes?.length ? (
+                <p className="text-muted-foreground col-span-full text-center py-12">Sin recetas registradas</p>
+              ) : (
+                filteredRecipes.map((recipe) => {
+                  const rType = ((recipe as any).recipe_type ?? "food") as RecipeType;
+                  const rMode = ((recipe as any).recipe_mode ?? "fixed") as RecipeMode;
+                  const cfg = RECIPE_TYPE_CONFIG[rType];
+                  const Icon = cfg.icon;
+                  const ings = (recipe.recipe_ingredients ?? []).map((ri) => ({
+                    product_id: ri.product_id,
+                    quantity: Number(ri.quantity),
+                    unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
+                    yield_per_portion: Number((ri as any).yield_per_portion ?? 0),
+                  }));
+                  const cost = calcRecipeCost(ings);
+                  const totalYield = ings.reduce((s, i) => s + i.yield_per_portion, 0);
+                  const ingCount = ings.length;
+                  const comps = componentsByRecipe.get(recipe.id) ?? [];
+                  return (
+                    <Card key={recipe.id} className="group hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            {rMode === "variable_combo" ? <Layers className="h-5 w-5 text-primary" /> : <Icon className="h-5 w-5 text-primary" />}
+                            <CardTitle className="text-lg">{recipe.name}</CardTitle>
+                          </div>
+                          <div className="flex gap-1">
+                            {rMode === "variable_combo" && (
+                              <Badge variant="outline" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Combo</Badge>
+                            )}
+                            <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
+                          </div>
                         </div>
-                        {rType === "food" && (
-                          <p className="text-xs text-muted-foreground">
-                            Rinde: {totalYield.toFixed(3)} kg/porción
-                          </p>
+                        {recipe.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">{recipe.description}</p>
                         )}
-                      </>
-                    ) : (
-                      <div className="space-y-1">
-                        <span className="text-sm text-muted-foreground">{comps.length} componente(s)</span>
-                        <div className="flex flex-wrap gap-1">
-                          {comps.slice(0, 5).map((c: any) => (
-                            <Badge key={c.id} variant="secondary" className="text-xs">{c.component_name}</Badge>
-                          ))}
-                          {comps.length > 5 && <Badge variant="secondary" className="text-xs">+{comps.length - 5}</Badge>}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {rMode === "fixed" ? (
+                          <>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
+                              <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
+                            </div>
+                            {rType === "food" && (
+                              <p className="text-xs text-muted-foreground">
+                                Rinde: {totalYield.toFixed(3)} kg/porción
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <div className="space-y-1">
+                            <span className="text-sm text-muted-foreground">{comps.length} componente(s)</span>
+                            <div className="flex flex-wrap gap-1">
+                              {comps.slice(0, 5).map((c: any) => (
+                                <Badge key={c.id} variant="secondary" className="text-xs">{c.component_name}</Badge>
+                              ))}
+                              {comps.length > 5 && <Badge variant="secondary" className="text-xs">+{comps.length - 5}</Badge>}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
+                            <Eye className="mr-1 h-3 w-3" /> Ver detalle
+                          </Button>
+                          {canUpdate && (
+                            <Button variant="outline" size="sm" onClick={() => { setViewRecipeId(recipe.id); startEdit(recipe); }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button variant="ghost" size="sm" onClick={() => deleteRecipe.mutate(recipe.id)} disabled={deleteRecipe.isPending}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
-                        <Eye className="mr-1 h-3 w-3" /> Ver detalle
-                      </Button>
-                      {canUpdate && (
-                        <Button variant="outline" size="sm" onClick={() => { setViewRecipeId(recipe.id); startEdit(recipe); }}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button variant="ghost" size="sm" onClick={() => deleteRecipe.mutate(recipe.id)} disabled={deleteRecipe.isPending}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
 
         {/* Detail / Edit dialog */}
         <Dialog open={!!viewRecipeId} onOpenChange={(o) => { if (!o) { setViewRecipeId(null); setEditMode(false); } }}>
