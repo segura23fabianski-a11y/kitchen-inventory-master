@@ -183,7 +183,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
         executionCount,
       };
     });
-  }, [recipes, comboLogs, productionRuns, productMap]);
+  }, [recipes, comboLogs, productionRuns, productMap, variableComponents]);
 
   const filteredRows = useMemo(() => {
     let rows = summaryRows.filter((r) =>
