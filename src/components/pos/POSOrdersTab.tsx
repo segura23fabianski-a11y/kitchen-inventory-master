@@ -96,45 +96,6 @@ export default function POSOrdersTab() {
   const [filterType, setFilterType] = useState("all");
   const barcodeBufferRef = useRef("");
   const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Global barcode listener (same pattern as KitchenKiosk)
-  useEffect(() => {
-    if (!creating) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input/textarea
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-      if (e.key === "Enter" && barcodeBufferRef.current.length >= 3) {
-        const code = barcodeBufferRef.current.trim();
-        barcodeBufferRef.current = "";
-        lookupBarcode(code);
-        return;
-      }
-
-      if (e.key.length === 1) {
-        barcodeBufferRef.current += e.key;
-        if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current);
-        barcodeTimeoutRef.current = setTimeout(() => {
-          barcodeBufferRef.current = "";
-        }, 200);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [creating, menuItems]);
-
-  const lookupBarcode = useCallback((code: string) => {
-    // Search menu_items by barcode
-    const found = menuItems.find((m: any) => m.barcode === code);
-    if (found) {
-      addToCart(found);
-      toast.success(`Escaneado: ${found.name}`);
-    } else {
-      toast.error(`Código no encontrado: ${code}`);
-    }
-  }, [menuItems]);
   const [guestSearch, setGuestSearch] = useState("");
 
   // Queries
