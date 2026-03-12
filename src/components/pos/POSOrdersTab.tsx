@@ -828,7 +828,15 @@ export default function POSOrdersTab() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex items-center gap-2 mr-auto">
+              <ScanBarcode className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Lector de código activo</span>
+              <div className="border-l pl-2 flex items-center gap-2">
+                <Switch checked={isTestRecord} onCheckedChange={setIsTestRecord} id="test-toggle" />
+                <Label htmlFor="test-toggle" className="text-xs cursor-pointer">Registro de prueba</Label>
+              </div>
+            </div>
             <Button variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
             <Button onClick={() => createOrder.mutate()} disabled={cart.length === 0 || createOrder.isPending}>
               Crear Pedido
