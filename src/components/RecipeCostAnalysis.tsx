@@ -388,6 +388,7 @@ function RecipeDetailDialog({
   comboItems,
   productionRuns,
   productMap,
+  variableComponents,
   onClose,
 }: {
   recipeId: string | null;
@@ -396,6 +397,7 @@ function RecipeDetailDialog({
   comboItems: any[];
   productionRuns: any[];
   productMap: Map<string, any>;
+  variableComponents: any[];
   onClose: () => void;
 }) {
   if (!recipeId || !row) return null;
