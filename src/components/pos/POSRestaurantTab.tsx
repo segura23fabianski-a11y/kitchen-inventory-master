@@ -388,7 +388,7 @@ export default function POSRestaurantTab() {
   // ─── TABLE MODE: Table Grid ───────────────────────────────
   if (mode === "table" && !selectedTableId) {
     return (
-      <div className="h-[calc(100vh-140px)] flex flex-col">
+      <div className="h-full min-h-0 flex flex-col overflow-hidden">
         {/* Mode switcher */}
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" onClick={() => setMode("quick")}>
