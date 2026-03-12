@@ -184,7 +184,6 @@ export default function POSOrdersTab() {
     },
     enabled: !!restaurantId && !!contractId,
   });
-  });
 
   const { data: guests = [] } = useQuery({
     queryKey: ["hotel-guests-pos", restaurantId, guestSearch],
