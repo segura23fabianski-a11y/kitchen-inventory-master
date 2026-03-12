@@ -400,7 +400,7 @@ export default function POSRestaurantTab() {
         </div>
 
         <h3 className="text-lg font-semibold mb-3">Selecciona una mesa</h3>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 flex-1 min-h-0 overflow-y-auto pr-1">
           {tables.map(t => {
             const isOccupied = t.status === "occupied";
             return (
