@@ -24,6 +24,7 @@ interface TabDef {
 
 const hotelTabs: TabDef[] = [
   { value: "dashboard", label: "Dashboard", icon: LayoutDashboard, permKey: "hotel_dashboard_view" },
+  { value: "reservations", label: "Reservas", icon: CalendarPlus, permKey: "hotel_reservations_view" },
   { value: "stays", label: "Estancias", icon: CalendarCheck, permKey: "hotel_stays_view" },
   { value: "rooms", label: "Habitaciones", icon: BedDouble, permKey: "hotel_rooms_view" },
   { value: "room-types", label: "Tipos", icon: HotelIcon, permKey: "hotel_room_types_view" },
