@@ -295,6 +295,31 @@ export default function POSOrdersTab() {
       const { error: itemsErr } = await supabase.from("pos_order_items").insert(items);
       if (itemsErr) throw itemsErr;
 
+      // Auto-deduct inventory for direct_product items
+      const directItems = cart.filter(c => {
+        const mi = menuItems.find((m: any) => m.id === c.menu_item_id);
+        return mi?.item_type === "direct_product" && mi?.linked_product_id;
+      });
+
+      if (directItems.length > 0) {
+        const movements = directItems.map(c => {
+          const mi = menuItems.find((m: any) => m.id === c.menu_item_id) as any;
+          return {
+            product_id: mi.linked_product_id,
+            restaurant_id: restaurantId!,
+            user_id: user!.id,
+            type: "salida",
+            quantity: c.quantity,
+            unit_cost: 0,
+            total_cost: 0,
+            notes: `Venta POS #${order.order_number} — ${c.name}`,
+            movement_date: new Date().toISOString(),
+          };
+        });
+        const { error: movErr } = await supabase.from("inventory_movements").insert(movements);
+        if (movErr) console.error("Error deducting inventory:", movErr);
+      }
+
       return order;
     },
     onSuccess: () => {
