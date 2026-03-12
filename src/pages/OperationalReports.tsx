@@ -23,7 +23,7 @@ import {
 import * as XLSX from "xlsx";
 
 const CONSUMPTION_TYPES = [
-  "salida", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño",
+  "salida", "pos_sale", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño",
 ];
 
 const AREA_COLORS = [

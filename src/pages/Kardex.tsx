@@ -17,11 +17,12 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
 
-type MovementType = "entrada" | "salida" | "ajuste" | "operational_consumption";
+type MovementType = "entrada" | "salida" | "ajuste" | "operational_consumption" | "pos_sale";
 
 const typeLabels: Record<string, string> = {
   entrada: "Entrada",
   salida: "Salida",
+  pos_sale: "Venta POS",
   ajuste: "Ajuste",
   operational_consumption: "Consumo Operativo",
   merma: "Merma",
@@ -33,6 +34,7 @@ const typeLabels: Record<string, string> = {
 const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   entrada: "default",
   salida: "destructive",
+  pos_sale: "destructive",
   ajuste: "secondary",
   operational_consumption: "outline",
   merma: "secondary",
