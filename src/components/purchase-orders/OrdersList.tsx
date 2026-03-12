@@ -20,6 +20,8 @@ export default function OrdersList() {
   const { toast } = useToast();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission("purchase_orders_create");
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const qc = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewOrder, setViewOrder] = useState<any>(null);
