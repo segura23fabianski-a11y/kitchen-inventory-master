@@ -559,22 +559,36 @@ function RecipeDetailDialog({
           {isCombo && historyEntries.length > 0 && (
             <div className="space-y-2 mt-4">
               <h3 className="font-heading text-sm font-semibold">Detalle de componentes por ejecución</h3>
-              <div className="space-y-2 max-h-72 overflow-y-auto">
+              <div className="space-y-2 max-h-96 overflow-y-auto">
                 {historyEntries.slice(0, 10).map((entry, idx) => (
                   entry.items.length > 0 && (
-                    <div key={idx} className="rounded-md border p-3 space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {format(new Date(entry.date), "dd/MM/yyyy HH:mm")} — {entry.qty} servicios — {formatCost(entry.realUnit)}/u
-                      </p>
+                    <div key={idx} className="rounded-md border p-3 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {format(new Date(entry.date), "dd/MM/yyyy HH:mm")} — {entry.qty} servicios
+                        </p>
+                        <div className="text-right">
+                          <span className="font-mono text-sm font-semibold">{formatCost(entry.realUnit)}/u</span>
+                          <span className="text-xs text-muted-foreground ml-2">(total: {formatCost(entry.realTotal)})</span>
+                        </div>
+                      </div>
                       {entry.items.map((item: any, j: number) => {
                         const prod = productMap.get(item.product_id);
+                        const isRunBased = item.cost_source === "production_run";
+                        const unitCostPerService = entry.qty > 0 ? Number(item.line_cost) / entry.qty : 0;
                         return (
-                          <div key={j} className="flex items-center justify-between text-xs">
-                            <span>
+                          <div key={j} className="flex items-center justify-between text-xs border-b last:border-0 pb-1 last:pb-0">
+                            <div className="flex-1 min-w-0">
                               <span className="font-medium capitalize">{item.component_name}</span>
-                              {" → "}{prod?.name ?? "?"}
-                            </span>
-                            <span className="font-mono">{formatCost(Number(item.line_cost))}</span>
+                              {" → "}{prod?.name ?? item.selected_recipe_id ? "Receta" : "?"}
+                              {isRunBased && (
+                                <Badge variant="outline" className="text-[9px] ml-1 px-1 py-0">Lote</Badge>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <span className="font-mono">{formatCost(unitCostPerService)}/u</span>
+                              <span className="text-muted-foreground ml-1">({formatCost(Number(item.line_cost))})</span>
+                            </div>
                           </div>
                         );
                       })}
