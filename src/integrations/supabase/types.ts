@@ -3808,6 +3808,7 @@ export type Database = {
             }
             Returns: undefined
           }
+      safe_delete_product: { Args: { _product_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
