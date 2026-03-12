@@ -365,6 +365,11 @@ export default function StaysTab() {
                     <Button variant="ghost" size="icon" title="Ver detalle" onClick={() => setDetailStay(s)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" title="Eliminar (Admin)" onClick={() => setDeleteStayId(s.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
