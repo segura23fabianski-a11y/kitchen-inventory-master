@@ -519,6 +519,42 @@ export default function POSOrdersTab() {
                 </div>
               )}
 
+              {/* Contract selector - shown when a company is selected */}
+              {companyId && companyId !== "none" && contracts.length > 0 && (
+                <div>
+                  <Label>Contrato / Frente (opcional)</Label>
+                  <Select value={contractId || "none"} onValueChange={(v) => { setContractId(v === "none" ? "" : v); setContractGroupId(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Sin contrato" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin contrato</SelectItem>
+                      {contracts.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}{c.code ? ` (${c.code})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Contract group selector */}
+              {contractId && contractGroups.length > 0 && (
+                <div>
+                  <Label>Subgrupo / Centro de consumo (opcional)</Label>
+                  <Select value={contractGroupId || "none"} onValueChange={(v) => setContractGroupId(v === "none" ? "" : v)}>
+                    <SelectTrigger><SelectValue placeholder="Sin subgrupo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin subgrupo</SelectItem>
+                      {contractGroups.map(g => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}{g.group_type ? ` (${g.group_type})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Guest/client selector for individual orders */}
               {orderType === "individual" && (
                 <div className="space-y-1">
