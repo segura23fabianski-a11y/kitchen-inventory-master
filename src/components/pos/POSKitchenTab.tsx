@@ -26,7 +26,7 @@ export default function POSKitchenTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pos_orders")
-        .select(`*, pos_order_items(*, menu_items(name)), hotel_companies(name), pos_tables(name)`)
+        .select(`*, pos_order_items(*, menu_items(name)), hotel_companies(name), pos_tables(name), contracts(name, code)`)
         .eq("restaurant_id", restaurantId!)
         .eq("status", "sent_to_kitchen")
         .order("created_at", { ascending: true });
@@ -68,12 +68,18 @@ export default function POSKitchenTab() {
   const individualOrders = rawOrders.filter(o => o.order_type === "individual");
   const tableOrders = rawOrders.filter(o => o.order_type === "table");
 
-  // Group corporate by company
-  const corporateByCompany: Record<string, typeof corporateOrders> = {};
+  // Group corporate by company + contract (contract shown, not subgroup)
+  const corporateByGroup: Record<string, { label: string; orders: typeof corporateOrders }> = {};
   for (const o of corporateOrders) {
     const companyName = (o as any).hotel_companies?.name || "Empresa";
-    if (!corporateByCompany[companyName]) corporateByCompany[companyName] = [];
-    corporateByCompany[companyName].push(o);
+    const contractName = (o as any).contracts?.name;
+    const contractCode = (o as any).contracts?.code;
+    const label = contractName
+      ? `${companyName} — ${contractName}${contractCode ? ` (${contractCode})` : ""}`
+      : companyName;
+    const key = `${o.company_id || ""}_${(o as any).contract_id || ""}`;
+    if (!corporateByGroup[key]) corporateByGroup[key] = { label, orders: [] };
+    corporateByGroup[key].orders.push(o);
   }
 
   // Consolidate individual items (no client names)
@@ -145,12 +151,11 @@ export default function POSKitchenTab() {
           </Card>
         )}
 
-        {/* Corporate orders - grouped by company, showing destination */}
-        {Object.entries(corporateByCompany).map(([companyName, companyOrders]) => {
-          // Consolidate items within this company group
+        {/* Corporate orders - grouped by company+contract */}
+        {Object.entries(corporateByGroup).map(([key, { label, orders: groupOrders }]) => {
           const companyItems: Record<string, { name: string; qty: number; notes: string[] }> = {};
           const destinations = new Set<string>();
-          for (const o of companyOrders) {
+          for (const o of groupOrders) {
             const dest = DEST_LABELS[o.delivery_destination_type] || o.delivery_destination_type;
             const detail = o.delivery_destination_detail;
             destinations.add(detail ? `${dest} — ${detail}` : dest);
@@ -165,20 +170,20 @@ export default function POSKitchenTab() {
           }
 
           return (
-            <Card key={companyName} className="border-2 border-primary/30 bg-primary/5">
+            <Card key={key} className="border-2 border-primary/30 bg-primary/5">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
-                    {companyName}
+                    {label}
                   </CardTitle>
-                  <Badge variant="outline">{companyOrders.length} pedidos</Badge>
+                  <Badge variant="outline">{groupOrders.length} pedidos</Badge>
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {Array.from(destinations).join(" · ")}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {format(new Date(companyOrders[0]?.created_at), "HH:mm")}
+                  {format(new Date(groupOrders[0]?.created_at), "HH:mm")}
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -198,7 +203,7 @@ export default function POSKitchenTab() {
                   className="w-full"
                   variant="default"
                   size="sm"
-                  onClick={() => markAllServed.mutate(companyOrders.map(o => o.id))}
+                  onClick={() => markAllServed.mutate(groupOrders.map(o => o.id))}
                 >
                   <CheckCircle className="h-4 w-4 mr-1" /> Marcar todos como Servido
                 </Button>

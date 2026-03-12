@@ -78,6 +78,8 @@ export default function POSOrdersTab() {
   const [creating, setCreating] = useState(false);
   const [orderType, setOrderType] = useState<"company" | "individual" | "table">("individual");
   const [companyId, setCompanyId] = useState("");
+  const [contractId, setContractId] = useState("");
+  const [contractGroupId, setContractGroupId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [guestId, setGuestId] = useState("");
   const [tableId, setTableId] = useState("");
@@ -96,7 +98,7 @@ export default function POSOrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("pos_orders")
-        .select(`*, hotel_companies(name), pos_tables(name), hotel_guests(first_name, last_name)`)
+        .select(`*, hotel_companies(name), pos_tables(name), hotel_guests(first_name, last_name), contracts(name, code), contract_groups(name)`)
         .eq("restaurant_id", restaurantId!)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -148,6 +150,41 @@ export default function POSOrdersTab() {
     enabled: !!restaurantId,
   });
 
+  const { data: contracts = [] } = useQuery({
+    queryKey: ["contracts-active", restaurantId, companyId],
+    queryFn: async () => {
+      let q = supabase
+        .from("contracts")
+        .select("id, name, code, company_id")
+        .eq("restaurant_id", restaurantId!)
+        .eq("active", true)
+        .order("name");
+      if (companyId && companyId !== "none") {
+        q = q.eq("company_id", companyId);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId && !!companyId && companyId !== "none",
+  });
+
+  const { data: contractGroups = [] } = useQuery({
+    queryKey: ["contract-groups-active", restaurantId, contractId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contract_groups")
+        .select("id, name, group_type")
+        .eq("restaurant_id", restaurantId!)
+        .eq("contract_id", contractId)
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId && !!contractId,
+  });
+
   const { data: guests = [] } = useQuery({
     queryKey: ["hotel-guests-pos", restaurantId, guestSearch],
     queryFn: async () => {
@@ -191,7 +228,9 @@ export default function POSOrdersTab() {
         .insert({
           restaurant_id: restaurantId!,
           order_type: orderType,
-          company_id: companyId || null,
+          company_id: companyId && companyId !== "none" ? companyId : null,
+          contract_id: contractId || null,
+          contract_group_id: contractGroupId || null,
           customer_name: orderType === "individual" ? customerName || null : null,
           guest_id: guestId || null,
           table_id: orderType === "table" ? tableId || null : null,
@@ -267,6 +306,8 @@ export default function POSOrdersTab() {
     setCreating(false);
     setOrderType("individual");
     setCompanyId("");
+    setContractId("");
+    setContractGroupId("");
     setCustomerName("");
     setGuestId("");
     setTableId("");
@@ -421,6 +462,17 @@ export default function POSOrdersTab() {
                     <Building2 className="h-3 w-3" /> {(order as any).hotel_companies.name}
                   </div>
                 )}
+                {/* Show contract/group info */}
+                {((order as any).contracts?.name || (order as any).contract_groups?.name) && (
+                  <div className="text-xs text-muted-foreground">
+                    {(order as any).contracts?.name && (
+                      <span className="font-medium">{(order as any).contracts.name}</span>
+                    )}
+                    {(order as any).contract_groups?.name && (
+                      <span> → {(order as any).contract_groups.name}</span>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="flex gap-1 flex-wrap">
                 {order.status === "open" && (
@@ -454,7 +506,7 @@ export default function POSOrdersTab() {
             <div className="space-y-3">
               <div>
                 <Label>Tipo de pedido</Label>
-                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
+                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setContractId(""); setContractGroupId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="company">Empresa</SelectItem>
@@ -468,11 +520,47 @@ export default function POSOrdersTab() {
               {(orderType === "company" || orderType === "individual") && (
                 <div>
                   <Label>{orderType === "company" ? "Empresa" : "Empresa asociada (opcional)"}</Label>
-                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setTimeout(recalcCartPrices, 0); }}>
+                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setContractId(""); setContractGroupId(""); setTimeout(recalcCartPrices, 0); }}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
                     <SelectContent>
                       {orderType === "individual" && <SelectItem value="none">Sin empresa</SelectItem>}
                       {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Contract selector - shown when a company is selected */}
+              {companyId && companyId !== "none" && contracts.length > 0 && (
+                <div>
+                  <Label>Contrato / Frente (opcional)</Label>
+                  <Select value={contractId || "none"} onValueChange={(v) => { setContractId(v === "none" ? "" : v); setContractGroupId(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Sin contrato" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin contrato</SelectItem>
+                      {contracts.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}{c.code ? ` (${c.code})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Contract group selector */}
+              {contractId && contractGroups.length > 0 && (
+                <div>
+                  <Label>Subgrupo / Centro de consumo (opcional)</Label>
+                  <Select value={contractGroupId || "none"} onValueChange={(v) => setContractGroupId(v === "none" ? "" : v)}>
+                    <SelectTrigger><SelectValue placeholder="Sin subgrupo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin subgrupo</SelectItem>
+                      {contractGroups.map(g => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}{g.group_type ? ` (${g.group_type})` : ""}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

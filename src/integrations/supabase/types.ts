@@ -509,6 +509,96 @@ export type Database = {
           },
         ]
       }
+      contract_groups: {
+        Row: {
+          active: boolean
+          contract_id: string
+          created_at: string
+          group_type: string | null
+          id: string
+          name: string
+          restaurant_id: string
+        }
+        Insert: {
+          active?: boolean
+          contract_id: string
+          created_at?: string
+          group_type?: string | null
+          id?: string
+          name: string
+          restaurant_id: string
+        }
+        Update: {
+          active?: boolean
+          contract_id?: string
+          created_at?: string
+          group_type?: string | null
+          id?: string
+          name?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_groups_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_groups_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          active: boolean
+          code: string | null
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          restaurant_id: string
+        }
+        Insert: {
+          active?: boolean
+          code?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          restaurant_id: string
+        }
+        Update: {
+          active?: boolean
+          code?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_signatures: {
         Row: {
           created_at: string
@@ -1636,6 +1726,8 @@ export type Database = {
         Row: {
           billing_mode: string
           company_id: string | null
+          contract_group_id: string | null
+          contract_id: string | null
           created_at: string
           created_by: string
           customer_name: string | null
@@ -1654,6 +1746,8 @@ export type Database = {
         Insert: {
           billing_mode?: string
           company_id?: string | null
+          contract_group_id?: string | null
+          contract_id?: string | null
           created_at?: string
           created_by: string
           customer_name?: string | null
@@ -1672,6 +1766,8 @@ export type Database = {
         Update: {
           billing_mode?: string
           company_id?: string | null
+          contract_group_id?: string | null
+          contract_id?: string | null
           created_at?: string
           created_by?: string
           customer_name?: string | null
@@ -1693,6 +1789,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_orders_contract_group_id_fkey"
+            columns: ["contract_group_id"]
+            isOneToOne: false
+            referencedRelation: "contract_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_orders_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
           {

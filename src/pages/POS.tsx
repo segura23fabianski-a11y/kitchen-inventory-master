@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, UtensilsCrossed, LayoutGrid, List, Tag } from "lucide-react";
+import { ShoppingCart, UtensilsCrossed, LayoutGrid, List, Tag, FolderTree } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSearchParams } from "react-router-dom";
 import POSOrdersTab from "@/components/pos/POSOrdersTab";
@@ -8,6 +8,7 @@ import POSMenuTab from "@/components/pos/POSMenuTab";
 import POSTablesTab from "@/components/pos/POSTablesTab";
 import POSKitchenTab from "@/components/pos/POSKitchenTab";
 import POSServiceRatesTab from "@/components/pos/POSServiceRatesTab";
+import POSContractsTab from "@/components/pos/POSContractsTab";
 
 interface TabDef {
   value: string;
@@ -21,6 +22,7 @@ const posTabs: TabDef[] = [
   { value: "kitchen", label: "Cocina", icon: UtensilsCrossed, permKey: "pos_kitchen" },
   { value: "menu", label: "Menú", icon: List, permKey: "pos_menu" },
   { value: "rates", label: "Tarifas", icon: Tag, permKey: "pos_menu" },
+  { value: "contracts", label: "Contratos", icon: FolderTree, permKey: "pos_menu" },
   { value: "tables", label: "Mesas", icon: LayoutGrid, permKey: "pos_tables" },
 ];
 
@@ -49,6 +51,7 @@ export default function POS() {
         {hasPermission("pos_kitchen") && <TabsContent value="kitchen"><POSKitchenTab /></TabsContent>}
         {hasPermission("pos_menu") && <TabsContent value="menu"><POSMenuTab /></TabsContent>}
         {hasPermission("pos_menu") && <TabsContent value="rates"><POSServiceRatesTab /></TabsContent>}
+        {hasPermission("pos_menu") && <TabsContent value="contracts"><POSContractsTab /></TabsContent>}
         {hasPermission("pos_tables") && <TabsContent value="tables"><POSTablesTab /></TabsContent>}
       </Tabs>
     </AppLayout>
