@@ -655,7 +655,7 @@ export default function POSRestaurantTab() {
             )}
           </div>
 
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-3 space-y-1">
               {cart.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
