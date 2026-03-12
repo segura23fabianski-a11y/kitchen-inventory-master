@@ -2039,6 +2039,7 @@ export type Database = {
       }
       products: {
         Row: {
+          active: boolean
           average_cost: number
           barcode: string | null
           category_id: string | null
@@ -2058,6 +2059,7 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          active?: boolean
           average_cost?: number
           barcode?: string | null
           category_id?: string | null
@@ -2077,6 +2079,7 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          active?: boolean
           average_cost?: number
           barcode?: string | null
           category_id?: string | null
