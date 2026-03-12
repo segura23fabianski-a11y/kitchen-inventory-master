@@ -485,7 +485,7 @@ function RecipeDetailDialog({
               <p className="font-heading text-lg font-bold">{row.totalProduced}</p>
             </CardContent>
           </Card>
-          {!isCombo && row.deviation !== null && (
+          {row.theoreticalUnitCost > 0 && row.deviation !== null && (
             <Card>
               <CardContent className="pt-3 pb-2 px-3 text-center">
                 <p className="text-xs text-muted-foreground">Desviación</p>
