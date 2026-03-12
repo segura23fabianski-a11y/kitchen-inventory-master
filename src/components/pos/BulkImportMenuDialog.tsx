@@ -289,7 +289,7 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">
           <div className="text-sm text-muted-foreground">
