@@ -1,7 +1,8 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, UtensilsCrossed, LayoutGrid, List, Tag, FolderTree } from "lucide-react";
+import { ShoppingCart, UtensilsCrossed, LayoutGrid, List, Tag, FolderTree, ShieldCheck } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useAuth } from "@/lib/auth";
 import { useSearchParams } from "react-router-dom";
 import POSOrdersTab from "@/components/pos/POSOrdersTab";
 import POSMenuTab from "@/components/pos/POSMenuTab";
@@ -9,12 +10,14 @@ import POSTablesTab from "@/components/pos/POSTablesTab";
 import POSKitchenTab from "@/components/pos/POSKitchenTab";
 import POSServiceRatesTab from "@/components/pos/POSServiceRatesTab";
 import POSContractsTab from "@/components/pos/POSContractsTab";
+import POSAdminTab from "@/components/pos/POSAdminTab";
 
 interface TabDef {
   value: string;
   label: string;
   icon: typeof ShoppingCart;
   permKey: string;
+  adminOnly?: boolean;
 }
 
 const posTabs: TabDef[] = [
@@ -24,12 +27,18 @@ const posTabs: TabDef[] = [
   { value: "rates", label: "Tarifas", icon: Tag, permKey: "pos_menu" },
   { value: "contracts", label: "Contratos", icon: FolderTree, permKey: "pos_menu" },
   { value: "tables", label: "Mesas", icon: LayoutGrid, permKey: "pos_tables" },
+  { value: "admin", label: "Admin", icon: ShieldCheck, permKey: "pos_orders", adminOnly: true },
 ];
 
 export default function POS() {
   const { hasPermission } = usePermissions();
+  const { hasRole } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const visibleTabs = posTabs.filter(t => hasPermission(t.permKey));
+  const visibleTabs = posTabs.filter(t => {
+    if (!hasPermission(t.permKey)) return false;
+    if (t.adminOnly && !hasRole("admin")) return false;
+    return true;
+  });
   const defaultTab = visibleTabs[0]?.value || "orders";
   const activeTab = searchParams.get("tab") || defaultTab;
 
@@ -53,6 +62,7 @@ export default function POS() {
         {hasPermission("pos_menu") && <TabsContent value="rates"><POSServiceRatesTab /></TabsContent>}
         {hasPermission("pos_menu") && <TabsContent value="contracts"><POSContractsTab /></TabsContent>}
         {hasPermission("pos_tables") && <TabsContent value="tables"><POSTablesTab /></TabsContent>}
+        {hasRole("admin") && <TabsContent value="admin"><POSAdminTab /></TabsContent>}
       </Tabs>
     </AppLayout>
   );
