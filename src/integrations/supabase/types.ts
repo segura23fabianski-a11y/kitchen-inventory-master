@@ -2487,6 +2487,7 @@ export type Database = {
       }
       recipe_variable_components: {
         Row: {
+          average_component_cost: number | null
           component_mode: string
           component_name: string
           created_at: string
@@ -2498,6 +2499,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          average_component_cost?: number | null
           component_mode?: string
           component_name: string
           created_at?: string
@@ -2509,6 +2511,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          average_component_cost?: number | null
           component_mode?: string
           component_name?: string
           created_at?: string

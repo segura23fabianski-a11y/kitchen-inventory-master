@@ -1,0 +1,1 @@
+ALTER TABLE public.recipe_variable_components ADD COLUMN IF NOT EXISTS average_component_cost NUMERIC DEFAULT 0;
