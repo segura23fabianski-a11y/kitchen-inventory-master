@@ -248,7 +248,7 @@ export default function Recipes() {
         const validComponents = components.filter((c) => c.component_name.trim());
         if (validComponents.length > 0) {
           const { error: compError } = await supabase.from("recipe_variable_components" as any).insert(
-            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), component_mode: c.component_mode, quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, restaurant_id: restaurantId! }))
+            validComponents.map((c, i) => ({ recipe_id: recipe.id, component_name: c.component_name.trim(), component_mode: c.component_mode, quantity_per_service: c.quantity_per_service, required: c.required, sort_order: i, average_component_cost: c.average_component_cost || 0, restaurant_id: restaurantId! }))
           );
           if (compError) throw compError;
         }
