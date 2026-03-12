@@ -203,9 +203,9 @@ export default function POSRestaurantTab() {
   };
 
   const addToCart = useCallback((item: any) => {
-    const mode = getConsumptionMode();
+    const consumptionMode = getConsumptionMode();
     const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
-    const resolved = resolveRate(item.id, Number(item.price), mode, effectiveCompanyId);
+    const resolved = resolveRate(item.id, Number(item.price), consumptionMode, effectiveCompanyId);
     setCart(prev => {
       const existing = prev.find(c => c.menu_item_id === item.id);
       if (existing) {
