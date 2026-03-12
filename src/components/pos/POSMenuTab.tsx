@@ -169,7 +169,7 @@ export default function POSMenuTab() {
     : recipes;
 
   return (
-    <div className="space-y-4">
+    <div className="h-full min-h-0 flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Menú Comercial</h2>
         <div className="flex gap-2">
