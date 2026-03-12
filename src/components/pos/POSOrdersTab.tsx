@@ -10,8 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus } from "lucide-react";
+import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -31,6 +30,18 @@ const DEST_OPTIONS = [
   { value: "company_area", label: "Área empresa" },
   { value: "other", label: "Otro" },
 ];
+
+const BILLING_MODE_OPTIONS = [
+  { value: "corporate_charge", label: "Cargo corporativo" },
+  { value: "individual_account", label: "Cuenta individual" },
+  { value: "cash", label: "Efectivo" },
+];
+
+const BILLING_MODE_LABELS: Record<string, string> = {
+  corporate_charge: "Cargo corporativo",
+  individual_account: "Cuenta individual",
+  cash: "Efectivo",
+};
 
 const STATUS_LABELS: Record<string, string> = {
   open: "Abierto", sent_to_kitchen: "En cocina", served: "Servido", closed: "Cerrado", cancelled: "Cancelado",
@@ -57,13 +68,16 @@ export default function POSOrdersTab() {
   const [orderType, setOrderType] = useState<"company" | "individual" | "table">("individual");
   const [companyId, setCompanyId] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [guestId, setGuestId] = useState("");
   const [tableId, setTableId] = useState("");
   const [servicePeriod, setServicePeriod] = useState("lunch");
   const [destType, setDestType] = useState("dining_area");
   const [destDetail, setDestDetail] = useState("");
+  const [billingMode, setBillingMode] = useState("corporate_charge");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [filterStatus, setFilterStatus] = useState("active");
   const [filterType, setFilterType] = useState("all");
+  const [guestSearch, setGuestSearch] = useState("");
 
   // Queries
   const { data: orders = [] } = useQuery({
@@ -71,7 +85,7 @@ export default function POSOrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("pos_orders")
-        .select(`*, hotel_companies(name), pos_tables(name)`)
+        .select(`*, hotel_companies(name), pos_tables(name), hotel_guests(first_name, last_name)`)
         .eq("restaurant_id", restaurantId!)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -120,7 +134,26 @@ export default function POSOrdersTab() {
       if (error) throw error;
       return data;
     },
-    enabled: !!restaurantId && orderType === "company",
+    enabled: !!restaurantId,
+  });
+
+  const { data: guests = [] } = useQuery({
+    queryKey: ["hotel-guests-pos", restaurantId, guestSearch],
+    queryFn: async () => {
+      let q = supabase
+        .from("hotel_guests")
+        .select("id, first_name, last_name, document_number")
+        .eq("restaurant_id", restaurantId!)
+        .order("last_name")
+        .limit(50);
+      if (guestSearch.length >= 2) {
+        q = q.or(`first_name.ilike.%${guestSearch}%,last_name.ilike.%${guestSearch}%,document_number.ilike.%${guestSearch}%`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId && (orderType === "individual" || orderType === "company"),
   });
 
   const { data: tables = [] } = useQuery({
@@ -147,15 +180,17 @@ export default function POSOrdersTab() {
         .insert({
           restaurant_id: restaurantId!,
           order_type: orderType,
-          company_id: orderType === "company" ? companyId || null : null,
+          company_id: companyId || null,
           customer_name: orderType === "individual" ? customerName || null : null,
+          guest_id: guestId || null,
           table_id: orderType === "table" ? tableId || null : null,
           service_period: servicePeriod,
           delivery_destination_type: destType,
           delivery_destination_detail: destDetail || null,
+          billing_mode: billingMode,
           created_by: user!.id,
           status: "open",
-        })
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -220,11 +255,14 @@ export default function POSOrdersTab() {
     setOrderType("individual");
     setCompanyId("");
     setCustomerName("");
+    setGuestId("");
     setTableId("");
     setServicePeriod("lunch");
     setDestType("dining_area");
     setDestDetail("");
+    setBillingMode("corporate_charge");
     setCart([]);
+    setGuestSearch("");
   };
 
   const addToCart = (item: any) => {
@@ -256,6 +294,8 @@ export default function POSOrdersTab() {
   const getClientLabel = (o: any) => {
     if (o.order_type === "company") return o.hotel_companies?.name || "Empresa";
     if (o.order_type === "table") return o.pos_tables?.name || "Mesa";
+    // For individual: show guest name if available
+    if (o.hotel_guests) return `${o.hotel_guests.first_name} ${o.hotel_guests.last_name}`;
     return o.customer_name || "Individual";
   };
 
@@ -266,6 +306,8 @@ export default function POSOrdersTab() {
     acc[cat].push(item);
     return acc;
   }, {});
+
+  const selectedGuest = guests.find(g => g.id === guestId);
 
   return (
     <div className="space-y-4">
@@ -317,9 +359,26 @@ export default function POSOrdersTab() {
                   {order.order_type === "table" && <LayoutGrid className="h-3.5 w-3.5" />}
                   {getClientLabel(order)}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {format(new Date(order.created_at), "HH:mm · dd/MM")} · ${Number(order.total).toLocaleString()}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{format(new Date(order.created_at), "HH:mm · dd/MM")}</span>
+                  <span>·</span>
+                  <span>${Number(order.total).toLocaleString()}</span>
+                  {(order as any).billing_mode && (
+                    <>
+                      <span>·</span>
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                        {BILLING_MODE_LABELS[(order as any).billing_mode] || (order as any).billing_mode}
+                      </Badge>
+                    </>
+                  )}
                 </div>
+                {/* Show company association for individual orders */}
+                {order.order_type === "individual" && (order as any).hotel_companies?.name && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Building2 className="h-3 w-3" /> {(order as any).hotel_companies.name}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="flex gap-1 flex-wrap">
                 {order.status === "open" && (
@@ -353,7 +412,7 @@ export default function POSOrdersTab() {
             <div className="space-y-3">
               <div>
                 <Label>Tipo de pedido</Label>
-                <Select value={orderType} onValueChange={(v: any) => setOrderType(v)}>
+                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setGuestId(""); setCustomerName(""); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="company">Empresa</SelectItem>
@@ -363,22 +422,63 @@ export default function POSOrdersTab() {
                 </Select>
               </div>
 
-              {orderType === "company" && (
+              {/* Company selector - shown for company AND individual (optional association) */}
+              {(orderType === "company" || orderType === "individual") && (
                 <div>
-                  <Label>Empresa</Label>
+                  <Label>{orderType === "company" ? "Empresa" : "Empresa asociada (opcional)"}</Label>
                   <Select value={companyId} onValueChange={setCompanyId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
                     <SelectContent>
+                      {orderType === "individual" && <SelectItem value="none">Sin empresa</SelectItem>}
                       {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
 
+              {/* Guest/client selector for individual orders */}
               {orderType === "individual" && (
-                <div>
-                  <Label>Nombre del cliente</Label>
-                  <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Ej: Juanito Pérez" />
+                <div className="space-y-1">
+                  <Label>Cliente / Trabajador</Label>
+                  <Input
+                    value={guestSearch}
+                    onChange={e => { setGuestSearch(e.target.value); setGuestId(""); }}
+                    placeholder="Buscar por nombre o documento..."
+                    className="mb-1"
+                  />
+                  {guestSearch.length >= 2 && !guestId && guests.length > 0 && (
+                    <div className="border rounded-md max-h-32 overflow-y-auto">
+                      {guests.map(g => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                          onClick={() => {
+                            setGuestId(g.id);
+                            setCustomerName(`${g.first_name} ${g.last_name}`);
+                            setGuestSearch(`${g.first_name} ${g.last_name}`);
+                          }}
+                        >
+                          <span className="font-medium">{g.first_name} {g.last_name}</span>
+                          <span className="text-muted-foreground ml-2 text-xs">{g.document_number}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedGuest && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      Seleccionado: {selectedGuest.first_name} {selectedGuest.last_name}
+                    </div>
+                  )}
+                  {!guestId && (
+                    <Input
+                      value={customerName}
+                      onChange={e => setCustomerName(e.target.value)}
+                      placeholder="O escribir nombre manualmente"
+                      className="mt-1"
+                    />
+                  )}
                 </div>
               )}
 
@@ -400,6 +500,16 @@ export default function POSOrdersTab() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SERVICE_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Modo de cobro</Label>
+                <Select value={billingMode} onValueChange={setBillingMode}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {BILLING_MODE_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
