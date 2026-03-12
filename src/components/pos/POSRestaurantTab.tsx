@@ -542,7 +542,7 @@ export default function POSRestaurantTab() {
       {/* ─── THREE-ZONE LAYOUT ─── */}
       <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden">
         {/* LEFT: Categories */}
-        <div className="w-[160px] border-r bg-muted/30 flex flex-col flex-shrink-0">
+        <div className="w-[160px] border-r bg-muted/30 flex flex-col flex-shrink-0 min-h-0">
           <div className="p-2 border-b">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categorías</span>
           </div>
