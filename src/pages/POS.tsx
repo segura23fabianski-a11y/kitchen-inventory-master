@@ -37,19 +37,19 @@ export default function POS() {
 
   return (
     <AppLayout>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex h-[calc(100dvh-11rem)] min-h-[620px] flex-col">
+        <TabsList className="flex-wrap h-auto gap-1 flex-shrink-0">
           {visibleTabs.map(tab => (
             <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
               <tab.icon className="h-4 w-4" />{tab.label}
             </TabsTrigger>
           ))}
         </TabsList>
-        {hasPermission("pos_restaurant") && <TabsContent value="restaurant"><POSRestaurantTab /></TabsContent>}
-        {hasPermission("pos_corporate") && <TabsContent value="corporate"><POSCorporateTab /></TabsContent>}
-        {hasPermission("cash_open") && <TabsContent value="cash"><POSCashRegisterTab /></TabsContent>}
-        {hasPermission("pos_menu") && <TabsContent value="menu"><POSMenuTab /></TabsContent>}
-        {hasPermission("pos_tables") && <TabsContent value="tables"><POSTablesTab /></TabsContent>}
+        {hasPermission("pos_restaurant") && <TabsContent value="restaurant" className="mt-0 flex-1 min-h-0"><POSRestaurantTab /></TabsContent>}
+        {hasPermission("pos_corporate") && <TabsContent value="corporate" className="mt-0 flex-1 min-h-0"><POSCorporateTab /></TabsContent>}
+        {hasPermission("cash_open") && <TabsContent value="cash" className="mt-0 flex-1 min-h-0"><POSCashRegisterTab /></TabsContent>}
+        {hasPermission("pos_menu") && <TabsContent value="menu" className="mt-0 flex-1 min-h-0"><POSMenuTab /></TabsContent>}
+        {hasPermission("pos_tables") && <TabsContent value="tables" className="mt-0 flex-1 min-h-0"><POSTablesTab /></TabsContent>}
       </Tabs>
     </AppLayout>
   );

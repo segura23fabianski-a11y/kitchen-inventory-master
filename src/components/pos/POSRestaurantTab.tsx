@@ -540,7 +540,7 @@ export default function POSRestaurantTab() {
       )}
 
       {/* ─── THREE-ZONE LAYOUT ─── */}
-      <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden">
         {/* LEFT: Categories */}
         <div className="w-[160px] border-r bg-muted/30 flex flex-col flex-shrink-0 min-h-0">
           <div className="p-2 border-b">
