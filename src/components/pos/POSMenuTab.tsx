@@ -309,6 +309,8 @@ export default function POSMenuTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkImportMenuDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
