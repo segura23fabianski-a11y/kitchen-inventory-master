@@ -1628,12 +1628,14 @@ export type Database = {
       }
       pos_orders: {
         Row: {
+          billing_mode: string
           company_id: string | null
           created_at: string
           created_by: string
           customer_name: string | null
           delivery_destination_detail: string | null
           delivery_destination_type: string
+          guest_id: string | null
           id: string
           order_number: string
           order_type: string
@@ -1644,12 +1646,14 @@ export type Database = {
           total: number
         }
         Insert: {
+          billing_mode?: string
           company_id?: string | null
           created_at?: string
           created_by: string
           customer_name?: string | null
           delivery_destination_detail?: string | null
           delivery_destination_type?: string
+          guest_id?: string | null
           id?: string
           order_number?: string
           order_type?: string
@@ -1660,12 +1664,14 @@ export type Database = {
           total?: number
         }
         Update: {
+          billing_mode?: string
           company_id?: string | null
           created_at?: string
           created_by?: string
           customer_name?: string | null
           delivery_destination_detail?: string | null
           delivery_destination_type?: string
+          guest_id?: string | null
           id?: string
           order_number?: string
           order_type?: string
@@ -1681,6 +1687,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_orders_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_guests"
             referencedColumns: ["id"]
           },
           {
