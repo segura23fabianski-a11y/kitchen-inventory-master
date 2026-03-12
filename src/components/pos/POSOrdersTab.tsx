@@ -557,6 +557,9 @@ export default function POSOrdersTab() {
                     )}
                   </div>
                 )}
+                {(order as any).is_test_record && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-400 text-orange-600">PRUEBA</Badge>
+                )}
               </CardHeader>
               <CardContent className="flex gap-1 flex-wrap">
                 {order.status === "open" && (
@@ -574,6 +577,12 @@ export default function POSOrdersTab() {
                     Cerrar pedido
                   </Button>
                 )}
+                <Button size="sm" variant="outline" onClick={() => handlePrintComanda(order.id)}>
+                  <Printer className="h-3.5 w-3.5 mr-1" />Comanda
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handlePrintTicket(order.id)}>
+                  <Receipt className="h-3.5 w-3.5 mr-1" />Ticket
+                </Button>
               </CardContent>
             </Card>
           ))}
