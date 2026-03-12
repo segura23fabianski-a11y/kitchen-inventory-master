@@ -37,6 +37,8 @@ import RecalculateInventory from "./pages/RecalculateInventory";
 import Transformations from "./pages/Transformations";
 import Hotel from "./pages/Hotel";
 import POS from "./pages/POS";
+import CasinoDashboard from "./pages/CasinoDashboard";
+import PurchasesReport from "./pages/PurchasesReport";
 
 import NotFound from "./pages/NotFound";
 
