@@ -114,8 +114,7 @@ export default function ManualConsumption() {
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     if (!search.trim()) return products;
-    const q = search.toLowerCase();
-    return products.filter((p) => p.name.toLowerCase().includes(q));
+    return products.filter((p) => fuzzyMatch(p.name, search));
   }, [products, search]);
 
   // Mutations

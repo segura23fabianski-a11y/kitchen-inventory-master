@@ -361,7 +361,7 @@ export default function PurchaseInvoices() {
 
   const filtered = invoices?.filter((inv) => {
     const supplierDisplay = getSupplierDisplay(inv) || "";
-    const matchSearch = !search || inv.invoice_number.toLowerCase().includes(search.toLowerCase()) || supplierDisplay.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || fuzzyMatch(buildHaystack(inv.invoice_number, supplierDisplay), search);
     const matchStatus = statusFilter === "all" || inv.status === statusFilter;
     return matchSearch && matchStatus;
   });

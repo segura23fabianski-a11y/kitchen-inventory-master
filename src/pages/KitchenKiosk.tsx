@@ -275,14 +275,12 @@ export default function KitchenKiosk() {
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
-    const q = productSearch.toLowerCase().trim();
+    const q = productSearch.trim();
     if (!q) return products;
     return products.filter((p) => {
-      if (p.name.toLowerCase().includes(q)) return true;
-      if (p.barcode && p.barcode.toLowerCase().includes(q)) return true;
       const pCodes = codesByProduct.get(p.id);
-      if (pCodes?.some((c) => c.includes(q))) return true;
-      return false;
+      const haystack = buildHaystack(p.name, p.barcode, ...(pCodes || []));
+      return fuzzyMatch(haystack, q);
     });
   }, [products, productSearch, codesByProduct]);
 

@@ -150,8 +150,7 @@ export default function OperationsKiosk() {
     if (linkedCategoryIds.size === 0) return [];
     const filtered = products.filter((p) => p.category_id && linkedCategoryIds.has(p.category_id));
     if (!productSearch.trim()) return filtered;
-    const q = productSearch.toLowerCase();
-    return filtered.filter((p) => p.name.toLowerCase().includes(q));
+    return filtered.filter((p) => fuzzyMatch(p.name, productSearch));
   }, [selectedServiceId, serviceCategoryLinks, products, productSearch]);
 
   // ── Recipe helpers ──

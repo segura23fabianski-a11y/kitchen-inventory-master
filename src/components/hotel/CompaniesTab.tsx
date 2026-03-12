@@ -58,7 +58,7 @@ export default function CompaniesTab() {
     enabled: !!ratesCompany,
   });
 
-  const filtered = companies?.filter((c: any) => `${c.name} ${c.nit || ""}`.toLowerCase().includes(search.toLowerCase()));
+  const filtered = companies?.filter((c: any) => fuzzyMatch(buildHaystack(c.name, c.nit), search));
 
   const saveMutation = useMutation({
     mutationFn: async () => {

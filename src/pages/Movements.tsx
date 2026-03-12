@@ -449,7 +449,7 @@ export default function Movements() {
                   <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
                 ) : (
                   movements
-                    .filter((m) => (m as any).products?.name?.toLowerCase().includes(search.toLowerCase()))
+                    .filter((m) => fuzzyMatch((m as any).products?.name || "", search))
                     .map((m) => {
                       const mDate = (m as any).movement_date;
                       const isBackdated = mDate && Math.abs(new Date(mDate).getTime() - new Date(m.created_at).getTime()) > 60000;

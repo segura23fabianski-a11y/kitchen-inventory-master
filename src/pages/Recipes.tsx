@@ -436,7 +436,7 @@ export default function Recipes() {
 
   const filteredRecipes = recipes
     ?.filter((r) => filterType === "all" || (r as any).recipe_type === filterType)
-    .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+    .filter((r) => fuzzyMatch(r.name, search));
 
   // Render component editor (shared between create and edit)
   const renderComponentEditor = (

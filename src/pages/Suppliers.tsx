@@ -118,9 +118,7 @@ export default function Suppliers() {
   };
 
   const filtered = suppliers?.filter((s: any) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.nit || "").toLowerCase().includes(search.toLowerCase()) ||
-    (s.contact_name || "").toLowerCase().includes(search.toLowerCase())
+    fuzzyMatch(buildHaystack(s.name, s.nit, s.contact_name), search)
   );
 
   return (
