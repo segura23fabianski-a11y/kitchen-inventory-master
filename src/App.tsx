@@ -36,6 +36,7 @@ import UserManual from "./pages/UserManual";
 import RecalculateInventory from "./pages/RecalculateInventory";
 import Transformations from "./pages/Transformations";
 import Hotel from "./pages/Hotel";
+import POS from "./pages/POS";
 
 import NotFound from "./pages/NotFound";
 
@@ -101,6 +102,7 @@ const AppRoutes = () => (
     <Route path="/branding" element={<ProtectedRoute permKey="branding"><Branding /></ProtectedRoute>} />
     <Route path="/manual" element={<ProtectedRoute permKey="user_manual"><UserManual /></ProtectedRoute>} />
     <Route path="/hotel" element={<ProtectedRoute permKey="hotel_view"><Hotel /></ProtectedRoute>} />
+    <Route path="/pos" element={<ProtectedRoute permKey="pos_view"><POS /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

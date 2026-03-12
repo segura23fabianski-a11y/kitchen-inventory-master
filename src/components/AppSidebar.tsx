@@ -4,7 +4,7 @@ import {
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush,
   HelpCircle, Calculator, FlaskConical, Hotel, BedDouble, CalendarCheck, CalendarPlus,
-  Sparkles, Shirt, Building2, Users as UsersIcon
+  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Send
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -77,6 +77,17 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "pos",
+    label: "POS",
+    icon: ShoppingCart,
+    items: [
+      { to: "/pos", icon: ShoppingCart, label: "Pedidos", permKey: "pos_orders", tabParam: "orders" },
+      { to: "/pos", icon: UtensilsCrossed, label: "Cocina", permKey: "pos_kitchen", tabParam: "kitchen" },
+      { to: "/pos", icon: List, label: "Menú", permKey: "pos_menu", tabParam: "menu" },
+      { to: "/pos", icon: LayoutGrid, label: "Mesas", permKey: "pos_tables", tabParam: "tables" },
+    ],
+  },
+  {
     id: "admin",
     label: "Administración",
     icon: Settings,
@@ -98,7 +109,7 @@ function getActiveGroupId(pathname: string, tabParam: string | null): string | n
   for (const g of navGroups) {
     for (const item of g.items) {
       if (item.tabParam) {
-        if (pathname === "/hotel" && tabParam === item.tabParam) return g.id;
+        if (pathname === item.to && tabParam === item.tabParam) return g.id;
       } else {
         if (item.to === pathname) return g.id;
       }
@@ -157,8 +168,9 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const isItemActive = (item: NavItem) => {
     if (item.tabParam) {
-      if (location.pathname !== "/hotel") return false;
-      const activeTab = currentTab || "dashboard";
+      if (location.pathname !== item.to) return false;
+      const defaultTab = item.to === "/hotel" ? "dashboard" : "orders";
+      const activeTab = currentTab || defaultTab;
       return activeTab === item.tabParam;
     }
     return location.pathname === item.to;
@@ -215,7 +227,7 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
                 <div className="ml-4 border-l border-sidebar-border pl-2 mt-1 space-y-0.5">
                   {group.items.map((item, idx) => {
                     const active = isItemActive(item);
-                    const href = item.tabParam ? `/hotel?tab=${item.tabParam}` : item.to;
+                    const href = item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
 
                     return (
                       <NavLink
