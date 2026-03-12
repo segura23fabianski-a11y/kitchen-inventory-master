@@ -151,12 +151,11 @@ export default function POSKitchenTab() {
           </Card>
         )}
 
-        {/* Corporate orders - grouped by company, showing destination */}
-        {Object.entries(corporateByCompany).map(([companyName, companyOrders]) => {
-          // Consolidate items within this company group
+        {/* Corporate orders - grouped by company+contract */}
+        {Object.entries(corporateByGroup).map(([key, { label, orders: groupOrders }]) => {
           const companyItems: Record<string, { name: string; qty: number; notes: string[] }> = {};
           const destinations = new Set<string>();
-          for (const o of companyOrders) {
+          for (const o of groupOrders) {
             const dest = DEST_LABELS[o.delivery_destination_type] || o.delivery_destination_type;
             const detail = o.delivery_destination_detail;
             destinations.add(detail ? `${dest} — ${detail}` : dest);
@@ -171,20 +170,20 @@ export default function POSKitchenTab() {
           }
 
           return (
-            <Card key={companyName} className="border-2 border-primary/30 bg-primary/5">
+            <Card key={key} className="border-2 border-primary/30 bg-primary/5">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
-                    {companyName}
+                    {label}
                   </CardTitle>
-                  <Badge variant="outline">{companyOrders.length} pedidos</Badge>
+                  <Badge variant="outline">{groupOrders.length} pedidos</Badge>
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {Array.from(destinations).join(" · ")}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {format(new Date(companyOrders[0]?.created_at), "HH:mm")}
+                  {format(new Date(groupOrders[0]?.created_at), "HH:mm")}
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -204,7 +203,7 @@ export default function POSKitchenTab() {
                   className="w-full"
                   variant="default"
                   size="sm"
-                  onClick={() => markAllServed.mutate(companyOrders.map(o => o.id))}
+                  onClick={() => markAllServed.mutate(groupOrders.map(o => o.id))}
                 >
                   <CheckCircle className="h-4 w-4 mr-1" /> Marcar todos como Servido
                 </Button>
