@@ -569,7 +569,7 @@ export default function POSRestaurantTab() {
                 <p className="text-xs text-muted-foreground text-center py-6">Sin categorías</p>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* CENTER: Products */}
