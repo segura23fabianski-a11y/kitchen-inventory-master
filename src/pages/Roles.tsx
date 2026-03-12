@@ -364,6 +364,7 @@ export default function Roles() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Matriz de Permisos</CardTitle>
+              <p className="text-sm text-muted-foreground">Haz clic en cada sección para expandir o contraer</p>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full">
@@ -382,39 +383,14 @@ export default function Roles() {
                 </thead>
                 <tbody>
                   {Object.entries(grouped).map(([category, fns]) => (
-                    <>
-                      <tr key={`cat-${category}`} className="bg-muted/50">
-                        <td colSpan={roleNames.length + 1} className="px-4 py-2">
-                          <div className="flex items-center gap-2 text-sm font-semibold">
-                            <Layers className="h-4 w-4 text-muted-foreground" />
-                            {category}
-                          </div>
-                        </td>
-                      </tr>
-                      {fns!.map((fn) => (
-                        <tr key={fn.key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                          <td className="p-4">
-                            <p className="font-medium text-sm">{fn.label}</p>
-                            <p className="text-xs text-muted-foreground">{fn.description}</p>
-                          </td>
-                          {roleNames.map((roleName) => {
-                            const enabled = hasPermission(roleName, fn.key);
-                            const isAdminCore = roleName === "admin" && ["roles", "users"].includes(fn.key);
-                            return (
-                              <td key={roleName} className="p-4 text-center">
-                                <Switch
-                                  checked={enabled}
-                                  disabled={isAdminCore || togglePermission.isPending}
-                                  onCheckedChange={(checked) =>
-                                    togglePermission.mutate({ role: roleName, functionKey: fn.key, enabled: checked })
-                                  }
-                                />
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </>
+                    <CollapsibleCategoryRows
+                      key={category}
+                      category={category}
+                      functions={fns!}
+                      roleNames={roleNames}
+                      hasPermission={hasPermission}
+                      togglePermission={togglePermission}
+                    />
                   ))}
                 </tbody>
               </table>
