@@ -227,7 +227,7 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
                 <div className="ml-4 border-l border-sidebar-border pl-2 mt-1 space-y-0.5">
                   {group.items.map((item, idx) => {
                     const active = isItemActive(item);
-                    const href = item.tabParam ? `/hotel?tab=${item.tabParam}` : item.to;
+                    const href = item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
 
                     return (
                       <NavLink
