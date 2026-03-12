@@ -211,8 +211,10 @@ export default function POSOrdersTab() {
         menu_item_id: c.menu_item_id,
         quantity: c.quantity,
         unit_price: c.unit_price,
+        rate_applied: c.unit_price,
+        rate_source: c.rate_source,
         notes: c.notes || null,
-      }));
+      } as any));
 
       const { error: itemsErr } = await supabase.from("pos_order_items").insert(items);
       if (itemsErr) throw itemsErr;
