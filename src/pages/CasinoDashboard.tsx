@@ -60,14 +60,14 @@ export default function CasinoDashboard() {
     },
   });
 
-  // Today's inventory exits (salidas)
+  // Today's inventory exits (salidas + pos_sale)
   const { data: todaySalidas } = useQuery({
     queryKey: ["casino-salidas-today", todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
         .select("total_cost")
-        .eq("type", "salida")
+        .in("type", ["salida", "pos_sale"])
         .gte("movement_date", `${todayStr}T00:00:00`)
         .lte("movement_date", `${todayStr}T23:59:59`);
       if (error) throw error;

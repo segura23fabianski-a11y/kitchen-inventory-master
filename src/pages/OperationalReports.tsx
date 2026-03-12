@@ -23,7 +23,7 @@ import {
 import * as XLSX from "xlsx";
 
 const CONSUMPTION_TYPES = [
-  "salida", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño",
+  "salida", "pos_sale", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño",
 ];
 
 const AREA_COLORS = [
@@ -60,6 +60,8 @@ function getArea(m: MovementRow, servicesMap: Map<string, string>, recipesMap: M
     if (recipe.type === "housekeeping") return "Housekeeping";
     return "Cocina";
   }
+  // POS sales
+  if (m.type === "pos_sale") return "Ventas POS";
   // Salida with no service/recipe → Cocina general
   if (m.type === "salida") return "Cocina";
   if (m.type === "operational_consumption") return "Operaciones (sin servicio)";
