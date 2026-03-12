@@ -57,6 +57,8 @@ interface CartItem {
   name: string;
   quantity: number;
   unit_price: number;
+  base_price: number;
+  rate_source: string;
   notes: string;
 }
 
