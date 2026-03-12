@@ -495,7 +495,7 @@ export default function POSOrdersTab() {
             <div className="space-y-3">
               <div>
                 <Label>Tipo de pedido</Label>
-                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
+                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setContractId(""); setContractGroupId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="company">Empresa</SelectItem>
