@@ -190,6 +190,7 @@ export default function POSMenuTab() {
         </Select>
       </div>
 
+      <div className="overflow-auto max-h-[calc(100vh-320px)]">
       <Table>
         <TableHeader>
           <TableRow>
@@ -232,6 +233,7 @@ export default function POSMenuTab() {
           )}
         </TableBody>
       </Table>
+      </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && closeDialog()}>
         <DialogContent className="max-w-lg">

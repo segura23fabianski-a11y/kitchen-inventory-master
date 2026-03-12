@@ -540,9 +540,9 @@ export default function POSRestaurantTab() {
       )}
 
       {/* ─── THREE-ZONE LAYOUT ─── */}
-      <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden">
+      <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
         {/* LEFT: Categories */}
-        <div className="w-[160px] border-r bg-muted/30 flex flex-col flex-shrink-0">
+        <div className="w-[160px] border-r bg-muted/30 flex flex-col flex-shrink-0 min-h-0">
           <div className="p-2 border-b">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categorías</span>
           </div>
@@ -574,7 +574,7 @@ export default function POSRestaurantTab() {
         </div>
 
         {/* CENTER: Products */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Search */}
           <div className="px-3 py-2 border-b flex-shrink-0">
             <div className="relative">
@@ -642,7 +642,7 @@ export default function POSRestaurantTab() {
         </div>
 
         {/* RIGHT: Cart / Order Summary */}
-        <div className="w-[280px] border-l flex flex-col flex-shrink-0 bg-background">
+        <div className="w-[280px] border-l flex flex-col flex-shrink-0 min-h-0 bg-background">
           <div className="p-3 border-b flex items-center justify-between flex-shrink-0">
             <div className="font-semibold text-sm flex items-center gap-1.5">
               <ShoppingCart className="h-4 w-4" />
