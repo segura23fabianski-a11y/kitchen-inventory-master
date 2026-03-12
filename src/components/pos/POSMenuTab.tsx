@@ -172,7 +172,10 @@ export default function POSMenuTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Menú Comercial</h2>
-        <Button onClick={() => setOpen(true)} size="sm"><Plus className="h-4 w-4 mr-1" />Nuevo Ítem</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline"><PackagePlus className="h-4 w-4 mr-1" />Importar desde inventario</Button>
+          <Button onClick={() => setOpen(true)} size="sm"><Plus className="h-4 w-4 mr-1" />Nuevo Ítem</Button>
+        </div>
       </div>
 
       {/* Filters */}
