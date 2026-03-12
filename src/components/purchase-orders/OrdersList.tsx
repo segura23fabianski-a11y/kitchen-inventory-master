@@ -223,6 +223,11 @@ export default function OrdersList() {
                             </Button>
                           </>
                         )}
+                        {o.status !== "draft" && isAdmin && (
+                          <Button size="icon" variant="ghost" onClick={() => setDeleteId(o.id)} title="Eliminar (Admin)">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
