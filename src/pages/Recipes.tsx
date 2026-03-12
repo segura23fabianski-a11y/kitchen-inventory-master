@@ -316,6 +316,7 @@ export default function Recipes() {
       quantity_per_service: Number(c.quantity_per_service),
       required: c.required,
       sort_order: c.sort_order,
+      average_component_cost: Number(c.average_component_cost ?? 0),
     })));
     setEditMode(true);
   };
