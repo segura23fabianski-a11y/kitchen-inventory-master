@@ -39,18 +39,19 @@ export default function RoomsTab() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ currentForm, currentEditId }: { currentForm: RoomForm; currentEditId: string | null }) => {
       if (!restaurantId) throw new Error("Sin restaurante");
-      const payload = { restaurant_id: restaurantId, room_number: form.room_number.trim(), floor: form.floor.trim(), room_type_id: form.room_type_id, status: form.status, notes: form.notes.trim() };
-      if (editId) {
-        const { error } = await supabase.from("rooms" as any).update(payload as any).eq("id", editId);
+      const payload = { restaurant_id: restaurantId, room_number: currentForm.room_number.trim(), floor: currentForm.floor.trim(), room_type_id: currentForm.room_type_id, status: currentForm.status, notes: currentForm.notes.trim() };
+      if (currentEditId) {
+        const { error } = await supabase.from("rooms" as any).update(payload as any).eq("id", currentEditId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("rooms" as any).insert(payload as any);
         if (error) throw error;
       }
+      return { wasEdit: !!currentEditId };
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rooms"] }); setOpen(false); setEditId(null); setForm(emptyForm); toast({ title: editId ? "Habitación actualizada" : "Habitación creada" }); },
+    onSuccess: (result) => { qc.invalidateQueries({ queryKey: ["rooms"] }); setOpen(false); setEditId(null); setForm(emptyForm); toast({ title: result.wasEdit ? "Habitación actualizada" : "Habitación creada" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
