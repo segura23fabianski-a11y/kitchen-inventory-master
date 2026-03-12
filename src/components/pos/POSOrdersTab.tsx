@@ -509,7 +509,7 @@ export default function POSOrdersTab() {
               {(orderType === "company" || orderType === "individual") && (
                 <div>
                   <Label>{orderType === "company" ? "Empresa" : "Empresa asociada (opcional)"}</Label>
-                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setTimeout(recalcCartPrices, 0); }}>
+                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setContractId(""); setContractGroupId(""); setTimeout(recalcCartPrices, 0); }}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
                     <SelectContent>
                       {orderType === "individual" && <SelectItem value="none">Sin empresa</SelectItem>}
