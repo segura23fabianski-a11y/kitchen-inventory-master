@@ -1117,6 +1117,7 @@ export type Database = {
           recipe_id: string | null
           restaurant_id: string
           service_id: string | null
+          source_module: string | null
           total_cost: number
           type: string
           unit_cost: number
@@ -1135,6 +1136,7 @@ export type Database = {
           recipe_id?: string | null
           restaurant_id: string
           service_id?: string | null
+          source_module?: string | null
           total_cost?: number
           type: string
           unit_cost?: number
@@ -1153,6 +1155,7 @@ export type Database = {
           recipe_id?: string | null
           restaurant_id?: string
           service_id?: string | null
+          source_module?: string | null
           total_cost?: number
           type?: string
           unit_cost?: number
