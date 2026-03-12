@@ -276,14 +276,43 @@ export default function POSOrdersTab() {
     setGuestSearch("");
   };
 
+  // Determine consumption mode for rate resolution
+  const getConsumptionMode = () => {
+    if (billingMode === "corporate_charge" || orderType === "company") return "corporate_charge";
+    if (destType === "takeaway") return "takeaway";
+    return "dine_in";
+  };
+
   const addToCart = (item: any) => {
+    const mode = getConsumptionMode();
+    const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
+    const resolved = resolveRate(item.id, Number(item.price), mode, effectiveCompanyId);
+    
     setCart(prev => {
       const existing = prev.find(c => c.menu_item_id === item.id);
       if (existing) {
         return prev.map(c => c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
-      return [...prev, { menu_item_id: item.id, name: item.name, quantity: 1, unit_price: item.price, notes: "" }];
+      return [...prev, {
+        menu_item_id: item.id,
+        name: item.name,
+        quantity: 1,
+        unit_price: resolved.price,
+        base_price: Number(item.price),
+        rate_source: resolved.source,
+        notes: "",
+      }];
     });
+  };
+
+  // Recalculate cart prices when billing mode, dest type, or company changes
+  const recalcCartPrices = () => {
+    const mode = getConsumptionMode();
+    const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
+    setCart(prev => prev.map(c => {
+      const resolved = resolveRate(c.menu_item_id, c.base_price, mode, effectiveCompanyId);
+      return { ...c, unit_price: resolved.price, rate_source: resolved.source };
+    }));
   };
 
   const updateCartQty = (menuItemId: string, delta: number) => {
