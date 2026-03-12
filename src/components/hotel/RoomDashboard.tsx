@@ -228,6 +228,7 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
           <span className="font-medium">{upcomingReservations.length}</span>
           <span className="hidden sm:inline">Reservas futuras</span>
         </div>
+        <div className="ml-auto flex items-center gap-1">
           <span className="text-sm text-muted-foreground mr-1">Total: {enrichedRooms.length}</span>
           <Button
             variant={viewMode === "grid" ? "default" : "outline"} size="icon"
