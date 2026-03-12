@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
+import { useServiceRates } from "@/hooks/use-service-rates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard } from "lucide-react";
+import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -56,13 +57,23 @@ interface CartItem {
   name: string;
   quantity: number;
   unit_price: number;
+  base_price: number;
+  rate_source: string;
   notes: string;
 }
+
+const RATE_SOURCE_LABELS: Record<string, string> = {
+  company_mode: "Empresa + modalidad",
+  company_general: "Empresa",
+  mode_general: "Modalidad",
+  menu_base: "Base",
+};
 
 export default function POSOrdersTab() {
   const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { resolveRate } = useServiceRates();
 
   const [creating, setCreating] = useState(false);
   const [orderType, setOrderType] = useState<"company" | "individual" | "table">("individual");
@@ -200,8 +211,10 @@ export default function POSOrdersTab() {
         menu_item_id: c.menu_item_id,
         quantity: c.quantity,
         unit_price: c.unit_price,
+        rate_applied: c.unit_price,
+        rate_source: c.rate_source,
         notes: c.notes || null,
-      }));
+      } as any));
 
       const { error: itemsErr } = await supabase.from("pos_order_items").insert(items);
       if (itemsErr) throw itemsErr;
@@ -265,14 +278,43 @@ export default function POSOrdersTab() {
     setGuestSearch("");
   };
 
+  // Determine consumption mode for rate resolution
+  const getConsumptionMode = () => {
+    if (billingMode === "corporate_charge" || orderType === "company") return "corporate_charge";
+    if (destType === "takeaway") return "takeaway";
+    return "dine_in";
+  };
+
   const addToCart = (item: any) => {
+    const mode = getConsumptionMode();
+    const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
+    const resolved = resolveRate(item.id, Number(item.price), mode, effectiveCompanyId);
+    
     setCart(prev => {
       const existing = prev.find(c => c.menu_item_id === item.id);
       if (existing) {
         return prev.map(c => c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
-      return [...prev, { menu_item_id: item.id, name: item.name, quantity: 1, unit_price: item.price, notes: "" }];
+      return [...prev, {
+        menu_item_id: item.id,
+        name: item.name,
+        quantity: 1,
+        unit_price: resolved.price,
+        base_price: Number(item.price),
+        rate_source: resolved.source,
+        notes: "",
+      }];
     });
+  };
+
+  // Recalculate cart prices when billing mode, dest type, or company changes
+  const recalcCartPrices = () => {
+    const mode = getConsumptionMode();
+    const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
+    setCart(prev => prev.map(c => {
+      const resolved = resolveRate(c.menu_item_id, c.base_price, mode, effectiveCompanyId);
+      return { ...c, unit_price: resolved.price, rate_source: resolved.source };
+    }));
   };
 
   const updateCartQty = (menuItemId: string, delta: number) => {
@@ -412,7 +454,7 @@ export default function POSOrdersTab() {
             <div className="space-y-3">
               <div>
                 <Label>Tipo de pedido</Label>
-                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setGuestId(""); setCustomerName(""); }}>
+                <Select value={orderType} onValueChange={(v: any) => { setOrderType(v); setCompanyId(""); setGuestId(""); setCustomerName(""); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="company">Empresa</SelectItem>
@@ -426,7 +468,7 @@ export default function POSOrdersTab() {
               {(orderType === "company" || orderType === "individual") && (
                 <div>
                   <Label>{orderType === "company" ? "Empresa" : "Empresa asociada (opcional)"}</Label>
-                  <Select value={companyId} onValueChange={setCompanyId}>
+                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setTimeout(recalcCartPrices, 0); }}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
                     <SelectContent>
                       {orderType === "individual" && <SelectItem value="none">Sin empresa</SelectItem>}
@@ -506,7 +548,7 @@ export default function POSOrdersTab() {
 
               <div>
                 <Label>Modo de cobro</Label>
-                <Select value={billingMode} onValueChange={setBillingMode}>
+                <Select value={billingMode} onValueChange={(v) => { setBillingMode(v); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {BILLING_MODE_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
@@ -516,7 +558,7 @@ export default function POSOrdersTab() {
 
               <div>
                 <Label>Destino de entrega</Label>
-                <Select value={destType} onValueChange={setDestType}>
+                <Select value={destType} onValueChange={(v) => { setDestType(v); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DEST_OPTIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
@@ -539,23 +581,34 @@ export default function POSOrdersTab() {
                 ) : (
                   <>
                     {cart.map(c => (
-                      <div key={c.menu_item_id} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, -1)}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="font-medium w-6 text-center">{c.quantity}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <span className="ml-1">{c.name}</span>
+                      <div key={c.menu_item_id} className="space-y-0.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, -1)}>
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="font-medium w-6 text-center">{c.quantity}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, 1)}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <span className="ml-1">{c.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span>${(c.quantity * c.unit_price).toLocaleString()}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.menu_item_id)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span>${(c.quantity * c.unit_price).toLocaleString()}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.menu_item_id)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        {c.rate_source !== "menu_base" && (
+                          <div className="flex items-center gap-1 ml-16 text-[10px] text-muted-foreground">
+                            <Tag className="h-2.5 w-2.5" />
+                            Tarifa: {RATE_SOURCE_LABELS[c.rate_source] || c.rate_source}
+                            {c.base_price !== c.unit_price && (
+                              <span>(base: ${c.base_price.toLocaleString()})</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     <div className="border-t pt-2 flex justify-between font-semibold">
