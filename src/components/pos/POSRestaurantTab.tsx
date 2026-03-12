@@ -593,7 +593,7 @@ export default function POSRestaurantTab() {
           </div>
 
           {/* Product grid */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-3">
               {!selectedCategory && !menuSearch.trim() ? (
                 <div className="flex flex-col items-center justify-center h-full py-16 text-muted-foreground">
