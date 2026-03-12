@@ -71,6 +71,18 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
     },
   });
 
+  const { data: variableComponents } = useQuery({
+    queryKey: ["recipe-variable-components"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_variable_components" as any)
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const { data: productionRuns } = useQuery({
     queryKey: ["recipe-production-runs"],
     queryFn: async () => {
