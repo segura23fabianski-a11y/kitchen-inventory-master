@@ -306,6 +306,8 @@ export default function POSOrdersTab() {
     setCreating(false);
     setOrderType("individual");
     setCompanyId("");
+    setContractId("");
+    setContractGroupId("");
     setCustomerName("");
     setGuestId("");
     setTableId("");
