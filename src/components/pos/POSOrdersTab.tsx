@@ -581,23 +581,34 @@ export default function POSOrdersTab() {
                 ) : (
                   <>
                     {cart.map(c => (
-                      <div key={c.menu_item_id} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, -1)}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="font-medium w-6 text-center">{c.quantity}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <span className="ml-1">{c.name}</span>
+                      <div key={c.menu_item_id} className="space-y-0.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, -1)}>
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="font-medium w-6 text-center">{c.quantity}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateCartQty(c.menu_item_id, 1)}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <span className="ml-1">{c.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span>${(c.quantity * c.unit_price).toLocaleString()}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.menu_item_id)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span>${(c.quantity * c.unit_price).toLocaleString()}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(c.menu_item_id)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        {c.rate_source !== "menu_base" && (
+                          <div className="flex items-center gap-1 ml-16 text-[10px] text-muted-foreground">
+                            <Tag className="h-2.5 w-2.5" />
+                            Tarifa: {RATE_SOURCE_LABELS[c.rate_source] || c.rate_source}
+                            {c.base_price !== c.unit_price && (
+                              <span>(base: ${c.base_price.toLocaleString()})</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     <div className="border-t pt-2 flex justify-between font-semibold">
