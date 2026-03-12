@@ -324,6 +324,7 @@ export default function POSOrdersTab() {
     setBillingMode("corporate_charge");
     setCart([]);
     setGuestSearch("");
+    setIsTestRecord(false);
   };
 
   // Determine consumption mode for rate resolution
