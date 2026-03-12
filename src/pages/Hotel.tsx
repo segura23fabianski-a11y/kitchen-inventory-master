@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles, BarChart3, Shirt, Package, LayoutDashboard } from "lucide-react";
+import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles, BarChart3, Shirt, Package, LayoutDashboard, CalendarPlus } from "lucide-react";
 import RoomTypesTab from "@/components/hotel/RoomTypesTab";
 import RoomsTab from "@/components/hotel/RoomsTab";
 import GuestsTab from "@/components/hotel/GuestsTab";
@@ -11,6 +11,7 @@ import CorporateReportsTab from "@/components/hotel/CorporateReportsTab";
 import LaundryTab from "@/components/hotel/LaundryTab";
 import LinenInventoryTab from "@/components/hotel/LinenInventoryTab";
 import RoomDashboard from "@/components/hotel/RoomDashboard";
+import ReservationsTab from "@/components/hotel/ReservationsTab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useState } from "react";
 
