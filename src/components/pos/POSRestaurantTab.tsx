@@ -432,7 +432,7 @@ export default function POSRestaurantTab() {
 
   // ─── MAIN POS VIEW (Quick Sale or Table selected) ─────────
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden">
       {/* Top bar */}
       <div className="flex items-center gap-2 mb-2 flex-shrink-0">
         <Button variant={mode === "quick" ? "default" : "outline"} size="sm" onClick={() => { setMode("quick"); setSelectedTableId(null); resetOrder(); }}>
