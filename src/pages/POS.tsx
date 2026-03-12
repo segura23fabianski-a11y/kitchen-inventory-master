@@ -1,12 +1,13 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Utensils, Building2, List, LayoutGrid } from "lucide-react";
+import { Utensils, Building2, List, LayoutGrid, DollarSign } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSearchParams } from "react-router-dom";
 import POSRestaurantTab from "@/components/pos/POSRestaurantTab";
 import POSCorporateTab from "@/components/pos/POSCorporateTab";
 import POSMenuTab from "@/components/pos/POSMenuTab";
 import POSTablesTab from "@/components/pos/POSTablesTab";
+import POSCashRegisterTab from "@/components/pos/POSCashRegisterTab";
 
 interface TabDef {
   value: string;
@@ -18,6 +19,7 @@ interface TabDef {
 const posTabs: TabDef[] = [
   { value: "restaurant", label: "Restaurante", icon: Utensils, permKey: "pos_restaurant" },
   { value: "corporate", label: "Corporativo", icon: Building2, permKey: "pos_corporate" },
+  { value: "cash", label: "Caja", icon: DollarSign, permKey: "cash_open" },
   { value: "menu", label: "Menú", icon: List, permKey: "pos_menu" },
   { value: "tables", label: "Mesas", icon: LayoutGrid, permKey: "pos_tables" },
 ];
@@ -45,6 +47,7 @@ export default function POS() {
         </TabsList>
         {hasPermission("pos_restaurant") && <TabsContent value="restaurant"><POSRestaurantTab /></TabsContent>}
         {hasPermission("pos_corporate") && <TabsContent value="corporate"><POSCorporateTab /></TabsContent>}
+        {hasPermission("cash_open") && <TabsContent value="cash"><POSCashRegisterTab /></TabsContent>}
         {hasPermission("pos_menu") && <TabsContent value="menu"><POSMenuTab /></TabsContent>}
         {hasPermission("pos_tables") && <TabsContent value="tables"><POSTablesTab /></TabsContent>}
       </Tabs>
