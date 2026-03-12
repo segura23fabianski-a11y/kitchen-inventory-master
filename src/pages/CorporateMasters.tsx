@@ -1,10 +1,10 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, FolderTree, Users, DollarSign } from "lucide-react";
+import { Building2, FolderTree, DollarSign } from "lucide-react";
 import { useState } from "react";
 import CompaniesTab from "@/components/hotel/CompaniesTab";
 import POSContractsTab from "@/components/pos/POSContractsTab";
-import POSServiceRatesTab from "@/components/pos/POSServiceRatesTab";
+import CorporateRatesTab from "@/components/corporate/CorporateRatesTab";
 
 export default function CorporateMasters() {
   const [tab, setTab] = useState("companies");
@@ -32,7 +32,7 @@ export default function CorporateMasters() {
           </TabsList>
           <TabsContent value="companies"><CompaniesTab /></TabsContent>
           <TabsContent value="contracts"><POSContractsTab /></TabsContent>
-          <TabsContent value="rates"><POSServiceRatesTab /></TabsContent>
+          <TabsContent value="rates"><CorporateRatesTab /></TabsContent>
         </Tabs>
       </div>
     </AppLayout>
