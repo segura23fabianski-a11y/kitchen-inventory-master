@@ -115,7 +115,7 @@ export default function RoomsTab() {
               </Select>
             </div>
             <div><Label>Notas</Label><Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
-            <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={!form.room_number.trim() || !form.room_type_id || saveMutation.isPending}>{saveMutation.isPending ? "Guardando..." : "Guardar"}</Button>
+            <Button className="w-full" onClick={() => saveMutation.mutate({ currentForm: form, currentEditId: editId })} disabled={!form.room_number.trim() || !form.room_type_id || saveMutation.isPending}>{saveMutation.isPending ? "Guardando..." : "Guardar"}</Button>
           </div>
         </DialogContent>
       </Dialog>
