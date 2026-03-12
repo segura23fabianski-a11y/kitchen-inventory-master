@@ -314,15 +314,16 @@ export default function CasinoDashboard() {
                   <TableHead>Menú / Receta</TableHead>
                   <TableHead className="text-right">Cantidad</TableHead>
                   <TableHead className="text-right">Teórico Unit.</TableHead>
+                  <TableHead className="text-right">Teórico Total</TableHead>
                   <TableHead className="text-right">Real Unit.</TableHead>
-                  <TableHead className="text-right">Costo Total</TableHead>
+                  <TableHead className="text-right">Real Total</TableHead>
                   <TableHead className="text-right">Desviación</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {menuRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Sin producción registrada hoy
                     </TableCell>
                   </TableRow>
@@ -340,6 +341,9 @@ export default function CasinoDashboard() {
                         <TableCell className="text-right font-mono text-sm">
                           {row.theoreticalUnit ? fmt(row.theoreticalUnit) : "—"}
                         </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {row.theoreticalTotal ? fmt(row.theoreticalTotal) : "—"}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold">{fmt(row.realUnit)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmt(row.realTotal)}</TableCell>
                         <TableCell className="text-right">
@@ -351,7 +355,7 @@ export default function CasinoDashboard() {
                               {deviation > 0 ? "+" : ""}{fmt(deviation)}
                             </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Variable</span>
+                            <span className="text-xs text-muted-foreground">Sin teórico</span>
                           )}
                         </TableCell>
                       </TableRow>
