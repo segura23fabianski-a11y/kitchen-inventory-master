@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, BedDouble, Utensils } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Pencil, Trash2, BedDouble, Utensils, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 
 /* ── Hotel Rate Form ── */
@@ -20,6 +21,13 @@ const emptyHotelRate: HotelRateForm = { company_id: "", room_type_id: "", rate_p
 
 /* ── Food Rate Labels ── */
 const CONSUMPTION_MODE_LABELS: Record<string, string> = { dine_in: "En mesa", takeaway: "Para llevar", corporate_charge: "Cargo corporativo" };
+
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  breakfast: "Desayuno",
+  lunch: "Almuerzo",
+  dinner: "Cena",
+  snack: "Lonche",
+};
 
 export default function CorporateRatesTab() {
   const restaurantId = useRestaurantId();
@@ -40,6 +48,16 @@ export default function CorporateRatesTab() {
   const [foodActive, setFoodActive] = useState(true);
   const [foodFrom, setFoodFrom] = useState("");
   const [foodTo, setFoodTo] = useState("");
+
+  // ── Service rate state ──
+  const [svcOpen, setSvcOpen] = useState(false);
+  const [svcEditId, setSvcEditId] = useState<string | null>(null);
+  const [svcCompanyId, setSvcCompanyId] = useState("");
+  const [svcContractId, setSvcContractId] = useState("");
+  const [svcServiceType, setSvcServiceType] = useState("lunch");
+  const [svcRate, setSvcRate] = useState("");
+  const [svcActive, setSvcActive] = useState(true);
+  const [svcNotes, setSvcNotes] = useState("");
 
   // ── Shared queries ──
   const { data: companies = [] } = useQuery({
@@ -92,6 +110,29 @@ export default function CorporateRatesTab() {
     },
     enabled: !!restaurantId,
   });
+
+  // ── Service rate queries ──
+  const { data: allContracts = [] } = useQuery({
+    queryKey: ["all-contracts", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contracts").select("id, name, code, company_id, hotel_companies(name)").eq("restaurant_id", restaurantId!).eq("active", true).order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  const { data: serviceRates = [], isLoading: svcLoading } = useQuery({
+    queryKey: ["contract-service-rates-all", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contract_service_rates" as any).select("*, hotel_companies(name), contracts(name, code)").eq("restaurant_id", restaurantId!).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  const svcContractsForCompany = allContracts.filter(c => c.company_id === svcCompanyId);
 
   // ── Hotel mutations ──
   const saveHotelRate = useMutation({
@@ -146,6 +187,48 @@ export default function CorporateRatesTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["service-rates"] }); toast.success("Tarifa eliminada"); },
   });
 
+  // ── Service rate mutations ──
+  const saveServiceRate = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId || !svcCompanyId) throw new Error("Selecciona una empresa");
+      const payload: any = {
+        restaurant_id: restaurantId,
+        company_id: svcCompanyId,
+        contract_id: svcContractId && svcContractId !== "none" ? svcContractId : null,
+        service_type: svcServiceType,
+        rate: parseFloat(svcRate) || 0,
+        active: svcActive,
+        notes: svcNotes.trim() || null,
+      };
+      if (svcEditId) {
+        const { error } = await supabase.from("contract_service_rates" as any).update(payload).eq("id", svcEditId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("contract_service_rates" as any).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contract-service-rates"] });
+      qc.invalidateQueries({ queryKey: ["contract-service-rates-all"] });
+      closeSvcDialog();
+      toast.success(svcEditId ? "Tarifa actualizada" : "Tarifa creada");
+    },
+    onError: (e: any) => toast.error(e.message || "Error al guardar tarifa"),
+  });
+
+  const deleteServiceRate = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("contract_service_rates" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contract-service-rates"] });
+      qc.invalidateQueries({ queryKey: ["contract-service-rates-all"] });
+      toast.success("Tarifa eliminada");
+    },
+  });
+
   const openEditHotel = (r: any) => {
     setHotelEditId(r.id);
     setHotelForm({ company_id: r.company_id, room_type_id: r.room_type_id, rate_per_night: r.rate_per_night, includes_laundry: r.includes_laundry, includes_housekeeping: r.includes_housekeeping, includes_breakfast: r.includes_breakfast, notes: r.notes || "", active: r.active });
@@ -160,8 +243,80 @@ export default function CorporateRatesTab() {
     setFoodFrom(rate.effective_from || ""); setFoodTo(rate.effective_to || ""); setFoodOpen(true);
   };
 
+  const closeSvcDialog = () => {
+    setSvcOpen(false); setSvcEditId(null); setSvcCompanyId(""); setSvcContractId(""); setSvcServiceType("lunch"); setSvcRate(""); setSvcActive(true); setSvcNotes("");
+  };
+
+  const openEditSvc = (r: any) => {
+    setSvcEditId(r.id); setSvcCompanyId(r.company_id); setSvcContractId(r.contract_id || "none");
+    setSvcServiceType(r.service_type); setSvcRate(String(r.rate)); setSvcActive(r.active); setSvcNotes(r.notes || "");
+    setSvcOpen(true);
+  };
+
   return (
     <div className="space-y-8">
+      {/* ══════ SERVICE RATES SECTION (CORPORATE POS) ══════ */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <div>
+              <h2 className="text-lg font-semibold">Tarifas por Servicio (POS Corporativo)</h2>
+              <p className="text-xs text-muted-foreground">
+                Define el precio por tipo de servicio contratado (desayuno, almuerzo, cena, lonche) por empresa y contrato.
+                El POS Corporativo usa estas tarifas para calcular el total: cantidad × tarifa del servicio.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" onClick={() => setSvcOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />Nueva Tarifa
+          </Button>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Empresa</TableHead>
+              <TableHead>Contrato</TableHead>
+              <TableHead>Servicio</TableHead>
+              <TableHead className="text-right">Tarifa</TableHead>
+              <TableHead>Notas</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="w-20" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {svcLoading ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+            ) : serviceRates.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Sin tarifas de servicio configuradas. El POS Corporativo no podrá calcular precios.</TableCell></TableRow>
+            ) : serviceRates.map((r: any) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.hotel_companies?.name || "—"}</TableCell>
+                <TableCell>
+                  {r.contracts?.name ? (
+                    <Badge variant="outline">{r.contracts.name}{r.contracts.code ? ` (${r.contracts.code})` : ""}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">General</span>
+                  )}
+                </TableCell>
+                <TableCell><Badge variant="secondary">{SERVICE_TYPE_LABELS[r.service_type] || r.service_type}</Badge></TableCell>
+                <TableCell className="text-right font-mono font-semibold">${Number(r.rate).toLocaleString()}</TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{r.notes || "—"}</TableCell>
+                <TableCell><Badge variant={r.active ? "default" : "secondary"}>{r.active ? "Activa" : "Inactiva"}</Badge></TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEditSvc(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => deleteServiceRate.mutate(r.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
+
+      <hr className="border-border" />
+
       {/* ══════ HOTEL RATES SECTION ══════ */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -216,12 +371,15 @@ export default function CorporateRatesTab() {
 
       <hr className="border-border" />
 
-      {/* ══════ FOOD RATES SECTION ══════ */}
+      {/* ══════ FOOD RATES SECTION (POS Restaurante) ══════ */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Utensils className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Tarifas de Alimentación</h2>
+            <div>
+              <h2 className="text-lg font-semibold">Tarifas de Alimentación (POS Restaurante)</h2>
+              <p className="text-xs text-muted-foreground">Precios diferenciados por producto, empresa y modalidad de consumo para ventas individuales.</p>
+            </div>
           </div>
           <Button size="sm" onClick={() => setFoodOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />Nueva Tarifa
@@ -351,6 +509,61 @@ export default function CorporateRatesTab() {
           <DialogFooter>
             <Button variant="outline" onClick={closeFoodDialog}>Cancelar</Button>
             <Button onClick={() => saveFoodRate.mutate()} disabled={!foodMenuItemId}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Service Rate Dialog ── */}
+      <Dialog open={svcOpen} onOpenChange={v => !v && closeSvcDialog()}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{svcEditId ? "Editar" : "Nueva"} Tarifa por Servicio</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Empresa *</Label>
+              <Select value={svcCompanyId} onValueChange={v => { setSvcCompanyId(v); setSvcContractId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar empresa..." /></SelectTrigger>
+                <SelectContent>{companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {svcCompanyId && svcContractsForCompany.length > 0 && (
+              <div>
+                <Label>Contrato (opcional — dejar vacío para tarifa general de la empresa)</Label>
+                <Select value={svcContractId || "none"} onValueChange={v => setSvcContractId(v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="General (todos)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">General (todos los contratos)</SelectItem>
+                    {svcContractsForCompany.map(c => <SelectItem key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>Tipo de Servicio *</Label>
+              <Select value={svcServiceType} onValueChange={setSvcServiceType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="breakfast">Desayuno</SelectItem>
+                  <SelectItem value="lunch">Almuerzo</SelectItem>
+                  <SelectItem value="dinner">Cena</SelectItem>
+                  <SelectItem value="snack">Lonche</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Tarifa por servicio *</Label>
+              <Input type="number" min={0} value={svcRate} onChange={e => setSvcRate(e.target.value)} placeholder="Ej: 30000" />
+            </div>
+            <div>
+              <Label>Notas</Label>
+              <Textarea value={svcNotes} onChange={e => setSvcNotes(e.target.value)} placeholder="Observaciones..." className="h-16 resize-none" />
+            </div>
+            <div className="flex items-center gap-2"><Switch checked={svcActive} onCheckedChange={setSvcActive} /><Label>Activa</Label></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeSvcDialog}>Cancelar</Button>
+            <Button onClick={() => saveServiceRate.mutate()} disabled={!svcCompanyId || !svcRate || saveServiceRate.isPending}>
+              {saveServiceRate.isPending ? "Guardando..." : "Guardar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
