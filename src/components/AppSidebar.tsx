@@ -85,11 +85,8 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/pos", icon: Utensils, label: "Restaurante", permKey: "pos_restaurant", tabParam: "restaurant" },
       { to: "/pos", icon: Building2, label: "Corporativo", permKey: "pos_corporate", tabParam: "corporate" },
-      { to: "/pos", icon: UtensilsCrossed, label: "Cocina", permKey: "pos_kitchen", tabParam: "kitchen" },
       { to: "/pos", icon: List, label: "Menú", permKey: "pos_menu", tabParam: "menu" },
-      
       { to: "/pos", icon: LayoutGrid, label: "Mesas", permKey: "pos_tables", tabParam: "tables" },
-      { to: "/pos", icon: Shield, label: "Admin", permKey: "pos_admin", tabParam: "admin" },
     ],
   },
   {
@@ -104,6 +101,7 @@ const navGroups: NavGroup[] = [
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
       { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "recalculate_inventory" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "reset_inventory" },
+      { to: "/pos", icon: Shield, label: "Admin POS", permKey: "pos_admin", tabParam: "admin-pos" },
       { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
     ],
   },
