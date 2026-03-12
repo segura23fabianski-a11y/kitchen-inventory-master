@@ -55,7 +55,7 @@ const navGroups: NavGroup[] = [
     icon: Utensils,
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
-      { to: "/casino", icon: Activity, label: "Rentabilidad", permKey: "dashboard" },
+      { to: "/casino", icon: Activity, label: "Rentabilidad", permKey: "casino_dashboard" },
       { to: "/products", icon: Archive, label: "Productos", permKey: "products" },
       { to: "/categories", icon: Tag, label: "Categorías", permKey: "categories" },
       { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
