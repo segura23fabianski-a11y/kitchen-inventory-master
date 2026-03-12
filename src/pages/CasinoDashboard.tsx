@@ -48,6 +48,18 @@ export default function CasinoDashboard() {
     },
   });
 
+  // Variable components for theoretical cost of combos
+  const { data: variableComponents } = useQuery({
+    queryKey: ["casino-variable-components"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_variable_components" as any)
+        .select("recipe_id, average_component_cost");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   // Today's inventory exits (salidas)
   const { data: todaySalidas } = useQuery({
     queryKey: ["casino-salidas-today", todayStr],
