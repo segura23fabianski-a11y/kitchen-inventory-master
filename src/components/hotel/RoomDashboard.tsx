@@ -217,7 +217,17 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
             <span className="hidden sm:inline">{cfg.label}</span>
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1">
+        {/* Reservation indicators */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-card-foreground text-sm">
+          <CalendarPlus className="h-4 w-4 text-primary" />
+          <span className="font-medium">{arrivalsToday.length}</span>
+          <span className="hidden sm:inline">Llegadas hoy</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-card-foreground text-sm">
+          <CalendarPlus className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{upcomingReservations.length}</span>
+          <span className="hidden sm:inline">Reservas futuras</span>
+        </div>
           <span className="text-sm text-muted-foreground mr-1">Total: {enrichedRooms.length}</span>
           <Button
             variant={viewMode === "grid" ? "default" : "outline"} size="icon"
