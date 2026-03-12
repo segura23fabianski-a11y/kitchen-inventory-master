@@ -4,7 +4,7 @@ import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkle
 import RoomTypesTab from "@/components/hotel/RoomTypesTab";
 import RoomsTab from "@/components/hotel/RoomsTab";
 import GuestsTab from "@/components/hotel/GuestsTab";
-import CompaniesTab from "@/components/hotel/CompaniesTab";
+
 import StaysTab from "@/components/hotel/StaysTab";
 import HousekeepingTab from "@/components/hotel/HousekeepingTab";
 import CorporateReportsTab from "@/components/hotel/CorporateReportsTab";
