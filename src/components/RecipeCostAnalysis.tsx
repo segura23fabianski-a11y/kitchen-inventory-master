@@ -317,7 +317,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
-                    {row.recipeMode === "variable_combo" ? "—" : formatCost(row.theoreticalUnitCost)}
+                    {formatCost(row.theoreticalUnitCost)}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
                     {formatCost(row.lastRealUnitCost)}
