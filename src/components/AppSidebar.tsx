@@ -77,6 +77,17 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "pos",
+    label: "POS",
+    icon: ShoppingCart,
+    items: [
+      { to: "/pos", icon: ShoppingCart, label: "Pedidos", permKey: "pos_orders", tabParam: "orders" },
+      { to: "/pos", icon: UtensilsCrossed, label: "Cocina", permKey: "pos_kitchen", tabParam: "kitchen" },
+      { to: "/pos", icon: List, label: "Menú", permKey: "pos_menu", tabParam: "menu" },
+      { to: "/pos", icon: LayoutGrid, label: "Mesas", permKey: "pos_tables", tabParam: "tables" },
+    ],
+  },
+  {
     id: "admin",
     label: "Administración",
     icon: Settings,
