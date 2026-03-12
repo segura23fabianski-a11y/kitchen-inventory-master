@@ -34,7 +34,8 @@ const emptyForm: StayForm = { room_id: "", company_id: "", primary_guest_id: "",
 
 export default function StaysTab() {
   const restaurantId = useRestaurantId();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
