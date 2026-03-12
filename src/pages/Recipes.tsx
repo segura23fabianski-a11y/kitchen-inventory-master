@@ -48,6 +48,7 @@ interface ComponentLine {
   quantity_per_service: number;
   required: boolean;
   sort_order: number;
+  average_component_cost: number;
 }
 
 export default function Recipes() {
