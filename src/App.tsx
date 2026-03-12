@@ -36,6 +36,7 @@ import UserManual from "./pages/UserManual";
 import RecalculateInventory from "./pages/RecalculateInventory";
 import Transformations from "./pages/Transformations";
 import Hotel from "./pages/Hotel";
+import POS from "./pages/POS";
 
 import NotFound from "./pages/NotFound";
 
