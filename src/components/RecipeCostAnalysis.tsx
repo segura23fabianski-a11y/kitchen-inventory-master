@@ -334,7 +334,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
                       : "—"}
                   </TableCell>
                   <TableCell>
-                    {row.deviation !== null && row.recipeMode !== "variable_combo" ? (
+                    {row.deviation !== null && row.theoreticalUnitCost > 0 ? (
                       <div className="flex items-center gap-1">
                         {row.deviation > 0 ? (
                           <TrendingUp className="h-3.5 w-3.5 text-destructive" />
@@ -352,8 +352,8 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
                           </span>
                         )}
                       </div>
-                    ) : row.recipeMode === "variable_combo" && row.executionCount > 0 ? (
-                      <span className="text-xs text-muted-foreground">Variable</span>
+                    ) : row.executionCount > 0 && row.theoreticalUnitCost === 0 ? (
+                      <span className="text-xs text-muted-foreground">Sin teórico</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">Sin datos</span>
                     )}
