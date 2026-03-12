@@ -61,7 +61,8 @@ interface ReservationsTabProps {
 
 export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabProps) {
   const restaurantId = useRestaurantId();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -71,6 +72,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
   const [filterCompany, setFilterCompany] = useState("all");
   const [search, setSearch] = useState("");
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
+  const [deleteResId, setDeleteResId] = useState<string | null>(null);
 
   const { data: roomTypes } = useQuery({
     queryKey: ["reservation-room-types"],
