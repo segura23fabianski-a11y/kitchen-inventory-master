@@ -545,7 +545,7 @@ export default function POSRestaurantTab() {
           <div className="p-2 border-b">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categorías</span>
           </div>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-1.5 space-y-1">
               {categories.map(cat => {
                 const count = menuItems.filter((i: any) => (i.category || "General") === cat).length;
