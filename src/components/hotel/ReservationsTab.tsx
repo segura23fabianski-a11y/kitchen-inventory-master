@@ -546,6 +546,33 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
           qc.invalidateQueries({ queryKey: ["reservation-companies"] });
         }}
       />
+
+      {/* Delete Reservation Dialog (Admin) */}
+      <AlertDialog open={!!deleteResId} onOpenChange={() => setDeleteResId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar reserva?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción eliminará la reserva y sus ítems. No se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!deleteResId) return;
+              try {
+                await supabase.from("reservation_items").delete().eq("reservation_id", deleteResId);
+                const { error } = await supabase.from("reservations").delete().eq("id", deleteResId);
+                if (error) throw error;
+                qc.invalidateQueries({ queryKey: ["reservations"] });
+                toast({ title: "Reserva eliminada" });
+                if (detailRes?.id === deleteResId) setDetailRes(null);
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setDeleteResId(null);
+            }}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
