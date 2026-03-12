@@ -58,6 +58,7 @@ export default function Hotel() {
         {hasPermission("hotel_dashboard_view") && (
           <TabsContent value="dashboard"><RoomDashboard onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} /></TabsContent>
         )}
+        {hasPermission("hotel_reservations_view") && <TabsContent value="reservations"><ReservationsTab onConvertToCheckin={() => setActiveTab("stays")} /></TabsContent>}
         {hasPermission("hotel_stays_view") && <TabsContent value="stays"><StaysTab /></TabsContent>}
         {hasPermission("hotel_rooms_view") && <TabsContent value="rooms"><RoomsTab /></TabsContent>}
         {hasPermission("hotel_room_types_view") && <TabsContent value="room-types"><RoomTypesTab /></TabsContent>}
