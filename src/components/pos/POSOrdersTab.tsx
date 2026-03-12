@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -11,9 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard, Tag } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard, Tag, ScanBarcode, Printer, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { printKitchenComanda, printTicket } from "@/lib/pos-printing";
+import { openCashDrawer } from "@/lib/pos-hardware";
 
 const SERVICE_OPTIONS = [
   { value: "breakfast", label: "Desayuno" },
