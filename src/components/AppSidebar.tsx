@@ -4,7 +4,7 @@ import {
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, ChevronDown, Settings, Box, Receipt, Utensils, Monitor, CalendarDays, Paintbrush,
   HelpCircle, Calculator, FlaskConical, Hotel, BedDouble, CalendarCheck, CalendarPlus,
-  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Send
+  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Send, Activity
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -55,6 +55,7 @@ const navGroups: NavGroup[] = [
     icon: Utensils,
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
+      { to: "/casino", icon: Activity, label: "Rentabilidad", permKey: "dashboard" },
       { to: "/products", icon: Archive, label: "Productos", permKey: "products" },
       { to: "/categories", icon: Tag, label: "Categorías", permKey: "categories" },
       { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
@@ -73,6 +74,7 @@ const navGroups: NavGroup[] = [
       { to: "/transformations", icon: FlaskConical, label: "Transformaciones", permKey: "transformations" },
       { to: "/executive", icon: PieChart, label: "Dashboard Ejecutivo", permKey: "executive_dashboard" },
       { to: "/reports", icon: BarChart3, label: "Reportes", permKey: "reports" },
+      { to: "/purchases-report", icon: FileText, label: "Reporte Compras", permKey: "reports" },
       { to: "/operational-reports", icon: Layers, label: "Reportes Operativos", permKey: "operational_reports" },
     ],
   },
