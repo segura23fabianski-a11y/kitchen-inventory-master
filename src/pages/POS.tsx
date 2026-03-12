@@ -1,10 +1,11 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, UtensilsCrossed, LayoutGrid, List, Tag, FolderTree, ShieldCheck } from "lucide-react";
+import { ShoppingCart, UtensilsCrossed, LayoutGrid, List, Tag, Building2, ShieldCheck, Utensils } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useAuth } from "@/lib/auth";
 import { useSearchParams } from "react-router-dom";
-import POSOrdersTab from "@/components/pos/POSOrdersTab";
+import POSRestaurantTab from "@/components/pos/POSRestaurantTab";
+import POSCorporateTab from "@/components/pos/POSCorporateTab";
 import POSMenuTab from "@/components/pos/POSMenuTab";
 import POSTablesTab from "@/components/pos/POSTablesTab";
 import POSKitchenTab from "@/components/pos/POSKitchenTab";
@@ -17,29 +18,23 @@ interface TabDef {
   label: string;
   icon: typeof ShoppingCart;
   permKey: string;
-  adminOnly?: boolean;
 }
 
 const posTabs: TabDef[] = [
-  { value: "orders", label: "Pedidos", icon: ShoppingCart, permKey: "pos_orders" },
+  { value: "restaurant", label: "Restaurante", icon: Utensils, permKey: "pos_restaurant" },
+  { value: "corporate", label: "Corporativo", icon: Building2, permKey: "pos_corporate" },
   { value: "kitchen", label: "Cocina", icon: UtensilsCrossed, permKey: "pos_kitchen" },
   { value: "menu", label: "Menú", icon: List, permKey: "pos_menu" },
   { value: "rates", label: "Tarifas", icon: Tag, permKey: "pos_menu" },
-  { value: "contracts", label: "Contratos", icon: FolderTree, permKey: "pos_menu" },
   { value: "tables", label: "Mesas", icon: LayoutGrid, permKey: "pos_tables" },
-  { value: "admin", label: "Admin", icon: ShieldCheck, permKey: "pos_orders", adminOnly: true },
+  { value: "admin", label: "Admin", icon: ShieldCheck, permKey: "pos_admin" },
 ];
 
 export default function POS() {
   const { hasPermission } = usePermissions();
-  const { hasRole } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const visibleTabs = posTabs.filter(t => {
-    if (!hasPermission(t.permKey)) return false;
-    if (t.adminOnly && !hasRole("admin")) return false;
-    return true;
-  });
-  const defaultTab = visibleTabs[0]?.value || "orders";
+  const visibleTabs = posTabs.filter(t => hasPermission(t.permKey));
+  const defaultTab = visibleTabs[0]?.value || "restaurant";
   const activeTab = searchParams.get("tab") || defaultTab;
 
   const setActiveTab = (tab: string) => {
@@ -56,13 +51,13 @@ export default function POS() {
             </TabsTrigger>
           ))}
         </TabsList>
-        {hasPermission("pos_orders") && <TabsContent value="orders"><POSOrdersTab /></TabsContent>}
+        {hasPermission("pos_restaurant") && <TabsContent value="restaurant"><POSRestaurantTab /></TabsContent>}
+        {hasPermission("pos_corporate") && <TabsContent value="corporate"><POSCorporateTab /></TabsContent>}
         {hasPermission("pos_kitchen") && <TabsContent value="kitchen"><POSKitchenTab /></TabsContent>}
         {hasPermission("pos_menu") && <TabsContent value="menu"><POSMenuTab /></TabsContent>}
         {hasPermission("pos_menu") && <TabsContent value="rates"><POSServiceRatesTab /></TabsContent>}
-        {hasPermission("pos_menu") && <TabsContent value="contracts"><POSContractsTab /></TabsContent>}
         {hasPermission("pos_tables") && <TabsContent value="tables"><POSTablesTab /></TabsContent>}
-        {hasRole("admin") && <TabsContent value="admin"><POSAdminTab /></TabsContent>}
+        {hasPermission("pos_admin") && <TabsContent value="admin"><POSAdminTab /></TabsContent>}
       </Tabs>
     </AppLayout>
   );

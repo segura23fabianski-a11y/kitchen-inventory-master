@@ -201,10 +201,17 @@ export default function Products() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      const { data: prev } = await supabase.from("products").select("*").eq("id", id).single();
-      const { error } = await supabase.from("products").delete().eq("id", id);
+      const { data: result, error } = await supabase.rpc("safe_delete_product", { _product_id: id });
       if (error) throw error;
-      await logAudit({ entityType: "product", entityId: id, action: "DELETE", before: prev, after: null, canRollback: false });
+      const res = result as any;
+      if (!res.success) {
+        const relations = (res.relations as any[]) || [];
+        const relText = relations.map((r: any) => `${r.table}: ${r.count}`).join("\n");
+        throw new Error(
+          `${res.error}\n\n${relText}${res.suggestion ? `\n\n💡 ${res.suggestion}` : ""}`
+        );
+      }
+      await logAudit({ entityType: "product", entityId: id, action: "DELETE", before: null, after: null, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -212,7 +219,7 @@ export default function Products() {
       setDeleteId(null);
       toast({ title: "Producto eliminado" });
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "No se puede eliminar", description: e.message, variant: "destructive" }),
   });
 
   const bulkInsert = useMutation({
@@ -700,12 +707,12 @@ export default function Products() {
                           <TableCell>
                             <div className="flex gap-1">
                               {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
-                              {hasRole("admin") && (
+                              {hasPermission("cost_revaluation") && (
                                 <Button variant="ghost" size="icon" onClick={() => setRevalProduct(p)} title="Corregir costo">
                                   <DollarSign className="h-4 w-4 text-amber-600" />
                                 </Button>
                               )}
-                              {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                               {hasRole("admin") && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                             </div>
                           </TableCell>
                         )}

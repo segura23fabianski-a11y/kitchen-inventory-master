@@ -48,6 +48,18 @@ export default function CasinoDashboard() {
     },
   });
 
+  // Variable components for theoretical cost of combos
+  const { data: variableComponents } = useQuery({
+    queryKey: ["casino-variable-components"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_variable_components" as any)
+        .select("recipe_id, average_component_cost");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   // Today's inventory exits (salidas)
   const { data: todaySalidas } = useQuery({
     queryKey: ["casino-salidas-today", todayStr],
@@ -130,30 +142,44 @@ export default function CasinoDashboard() {
   const menuRows = useMemo(() => {
     const rows: any[] = [];
 
+    // Build theoretical cost map for variable combos from their components
+    const comboTheoreticalMap = new Map<string, number>();
+    if (variableComponents?.length) {
+      for (const vc of variableComponents) {
+        const current = comboTheoreticalMap.get(vc.recipe_id) ?? 0;
+        comboTheoreticalMap.set(vc.recipe_id, current + Number(vc.average_component_cost ?? 0));
+      }
+    }
+
     todayCombos?.forEach((c: any) => {
+      const recipeId = c.recipe_id;
+      const theoreticalUnit = comboTheoreticalMap.get(recipeId) ?? null;
       rows.push({
         name: c.recipes?.name ?? "Combo",
         qty: Number(c.servings),
         realUnit: Number(c.unit_cost),
         realTotal: Number(c.total_cost),
-        theoreticalUnit: null, // combos don't have theoretical
+        theoreticalUnit,
+        theoreticalTotal: theoreticalUnit !== null ? theoreticalUnit * Number(c.servings) : null,
         source: "combo",
       });
     });
 
     todayRuns?.forEach((r: any) => {
+      const theoreticalUnit = Number(r.theoretical_unit_cost);
       rows.push({
         name: r.recipes?.name ?? "Producción",
         qty: Number(r.quantity_produced),
         realUnit: Number(r.actual_unit_cost),
         realTotal: Number(r.actual_total_cost),
-        theoreticalUnit: Number(r.theoretical_unit_cost),
+        theoreticalUnit,
+        theoreticalTotal: theoreticalUnit * Number(r.quantity_produced),
         source: "production",
       });
     });
 
     return rows;
-  }, [todayCombos, todayRuns]);
+  }, [todayCombos, todayRuns, variableComponents]);
 
   // Sales by service period
   const salesByPeriod = useMemo(() => {
@@ -288,15 +314,16 @@ export default function CasinoDashboard() {
                   <TableHead>Menú / Receta</TableHead>
                   <TableHead className="text-right">Cantidad</TableHead>
                   <TableHead className="text-right">Teórico Unit.</TableHead>
+                  <TableHead className="text-right">Teórico Total</TableHead>
                   <TableHead className="text-right">Real Unit.</TableHead>
-                  <TableHead className="text-right">Costo Total</TableHead>
+                  <TableHead className="text-right">Real Total</TableHead>
                   <TableHead className="text-right">Desviación</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {menuRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Sin producción registrada hoy
                     </TableCell>
                   </TableRow>
@@ -314,6 +341,9 @@ export default function CasinoDashboard() {
                         <TableCell className="text-right font-mono text-sm">
                           {row.theoreticalUnit ? fmt(row.theoreticalUnit) : "—"}
                         </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {row.theoreticalTotal ? fmt(row.theoreticalTotal) : "—"}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold">{fmt(row.realUnit)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmt(row.realTotal)}</TableCell>
                         <TableCell className="text-right">
@@ -325,7 +355,7 @@ export default function CasinoDashboard() {
                               {deviation > 0 ? "+" : ""}{fmt(deviation)}
                             </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Variable</span>
+                            <span className="text-xs text-muted-foreground">Sin teórico</span>
                           )}
                         </TableCell>
                       </TableRow>
