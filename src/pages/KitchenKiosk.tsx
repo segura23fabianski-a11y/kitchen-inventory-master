@@ -518,23 +518,46 @@ export default function KitchenKiosk() {
     return true;
   }, [comboExecution, products]);
 
-  const comboTotalCost = useMemo(() => {
-    if (!comboExecution) return 0;
-    return comboExecution.components.reduce((sum, comp) => {
+  const comboCostBreakdown = useMemo(() => {
+    if (!comboExecution) return { totalCost: 0, components: [] as { name: string; totalCost: number; unitCost: number; source: string; lotTotal?: number; lotQty?: number }[] };
+    const servings = comboExecution.servings;
+    const components: { name: string; totalCost: number; unitCost: number; source: string; lotTotal?: number; lotQty?: number }[] = [];
+    let totalCost = 0;
+
+    for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
         const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) return sum;
+        if (!prod) continue;
         const cost = Number(prod.average_cost ?? 0);
-        return sum + (cost * comp.quantityPerService * comboExecution.servings);
+        const lineCost = cost * comp.quantityPerService * servings;
+        totalCost += lineCost;
+        components.push({ name: comp.componentName, totalCost: lineCost, unitCost: lineCost / servings, source: "CPP" });
       } else {
-        // recipe mode: use production run unit cost if available, else sum ingredient costs
         if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
-          return sum + (comp.productionRunUnitCost * comp.quantityPerService * comboExecution.servings);
+          const qty = comp.quantityPerService * servings;
+          const lineCost = comp.productionRunUnitCost * qty;
+          totalCost += lineCost;
+          // Find the production run to get lot info
+          const run = todayRunByRecipe.get(comp.selectedRecipeId);
+          components.push({
+            name: comp.componentName,
+            totalCost: lineCost,
+            unitCost: comp.productionRunUnitCost * comp.quantityPerService,
+            source: "Lote del día",
+            lotTotal: run ? Number(run.actual_total_cost) : undefined,
+            lotQty: run ? Number(run.quantity_produced) : undefined,
+          });
+        } else {
+          const ingCost = comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
+          totalCost += ingCost;
+          components.push({ name: comp.componentName, totalCost: ingCost, unitCost: ingCost / servings, source: "Teórico" });
         }
-        return sum + comp.recipeIngredients.reduce((s, ri) => s + (ri.actualQty * ri.unitCost), 0);
       }
-    }, 0);
-  }, [comboExecution, products]);
+    }
+    return { totalCost, components };
+  }, [comboExecution, products, todayRunByRecipe]);
+
+  const comboTotalCost = comboCostBreakdown.totalCost;
 
   // ──── Confirm mutation (individual products) ────
   const confirmConsumption = useMutation({
