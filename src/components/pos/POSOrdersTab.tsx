@@ -228,7 +228,9 @@ export default function POSOrdersTab() {
         .insert({
           restaurant_id: restaurantId!,
           order_type: orderType,
-          company_id: companyId || null,
+          company_id: companyId && companyId !== "none" ? companyId : null,
+          contract_id: contractId || null,
+          contract_group_id: contractGroupId || null,
           customer_name: orderType === "individual" ? customerName || null : null,
           guest_id: guestId || null,
           table_id: orderType === "table" ? tableId || null : null,
