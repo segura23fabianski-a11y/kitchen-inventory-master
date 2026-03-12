@@ -1586,6 +1586,8 @@ export type Database = {
           notes: string | null
           order_id: string
           quantity: number
+          rate_applied: number | null
+          rate_source: string
           total: number
           unit_price: number
         }
@@ -1596,6 +1598,8 @@ export type Database = {
           notes?: string | null
           order_id: string
           quantity?: number
+          rate_applied?: number | null
+          rate_source?: string
           total?: number
           unit_price?: number
         }
@@ -1606,6 +1610,8 @@ export type Database = {
           notes?: string | null
           order_id?: string
           quantity?: number
+          rate_applied?: number | null
+          rate_source?: string
           total?: number
           unit_price?: number
         }
@@ -2919,6 +2925,67 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "operational_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_rates: {
+        Row: {
+          active: boolean
+          company_id: string | null
+          consumption_mode: string
+          created_at: string
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          menu_item_id: string
+          price: number
+          restaurant_id: string
+        }
+        Insert: {
+          active?: boolean
+          company_id?: string | null
+          consumption_mode?: string
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          menu_item_id: string
+          price?: number
+          restaurant_id: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string | null
+          consumption_mode?: string
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          menu_item_id?: string
+          price?: number
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_rates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_rates_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_rates_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
