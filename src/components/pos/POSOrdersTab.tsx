@@ -246,6 +246,7 @@ export default function POSOrdersTab() {
           billing_mode: billingMode,
           created_by: user!.id,
           status: "open",
+          is_test_record: isTestRecord,
         } as any)
         .select()
         .single();
