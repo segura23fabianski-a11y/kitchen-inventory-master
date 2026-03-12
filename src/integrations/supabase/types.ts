@@ -554,6 +554,64 @@ export type Database = {
           },
         ]
       }
+      contract_service_rates: {
+        Row: {
+          active: boolean
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          rate: number
+          restaurant_id: string
+          service_type: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rate?: number
+          restaurant_id: string
+          service_type?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rate?: number
+          restaurant_id?: string
+          service_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_service_rates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_service_rates_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_service_rates_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           active: boolean
