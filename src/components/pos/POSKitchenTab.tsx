@@ -68,12 +68,18 @@ export default function POSKitchenTab() {
   const individualOrders = rawOrders.filter(o => o.order_type === "individual");
   const tableOrders = rawOrders.filter(o => o.order_type === "table");
 
-  // Group corporate by company
-  const corporateByCompany: Record<string, typeof corporateOrders> = {};
+  // Group corporate by company + contract (contract shown, not subgroup)
+  const corporateByGroup: Record<string, { label: string; orders: typeof corporateOrders }> = {};
   for (const o of corporateOrders) {
     const companyName = (o as any).hotel_companies?.name || "Empresa";
-    if (!corporateByCompany[companyName]) corporateByCompany[companyName] = [];
-    corporateByCompany[companyName].push(o);
+    const contractName = (o as any).contracts?.name;
+    const contractCode = (o as any).contracts?.code;
+    const label = contractName
+      ? `${companyName} — ${contractName}${contractCode ? ` (${contractCode})` : ""}`
+      : companyName;
+    const key = `${o.company_id || ""}_${(o as any).contract_id || ""}`;
+    if (!corporateByGroup[key]) corporateByGroup[key] = { label, orders: [] };
+    corporateByGroup[key].orders.push(o);
   }
 
   // Consolidate individual items (no client names)
