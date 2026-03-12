@@ -13,7 +13,7 @@ import LinenInventoryTab from "@/components/hotel/LinenInventoryTab";
 import RoomDashboard from "@/components/hotel/RoomDashboard";
 import ReservationsTab from "@/components/hotel/ReservationsTab";
 import { usePermissions } from "@/hooks/use-permissions";
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 interface TabDef {
   value: string;
@@ -38,9 +38,14 @@ const hotelTabs: TabDef[] = [
 
 export default function Hotel() {
   const { hasPermission } = usePermissions();
+  const [searchParams, setSearchParams] = useSearchParams();
   const visibleTabs = hotelTabs.filter(t => hasPermission(t.permKey));
   const defaultTab = visibleTabs[0]?.value || "dashboard";
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const activeTab = searchParams.get("tab") || defaultTab;
+
+  const setActiveTab = (tab: string) => {
+    setSearchParams({ tab }, { replace: true });
+  };
 
   const handleCheckIn = (_roomId: string) => setActiveTab("stays");
   const handleCheckOut = (_stayId: string) => setActiveTab("stays");
