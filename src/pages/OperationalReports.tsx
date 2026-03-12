@@ -60,6 +60,8 @@ function getArea(m: MovementRow, servicesMap: Map<string, string>, recipesMap: M
     if (recipe.type === "housekeeping") return "Housekeeping";
     return "Cocina";
   }
+  // POS sales
+  if (m.type === "pos_sale") return "Ventas POS";
   // Salida with no service/recipe → Cocina general
   if (m.type === "salida") return "Cocina";
   if (m.type === "operational_consumption") return "Operaciones (sin servicio)";
