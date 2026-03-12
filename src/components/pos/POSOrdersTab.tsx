@@ -548,7 +548,7 @@ export default function POSOrdersTab() {
 
               <div>
                 <Label>Modo de cobro</Label>
-                <Select value={billingMode} onValueChange={setBillingMode}>
+                <Select value={billingMode} onValueChange={(v) => { setBillingMode(v); setTimeout(recalcCartPrices, 0); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {BILLING_MODE_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
