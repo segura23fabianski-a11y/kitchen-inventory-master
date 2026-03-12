@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -11,9 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard, Tag } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Send, X, ShoppingCart, Building2, User, LayoutGrid, Minus, CreditCard, Tag, ScanBarcode, Printer, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { printKitchenComanda, printTicket } from "@/lib/pos-printing";
+import { openCashDrawer } from "@/lib/pos-hardware";
 
 const SERVICE_OPTIONS = [
   { value: "breakfast", label: "Desayuno" },
@@ -88,8 +91,11 @@ export default function POSOrdersTab() {
   const [destDetail, setDestDetail] = useState("");
   const [billingMode, setBillingMode] = useState("corporate_charge");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isTestRecord, setIsTestRecord] = useState(false);
   const [filterStatus, setFilterStatus] = useState("active");
   const [filterType, setFilterType] = useState("all");
+  const barcodeBufferRef = useRef("");
+  const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [guestSearch, setGuestSearch] = useState("");
 
   // Queries
@@ -240,6 +246,7 @@ export default function POSOrdersTab() {
           billing_mode: billingMode,
           created_by: user!.id,
           status: "open",
+          is_test_record: isTestRecord,
         } as any)
         .select()
         .single();
@@ -317,6 +324,7 @@ export default function POSOrdersTab() {
     setBillingMode("corporate_charge");
     setCart([]);
     setGuestSearch("");
+    setIsTestRecord(false);
   };
 
   // Determine consumption mode for rate resolution
@@ -348,7 +356,83 @@ export default function POSOrdersTab() {
     });
   };
 
-  // Recalculate cart prices when billing mode, dest type, or company changes
+  // Global barcode listener
+  useEffect(() => {
+    if (!creating) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "Enter" && barcodeBufferRef.current.length >= 3) {
+        const code = barcodeBufferRef.current.trim();
+        barcodeBufferRef.current = "";
+        const found = menuItems.find((m: any) => m.barcode === code);
+        if (found) { addToCart(found); toast.success(`Escaneado: ${found.name}`); }
+        else toast.error(`Código no encontrado: ${code}`);
+        return;
+      }
+      if (e.key.length === 1) {
+        barcodeBufferRef.current += e.key;
+        if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current);
+        barcodeTimeoutRef.current = setTimeout(() => { barcodeBufferRef.current = ""; }, 200);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [creating, menuItems]);
+
+  // Print kitchen comanda for an order
+  const handlePrintComanda = async (orderId: string) => {
+    const { data: order } = await supabase
+      .from("pos_orders")
+      .select(`*, pos_order_items(*, menu_items(name)), hotel_companies(name), pos_tables(name), contracts(name, code)`)
+      .eq("id", orderId)
+      .single();
+    if (!order) return;
+    const destLabel = DEST_OPTIONS.find(d => d.value === order.delivery_destination_type)?.label || order.delivery_destination_type;
+    printKitchenComanda({
+      orderNumber: order.order_number,
+      servicePeriod: order.service_period,
+      destination: destLabel,
+      destinationDetail: order.delivery_destination_detail || undefined,
+      groupLabel: order.order_type === "company" ? (order as any).hotel_companies?.name : undefined,
+      items: ((order as any).pos_order_items || []).map((i: any) => ({
+        name: i.menu_items?.name || "—",
+        quantity: i.quantity,
+        notes: i.notes || undefined,
+      })),
+      createdAt: order.created_at,
+    });
+  };
+
+  // Print sales ticket
+  const handlePrintTicket = async (orderId: string) => {
+    const { data: order } = await supabase
+      .from("pos_orders")
+      .select(`*, pos_order_items(*, menu_items(name)), hotel_companies(name), hotel_guests(first_name, last_name)`)
+      .eq("id", orderId)
+      .single();
+    if (!order) return;
+    printTicket({
+      orderNumber: order.order_number,
+      servicePeriod: order.service_period,
+      customerName: (order as any).hotel_guests ? `${(order as any).hotel_guests.first_name} ${(order as any).hotel_guests.last_name}` : order.customer_name || undefined,
+      companyName: (order as any).hotel_companies?.name || undefined,
+      billingMode: (order as any).billing_mode || undefined,
+      items: ((order as any).pos_order_items || []).map((i: any) => ({
+        name: i.menu_items?.name || "—",
+        quantity: i.quantity,
+        unit_price: Number(i.unit_price),
+        total: Number(i.total),
+      })),
+      total: Number(order.total),
+      createdAt: order.created_at,
+    });
+    // Open cash drawer on cash billing
+    if ((order as any).billing_mode === "cash") {
+      openCashDrawer();
+    }
+  };
+
   const recalcCartPrices = () => {
     const mode = getConsumptionMode();
     const effectiveCompanyId = companyId && companyId !== "none" ? companyId : null;
@@ -473,6 +557,9 @@ export default function POSOrdersTab() {
                     )}
                   </div>
                 )}
+                {(order as any).is_test_record && (
+                  <Badge variant="destructive" className="text-[10px] px-1 py-0">PRUEBA</Badge>
+                )}
               </CardHeader>
               <CardContent className="flex gap-1 flex-wrap">
                 {order.status === "open" && (
@@ -490,6 +577,12 @@ export default function POSOrdersTab() {
                     Cerrar pedido
                   </Button>
                 )}
+                <Button size="sm" variant="outline" onClick={() => handlePrintComanda(order.id)}>
+                  <Printer className="h-3.5 w-3.5 mr-1" />Comanda
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handlePrintTicket(order.id)}>
+                  <Receipt className="h-3.5 w-3.5 mr-1" />Ticket
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -735,7 +828,15 @@ export default function POSOrdersTab() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex items-center gap-2 mr-auto">
+              <ScanBarcode className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Lector de código activo</span>
+              <div className="border-l pl-2 flex items-center gap-2">
+                <Switch checked={isTestRecord} onCheckedChange={setIsTestRecord} id="test-toggle" />
+                <Label htmlFor="test-toggle" className="text-xs cursor-pointer">Registro de prueba</Label>
+              </div>
+            </div>
             <Button variant="outline" onClick={closeCreateDialog}>Cancelar</Button>
             <Button onClick={() => createOrder.mutate()} disabled={cart.length === 0 || createOrder.isPending}>
               Crear Pedido

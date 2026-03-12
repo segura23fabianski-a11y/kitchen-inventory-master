@@ -1473,6 +1473,7 @@ export type Database = {
       menu_items: {
         Row: {
           active: boolean
+          barcode: string | null
           category: string
           created_at: string
           id: string
@@ -1483,6 +1484,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          barcode?: string | null
           category?: string
           created_at?: string
           id?: string
@@ -1493,6 +1495,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          barcode?: string | null
           category?: string
           created_at?: string
           id?: string
@@ -1735,6 +1738,7 @@ export type Database = {
           delivery_destination_type: string
           guest_id: string | null
           id: string
+          is_test_record: boolean
           order_number: string
           order_type: string
           restaurant_id: string
@@ -1755,6 +1759,7 @@ export type Database = {
           delivery_destination_type?: string
           guest_id?: string | null
           id?: string
+          is_test_record?: boolean
           order_number?: string
           order_type?: string
           restaurant_id: string
@@ -1775,6 +1780,7 @@ export type Database = {
           delivery_destination_type?: string
           guest_id?: string | null
           id?: string
+          is_test_record?: boolean
           order_number?: string
           order_type?: string
           restaurant_id?: string
