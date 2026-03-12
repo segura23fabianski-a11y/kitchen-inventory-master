@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
-import { useServiceRates } from "@/hooks/use-service-rates";
+import { useContractServiceRates } from "@/hooks/use-contract-service-rates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Plus, Send, X, ShoppingCart, Building2, Minus, Printer, Receipt, Search,
-  MessageSquare, ChevronLeft, Users, Package,
+  Plus, Send, X, ShoppingCart, Building2, Minus, Printer, Search,
+  MessageSquare, ChevronLeft, Users, Package, DollarSign, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { printKitchenComanda, printTicket } from "@/lib/pos-printing";
+import { printKitchenComanda } from "@/lib/pos-printing";
 import { fuzzyMatch } from "@/lib/search-utils";
 
 const SERVICE_OPTIONS = [
@@ -49,14 +49,14 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 interface OrderLine {
   contractGroupId: string;
   contractGroupName: string;
-  items: { menu_item_id: string; name: string; quantity: number; unit_price: number; notes: string }[];
+  items: { menu_item_id: string; name: string; quantity: number; notes: string }[];
 }
 
 export default function POSCorporateTab() {
   const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { resolveRate } = useServiceRates();
+  const { resolveServiceRate } = useContractServiceRates();
 
   const [creating, setCreating] = useState(false);
   const [companyId, setCompanyId] = useState("");
@@ -70,15 +70,12 @@ export default function POSCorporateTab() {
   // Lines state
   const [lines, setLines] = useState<OrderLine[]>([]);
   const [currentGroupId, setCurrentGroupId] = useState("");
-  const [currentItems, setCurrentItems] = useState<{ menu_item_id: string; name: string; quantity: number; unit_price: number; notes: string }[]>([]);
+  const [currentItems, setCurrentItems] = useState<{ menu_item_id: string; name: string; quantity: number; notes: string }[]>([]);
 
   // Menu navigation
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [menuSearch, setMenuSearch] = useState("");
   const [notesItemIdx, setNotesItemIdx] = useState<number | null>(null);
-
-  // Editing existing order
-  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   // Queries
   const { data: orders = [] } = useQuery({
@@ -107,12 +104,9 @@ export default function POSCorporateTab() {
     queryKey: ["menu-items-active", restaurantId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("menu_items")
-        .select("*")
-        .eq("restaurant_id", restaurantId!)
-        .eq("active", true)
-        .order("category")
-        .order("name");
+        .from("menu_items").select("*")
+        .eq("restaurant_id", restaurantId!).eq("active", true)
+        .order("category").order("name");
       if (error) throw error;
       return data;
     },
@@ -168,14 +162,27 @@ export default function POSCorporateTab() {
     return menuItems.filter((i: any) => (i.category || "General") === selectedCategory);
   }, [menuItems, selectedCategory, menuSearch]);
 
+  // --- SERVICE-BASED PRICING ---
+  const resolvedRate = useMemo(() => {
+    if (!companyId) return { rate: 0, found: false };
+    return resolveServiceRate(companyId, contractId || null, servicePeriod);
+  }, [companyId, contractId, servicePeriod, resolveServiceRate]);
+
+  const totalServings = useMemo(() => {
+    return lines.reduce((sum, l) => sum + l.items.reduce((s, it) => s + it.quantity, 0), 0)
+      + currentItems.reduce((s, it) => s + it.quantity, 0);
+  }, [lines, currentItems]);
+
+  // Corporate total = total servings × service rate
+  const orderTotal = totalServings * resolvedRate.rate;
+
   const addItemToCurrentLine = useCallback((item: any) => {
-    const price = Number(item.price);
     setCurrentItems(prev => {
       const existing = prev.find(c => c.menu_item_id === item.id);
       if (existing) {
         return prev.map(c => c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
-      return [...prev, { menu_item_id: item.id, name: item.name, quantity: 1, unit_price: price, notes: "" }];
+      return [...prev, { menu_item_id: item.id, name: item.name, quantity: 1, notes: "" }];
     });
   }, []);
 
@@ -196,19 +203,23 @@ export default function POSCorporateTab() {
     setLines(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const allItems = useMemo(() => {
-    return lines.flatMap(l => l.items);
-  }, [lines]);
-
-  const orderTotal = allItems.reduce((s, c) => s + c.quantity * c.unit_price, 0);
+  const allItems = useMemo(() => lines.flatMap(l => l.items), [lines]);
 
   const createOrder = useMutation({
     mutationFn: async () => {
-      if (allItems.length === 0) throw new Error("Agrega al menos una línea");
+      const finalItems = [...allItems, ...currentItems];
+      if (finalItems.length === 0) throw new Error("Agrega al menos una línea");
       if (!companyId) throw new Error("Selecciona una empresa");
+      if (!resolvedRate.found) throw new Error("No hay tarifa configurada para este servicio y empresa");
 
-      // Create one order per line (for subgroup tracking), or a single order
-      // For simplicity and kitchen consolidation: create one order with all items
+      const finalServings = finalItems.reduce((s, it) => s + it.quantity, 0);
+      const finalTotal = finalServings * resolvedRate.rate;
+
+      // If there are unsaved current items, add them as a line first
+      const finalLines = currentItems.length > 0
+        ? [...lines, { contractGroupId: currentGroupId, contractGroupName: contractGroups.find(g => g.id === currentGroupId)?.name || "General", items: [...currentItems] }]
+        : lines;
+
       const { data: order, error } = await supabase
         .from("pos_orders")
         .insert({
@@ -216,7 +227,7 @@ export default function POSCorporateTab() {
           order_type: "company",
           company_id: companyId,
           contract_id: contractId || null,
-          contract_group_id: lines.length === 1 ? (lines[0].contractGroupId || null) : null,
+          contract_group_id: finalLines.length === 1 ? (finalLines[0].contractGroupId || null) : null,
           service_period: servicePeriod,
           delivery_destination_type: destType,
           delivery_destination_detail: destDetail || null,
@@ -224,20 +235,21 @@ export default function POSCorporateTab() {
           created_by: user!.id,
           status: "open",
           is_test_record: isTestRecord,
+          total: finalTotal,
         } as any)
         .select()
         .single();
       if (error) throw error;
 
-      // Insert all items with notes indicating subgroup
-      const items = lines.flatMap(line =>
+      // Insert items — unit_price = service rate (for billing reference), not menu price
+      const items = finalLines.flatMap(line =>
         line.items.map(c => ({
           order_id: order.id,
           menu_item_id: c.menu_item_id,
           quantity: c.quantity,
-          unit_price: c.unit_price,
-          rate_applied: c.unit_price,
-          rate_source: "menu_base",
+          unit_price: resolvedRate.rate,
+          rate_applied: resolvedRate.rate,
+          rate_source: "contract_service",
           notes: [line.contractGroupName !== "General" ? `[${line.contractGroupName}]` : "", c.notes].filter(Boolean).join(" ") || null,
         } as any))
       );
@@ -246,37 +258,25 @@ export default function POSCorporateTab() {
       if (itemsErr) throw itemsErr;
 
       // Auto-deduct inventory for direct_product items
-      const directItems = allItems.filter(c => {
+      const directItems = finalItems.filter(c => {
         const mi = menuItems.find((m: any) => m.id === c.menu_item_id);
         return mi?.item_type === "direct_product" && mi?.linked_product_id;
       });
-
       if (directItems.length > 0) {
-        // Fetch product costs for accurate movement records
         const productIds = directItems.map(c => {
           const mi = menuItems.find((m: any) => m.id === c.menu_item_id) as any;
           return mi.linked_product_id;
         });
-        const { data: productCosts } = await supabase
-          .from("products")
-          .select("id, average_cost")
-          .in("id", productIds);
+        const { data: productCosts } = await supabase.from("products").select("id, average_cost").in("id", productIds);
         const costMap = new Map((productCosts || []).map(p => [p.id, Number(p.average_cost) || 0]));
-
         const movements = directItems.map(c => {
           const mi = menuItems.find((m: any) => m.id === c.menu_item_id) as any;
           const avgCost = costMap.get(mi.linked_product_id) || 0;
           return {
-            product_id: mi.linked_product_id,
-            restaurant_id: restaurantId!,
-            user_id: user!.id,
-            type: "pos_sale",
-            quantity: c.quantity,
-            unit_cost: avgCost,
-            total_cost: c.quantity * avgCost,
-            notes: `Venta POS #${order.order_number} — ${c.name}`,
-            movement_date: new Date().toISOString(),
-            source_module: "POS",
+            product_id: mi.linked_product_id, restaurant_id: restaurantId!, user_id: user!.id,
+            type: "pos_sale", quantity: c.quantity, unit_cost: avgCost, total_cost: c.quantity * avgCost,
+            notes: `Venta POS Corp #${order.order_number} — ${c.name}`,
+            movement_date: new Date().toISOString(), source_module: "POS",
           };
         });
         await supabase.from("inventory_movements").insert(movements);
@@ -334,7 +334,6 @@ export default function POSCorporateTab() {
     setSelectedCategory(null);
     setMenuSearch("");
     setNotesItemIdx(null);
-    setEditingOrderId(null);
   };
 
   const handlePrintComanda = async (orderId: string) => {
@@ -358,6 +357,8 @@ export default function POSCorporateTab() {
       createdAt: order.created_at,
     });
   };
+
+  const serviceLabel = SERVICE_OPTIONS.find(s => s.value === servicePeriod)?.label || servicePeriod;
 
   return (
     <div className="space-y-4">
@@ -398,7 +399,11 @@ export default function POSCorporateTab() {
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{format(new Date(order.created_at), "HH:mm · dd/MM")}</span>
                   <span>·</span>
-                  <span>${Number(order.total).toLocaleString()}</span>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {SERVICE_OPTIONS.find(s => s.value === order.service_period)?.label || order.service_period}
+                  </Badge>
+                  <span>·</span>
+                  <span className="font-mono font-semibold">${Number(order.total).toLocaleString()}</span>
                 </div>
                 {((order as any).contracts?.name || (order as any).contract_groups?.name) && (
                   <div className="text-xs text-muted-foreground">
@@ -435,7 +440,6 @@ export default function POSCorporateTab() {
       <Dialog open={creating} onOpenChange={v => !v && closeDialog()}>
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden p-0">
           <div className="flex flex-col h-[90vh]">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/30">
               <DialogTitle className="text-lg">Nuevo Pedido Corporativo</DialogTitle>
               <div className="flex items-center gap-1.5">
@@ -497,12 +501,38 @@ export default function POSCorporateTab() {
                         <Label className="text-xs">Detalle destino</Label>
                         <Input value={destDetail} onChange={e => setDestDetail(e.target.value)} placeholder="Ej: RIT 23" className="h-9" />
                       </div>
+
+                      {/* Service rate display */}
+                      {companyId && (
+                        <div className={`rounded-md border p-2 text-sm ${resolvedRate.found ? "bg-primary/5 border-primary/30" : "bg-destructive/5 border-destructive/30"}`}>
+                          <div className="flex items-center gap-1.5">
+                            {resolvedRate.found ? (
+                              <DollarSign className="h-4 w-4 text-primary" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-destructive" />
+                            )}
+                            <span className="font-medium">
+                              {resolvedRate.found
+                                ? `${serviceLabel}: $${resolvedRate.rate.toLocaleString()} / servicio`
+                                : `Sin tarifa para ${serviceLabel}`}
+                            </span>
+                          </div>
+                          {!resolvedRate.found && (
+                            <p className="text-xs text-destructive mt-1">
+                              Configura la tarifa en Maestros Corporativos → Tarifas
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Current line being built */}
                     <div className="space-y-2 rounded-lg border p-3">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <Package className="h-3.5 w-3.5" /> Línea actual
+                        <Package className="h-3.5 w-3.5" /> Línea actual (detalle menú)
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        El detalle del menú es operativo para cocina. El precio viene de la tarifa del servicio.
                       </p>
                       {contractId && contractGroups.length > 0 && (
                         <div>
@@ -531,10 +561,9 @@ export default function POSCorporateTab() {
                                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
                                     setCurrentItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it));
                                   }}><Plus className="h-3 w-3" /></Button>
-                                  <span className="ml-0.5 text-xs truncate max-w-[120px]">{c.name}</span>
+                                  <span className="ml-0.5 text-xs truncate max-w-[150px]">{c.name}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="text-xs">${(c.quantity * c.unit_price).toLocaleString()}</span>
                                   <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setNotesItemIdx(notesItemIdx === idx ? null : idx)}>
                                     <MessageSquare className={`h-3 w-3 ${c.notes ? "text-primary" : "text-muted-foreground"}`} />
                                   </Button>
@@ -568,25 +597,45 @@ export default function POSCorporateTab() {
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" /> Líneas del pedido ({lines.length})
                         </p>
-                        {lines.map((line, idx) => (
-                          <div key={idx} className="rounded border p-2 space-y-1 bg-muted/10">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold">{line.contractGroupName}</span>
-                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeLineFromOrder(idx)}>
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            {line.items.map((it, i) => (
-                              <div key={i} className="flex justify-between text-xs text-muted-foreground">
-                                <span>{it.name} ×{it.quantity}</span>
-                                <span>${(it.quantity * it.unit_price).toLocaleString()}</span>
+                        {lines.map((line, idx) => {
+                          const lineQty = line.items.reduce((s, it) => s + it.quantity, 0);
+                          return (
+                            <div key={idx} className="rounded border p-2 space-y-1 bg-muted/10">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold">{line.contractGroupName}</span>
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[10px]">{lineQty} serv.</Badge>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeLineFromOrder(idx)}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
-                            ))}
-                          </div>
-                        ))}
-                        <div className="border-t pt-2 flex justify-between font-semibold text-sm">
+                              {line.items.map((it, i) => (
+                                <div key={i} className="flex justify-between text-xs text-muted-foreground">
+                                  <span>{it.name} ×{it.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* BILLING SUMMARY */}
+                    {(totalServings > 0 && resolvedRate.found) && (
+                      <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Facturación</p>
+                        <div className="flex justify-between text-sm">
+                          <span>Servicios ({serviceLabel})</span>
+                          <span>{totalServings}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Tarifa unitaria</span>
+                          <span className="font-mono">${resolvedRate.rate.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-base border-t pt-1">
                           <span>Total</span>
-                          <span>${orderTotal.toLocaleString()}</span>
+                          <span className="font-mono">${orderTotal.toLocaleString()}</span>
                         </div>
                       </div>
                     )}
@@ -595,7 +644,11 @@ export default function POSCorporateTab() {
 
                 <div className="border-t p-3 flex gap-2">
                   <Button variant="outline" className="flex-1" onClick={closeDialog}>Cancelar</Button>
-                  <Button className="flex-1" onClick={() => createOrder.mutate()} disabled={allItems.length === 0 || !companyId || createOrder.isPending}>
+                  <Button
+                    className="flex-1"
+                    onClick={() => createOrder.mutate()}
+                    disabled={totalServings === 0 || !companyId || !resolvedRate.found || createOrder.isPending}
+                  >
                     Confirmar Pedido
                   </Button>
                 </div>
@@ -668,7 +721,6 @@ export default function POSCorporateTab() {
                                 </span>
                               )}
                               <span className="font-semibold text-sm leading-tight">{item.name}</span>
-                              <span className="text-xs text-muted-foreground mt-1">${Number(item.price).toLocaleString()}</span>
                             </button>
                           );
                         })}
