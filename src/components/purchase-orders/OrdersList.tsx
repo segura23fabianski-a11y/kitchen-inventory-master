@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye } from "lucide-react";
 import { generatePurchaseOrderPdf, PdfOrderData, PdfSettings } from "./generatePurchaseOrderPdf";
 import { usePdfSettings } from "@/hooks/use-pdf-settings";
+import { useAuth } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import NewOrderDialog from "./NewOrderDialog";
