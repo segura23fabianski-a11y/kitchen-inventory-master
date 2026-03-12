@@ -49,7 +49,7 @@ interface CartItem {
 }
 
 export default function POSOrdersTab() {
-  const { restaurantId } = useRestaurant();
+  const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const qc = useQueryClient();
 

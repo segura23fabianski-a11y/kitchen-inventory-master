@@ -73,7 +73,7 @@ export default function POSKitchenTab() {
         {orders.map(order => {
           const Icon = ORDER_TYPE_ICON[order.order_type] || User;
           return (
-            <Card key={order.id} className="border-2 border-orange-300 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-700">
+            <Card key={order.id} className="border-2 border-primary/30 bg-primary/5">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">

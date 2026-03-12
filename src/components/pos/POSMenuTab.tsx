@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 const MENU_CATEGORIES = ["Desayuno", "Almuerzo", "Cena", "Bebidas", "Snacks", "General"];
 
 export default function POSMenuTab() {
-  const { restaurantId } = useRestaurant();
+  const restaurantId = useRestaurantId();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
