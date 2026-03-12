@@ -143,7 +143,8 @@ const AppRoutes = () => (
     <Route path="/hotel" element={<ProtectedRoute permKey="hotel_view"><Hotel /></ProtectedRoute>} />
     <Route path="/pos" element={<ProtectedRoute permKey="pos_view"><POS /></ProtectedRoute>} />
     <Route path="/casino" element={<ProtectedRoute permKey="dashboard"><CasinoDashboard /></ProtectedRoute>} />
-    <Route path="/purchases-report" element={<ProtectedRoute permKey="reports"><PurchasesReport /></ProtectedRoute>} />
+        <Route path="/purchases-report" element={<ProtectedRoute permKey="reports"><PurchasesReport /></ProtectedRoute>} />
+        <Route path="/corporate-masters" element={<ProtectedRoute permKey="corporate_masters"><CorporateMasters /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
