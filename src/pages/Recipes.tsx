@@ -615,6 +615,25 @@ export default function Recipes() {
             <h1 className="font-heading text-3xl font-bold">Recetas</h1>
             <p className="text-muted-foreground">Preparaciones de cocina, lavandería y aseo con ingredientes y costo teórico</p>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border">
+              <Button
+                variant={viewMode === "cards" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-r-none"
+                onClick={() => setViewMode("cards")}
+              >
+                <LayoutGrid className="mr-1 h-4 w-4" /> Recetas
+              </Button>
+              <Button
+                variant={viewMode === "costs" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setViewMode("costs")}
+              >
+                <BarChart3 className="mr-1 h-4 w-4" /> Costos
+              </Button>
+            </div>
           {canCreate && (
             <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
