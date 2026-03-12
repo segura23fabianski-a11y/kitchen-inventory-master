@@ -527,9 +527,9 @@ function RecipeDetailDialog({
                   <TableRow>
                     <TableHead>Fecha</TableHead>
                     <TableHead className="text-right">Cantidad</TableHead>
-                    {!isCombo && <TableHead className="text-right">Teórico Total</TableHead>}
+                    <TableHead className="text-right">Teórico Total</TableHead>
                     <TableHead className="text-right">Real Total</TableHead>
-                    {!isCombo && <TableHead className="text-right">Teórico Unit.</TableHead>}
+                    <TableHead className="text-right">Teórico Unit.</TableHead>
                     <TableHead className="text-right">Real Unit.</TableHead>
                     <TableHead>Origen</TableHead>
                   </TableRow>
@@ -541,9 +541,9 @@ function RecipeDetailDialog({
                         {format(new Date(entry.date), "dd/MM/yyyy HH:mm", { locale: es })}
                       </TableCell>
                       <TableCell className="text-right font-mono">{entry.qty}</TableCell>
-                      {!isCombo && <TableCell className="text-right font-mono text-sm">{formatCost(entry.theoreticalTotal)}</TableCell>}
+                      <TableCell className="text-right font-mono text-sm">{formatCost(entry.theoreticalTotal)}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatCost(entry.realTotal)}</TableCell>
-                      {!isCombo && <TableCell className="text-right font-mono text-sm">{formatCost(entry.theoreticalUnit)}</TableCell>}
+                      <TableCell className="text-right font-mono text-sm">{formatCost(entry.theoreticalUnit)}</TableCell>
                       <TableCell className="text-right font-mono text-sm font-semibold">{formatCost(entry.realUnit)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">{entry.source}</Badge>
