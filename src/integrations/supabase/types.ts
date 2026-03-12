@@ -1477,6 +1477,8 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          item_type: string
+          linked_product_id: string | null
           linked_recipe_id: string | null
           name: string
           price: number
@@ -1488,6 +1490,8 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          item_type?: string
+          linked_product_id?: string | null
           linked_recipe_id?: string | null
           name: string
           price?: number
@@ -1499,12 +1503,21 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          item_type?: string
+          linked_product_id?: string | null
           linked_recipe_id?: string | null
           name?: string
           price?: number
           restaurant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "menu_items_linked_product_id_fkey"
+            columns: ["linked_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "menu_items_linked_recipe_id_fkey"
             columns: ["linked_recipe_id"]
