@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Search, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
@@ -221,7 +220,7 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 border rounded-md max-h-[50vh]">
+        <div className="flex-1 min-h-0 border rounded-md overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -290,7 +289,7 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">
           <div className="text-sm text-muted-foreground">

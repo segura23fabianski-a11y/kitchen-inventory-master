@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Plus, Send, X, ShoppingCart, Building2, User, Minus,
@@ -388,7 +387,7 @@ export default function POSRestaurantTab() {
   // ─── TABLE MODE: Table Grid ───────────────────────────────
   if (mode === "table" && !selectedTableId) {
     return (
-      <div className="h-[calc(100vh-140px)] flex flex-col">
+      <div className="h-full min-h-0 flex flex-col overflow-hidden">
         {/* Mode switcher */}
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" onClick={() => setMode("quick")}>
@@ -400,7 +399,7 @@ export default function POSRestaurantTab() {
         </div>
 
         <h3 className="text-lg font-semibold mb-3">Selecciona una mesa</h3>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 flex-1 min-h-0 overflow-y-auto pr-1">
           {tables.map(t => {
             const isOccupied = t.status === "occupied";
             return (
@@ -432,7 +431,7 @@ export default function POSRestaurantTab() {
 
   // ─── MAIN POS VIEW (Quick Sale or Table selected) ─────────
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden">
       {/* Top bar */}
       <div className="flex items-center gap-2 mb-2 flex-shrink-0">
         <Button variant={mode === "quick" ? "default" : "outline"} size="sm" onClick={() => { setMode("quick"); setSelectedTableId(null); resetOrder(); }}>
@@ -540,13 +539,13 @@ export default function POSRestaurantTab() {
       )}
 
       {/* ─── THREE-ZONE LAYOUT ─── */}
-      <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      <div className="flex flex-1 min-h-0 gap-0 border rounded-lg overflow-hidden">
         {/* LEFT: Categories */}
         <div className="w-[160px] border-r bg-muted/30 flex flex-col flex-shrink-0 min-h-0">
           <div className="p-2 border-b">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categorías</span>
           </div>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-1.5 space-y-1">
               {categories.map(cat => {
                 const count = menuItems.filter((i: any) => (i.category || "General") === cat).length;
@@ -570,7 +569,7 @@ export default function POSRestaurantTab() {
                 <p className="text-xs text-muted-foreground text-center py-6">Sin categorías</p>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* CENTER: Products */}
@@ -594,7 +593,7 @@ export default function POSRestaurantTab() {
           </div>
 
           {/* Product grid */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-3">
               {!selectedCategory && !menuSearch.trim() ? (
                 <div className="flex flex-col items-center justify-center h-full py-16 text-muted-foreground">
@@ -638,7 +637,7 @@ export default function POSRestaurantTab() {
                 </>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* RIGHT: Cart / Order Summary */}
@@ -656,7 +655,7 @@ export default function POSRestaurantTab() {
             )}
           </div>
 
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-3 space-y-1">
               {cart.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
@@ -702,7 +701,7 @@ export default function POSRestaurantTab() {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Cart totals & actions */}
           {cart.length > 0 && (
