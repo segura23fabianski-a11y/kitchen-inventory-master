@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   LayoutGrid, List, LogIn, LogOut, Sparkles, Wrench, Eye,
-  AlertTriangle, Users, Building2, Search, BedDouble
+  AlertTriangle, Users, Building2, Search, BedDouble, CalendarPlus
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -94,6 +94,26 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     },
   });
 
+  // Fetch reservations for today and upcoming
+  const { data: reservations } = useQuery({
+    queryKey: ["dashboard-reservations"],
+    queryFn: async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data, error } = await supabase
+        .from("reservations" as any)
+        .select("*, hotel_companies(name), reservation_items(quantity, room_types(name))")
+        .in("status", ["pending", "confirmed"])
+        .gte("check_out_date", today)
+        .order("check_in_date");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const arrivalsToday = useMemo(() => (reservations || []).filter((r: any) => r.check_in_date === todayStr), [reservations, todayStr]);
+  const upcomingReservations = useMemo(() => (reservations || []).filter((r: any) => r.check_in_date > todayStr), [reservations, todayStr]);
+
   // Realtime subscriptions for automatic dashboard updates
   useEffect(() => {
     const channel = supabase
@@ -104,6 +124,9 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
       .on("postgres_changes", { event: "*", schema: "public", table: "housekeeping_tasks" }, () => {
         qc.invalidateQueries({ queryKey: ["dashboard-housekeeping-pending"] });
         qc.invalidateQueries({ queryKey: ["dashboard-rooms"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, () => {
+        qc.invalidateQueries({ queryKey: ["dashboard-reservations"] });
       })
       .subscribe();
 
@@ -194,6 +217,17 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
             <span className="hidden sm:inline">{cfg.label}</span>
           </button>
         ))}
+        {/* Reservation indicators */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-card-foreground text-sm">
+          <CalendarPlus className="h-4 w-4 text-primary" />
+          <span className="font-medium">{arrivalsToday.length}</span>
+          <span className="hidden sm:inline">Llegadas hoy</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-card-foreground text-sm">
+          <CalendarPlus className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{upcomingReservations.length}</span>
+          <span className="hidden sm:inline">Reservas futuras</span>
+        </div>
         <div className="ml-auto flex items-center gap-1">
           <span className="text-sm text-muted-foreground mr-1">Total: {enrichedRooms.length}</span>
           <Button

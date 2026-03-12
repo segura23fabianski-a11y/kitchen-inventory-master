@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles, BarChart3, Shirt, Package, LayoutDashboard } from "lucide-react";
+import { Hotel as HotelIcon, BedDouble, Users, Building2, CalendarCheck, Sparkles, BarChart3, Shirt, Package, LayoutDashboard, CalendarPlus } from "lucide-react";
 import RoomTypesTab from "@/components/hotel/RoomTypesTab";
 import RoomsTab from "@/components/hotel/RoomsTab";
 import GuestsTab from "@/components/hotel/GuestsTab";
@@ -11,6 +11,7 @@ import CorporateReportsTab from "@/components/hotel/CorporateReportsTab";
 import LaundryTab from "@/components/hotel/LaundryTab";
 import LinenInventoryTab from "@/components/hotel/LinenInventoryTab";
 import RoomDashboard from "@/components/hotel/RoomDashboard";
+import ReservationsTab from "@/components/hotel/ReservationsTab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useState } from "react";
 
@@ -23,6 +24,7 @@ interface TabDef {
 
 const hotelTabs: TabDef[] = [
   { value: "dashboard", label: "Dashboard", icon: LayoutDashboard, permKey: "hotel_dashboard_view" },
+  { value: "reservations", label: "Reservas", icon: CalendarPlus, permKey: "hotel_reservations_view" },
   { value: "stays", label: "Estancias", icon: CalendarCheck, permKey: "hotel_stays_view" },
   { value: "rooms", label: "Habitaciones", icon: BedDouble, permKey: "hotel_rooms_view" },
   { value: "room-types", label: "Tipos", icon: HotelIcon, permKey: "hotel_room_types_view" },
@@ -56,6 +58,7 @@ export default function Hotel() {
         {hasPermission("hotel_dashboard_view") && (
           <TabsContent value="dashboard"><RoomDashboard onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} /></TabsContent>
         )}
+        {hasPermission("hotel_reservations_view") && <TabsContent value="reservations"><ReservationsTab onConvertToCheckin={() => setActiveTab("stays")} /></TabsContent>}
         {hasPermission("hotel_stays_view") && <TabsContent value="stays"><StaysTab /></TabsContent>}
         {hasPermission("hotel_rooms_view") && <TabsContent value="rooms"><RoomsTab /></TabsContent>}
         {hasPermission("hotel_room_types_view") && <TabsContent value="room-types"><RoomTypesTab /></TabsContent>}
