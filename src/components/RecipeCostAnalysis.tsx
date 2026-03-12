@@ -373,6 +373,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
         comboItems={comboItems ?? []}
         productionRuns={productionRuns ?? []}
         productMap={productMap}
+        variableComponents={variableComponents ?? []}
         onClose={() => setSelectedRecipeId(null)}
       />
     </div>
