@@ -98,7 +98,7 @@ export default function POSOrdersTab() {
     queryFn: async () => {
       let q = supabase
         .from("pos_orders")
-        .select(`*, hotel_companies(name), pos_tables(name), hotel_guests(first_name, last_name)`)
+        .select(`*, hotel_companies(name), pos_tables(name), hotel_guests(first_name, last_name), contracts(name, code), contract_groups(name)`)
         .eq("restaurant_id", restaurantId!)
         .order("created_at", { ascending: false })
         .limit(100);
