@@ -47,6 +47,7 @@ export default function POSMenuTab() {
   const [linkedRecipeId, setLinkedRecipeId] = useState("");
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["menu-items", restaurantId],
