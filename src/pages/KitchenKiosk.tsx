@@ -934,17 +934,41 @@ export default function KitchenKiosk() {
             })}
           </div>
 
-          <div className="rounded-md bg-muted p-4 flex justify-between items-center">
-            <span className="text-muted-foreground text-sm">Costo total del combo</span>
-            <div className="text-right">
-              <span className="font-heading font-bold text-2xl">${comboTotalCost.toFixed(2)}</span>
-              {comboExecution.servings > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  ${(comboTotalCost / comboExecution.servings).toFixed(2)} / servicio
-                </p>
-              )}
-            </div>
-          </div>
+          {/* Cost breakdown */}
+          <Card>
+            <CardContent className="pt-4 space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Desglose de costos por componente</p>
+              {comboCostBreakdown.components.map((comp, idx) => (
+                <div key={idx} className="flex items-center justify-between text-sm border-b last:border-0 pb-1.5 last:pb-0">
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium capitalize">{comp.name}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({comp.source})</span>
+                    {comp.lotTotal !== undefined && comp.lotQty !== undefined && (
+                      <p className="text-xs text-muted-foreground">
+                        Lote: ${comp.lotTotal.toLocaleString("es-CO", { maximumFractionDigits: 0 })} / {comp.lotQty} unidades = ${(comp.lotTotal / comp.lotQty).toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="font-mono text-sm">${comp.unitCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u</p>
+                    <p className="font-mono text-xs text-muted-foreground">${comp.totalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })} total</p>
+                  </div>
+                </div>
+              ))}
+              <div className="border-t pt-2 flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-muted-foreground">Costo total del lote</p>
+                  <p className="text-xs text-muted-foreground">{comboExecution.servings} servicios</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-heading font-bold text-2xl">${comboTotalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</span>
+                  <p className="text-sm font-semibold text-primary">
+                    ${(comboTotalCost / comboExecution.servings).toLocaleString("es-CO", { maximumFractionDigits: 0 })} / servicio
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => setComboExecution(null)}>
