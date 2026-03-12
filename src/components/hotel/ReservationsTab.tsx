@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Plus, Eye, X, LogIn, Trash2, CalendarPlus, Building2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import QuickCompanyDialog from "./QuickCompanyDialog";
@@ -60,7 +61,8 @@ interface ReservationsTabProps {
 
 export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabProps) {
   const restaurantId = useRestaurantId();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -70,6 +72,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
   const [filterCompany, setFilterCompany] = useState("all");
   const [search, setSearch] = useState("");
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
+  const [deleteResId, setDeleteResId] = useState<string | null>(null);
 
   const { data: roomTypes } = useQuery({
     queryKey: ["reservation-room-types"],
@@ -354,6 +357,11 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                         <LogIn className="h-4 w-4" />
                       </Button>
                     )}
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteResId(res.id)} title="Eliminar (Admin)">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -538,6 +546,33 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
           qc.invalidateQueries({ queryKey: ["reservation-companies"] });
         }}
       />
+
+      {/* Delete Reservation Dialog (Admin) */}
+      <AlertDialog open={!!deleteResId} onOpenChange={() => setDeleteResId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar reserva?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción eliminará la reserva y sus ítems. No se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!deleteResId) return;
+              try {
+                await supabase.from("reservation_items").delete().eq("reservation_id", deleteResId);
+                const { error } = await supabase.from("reservations").delete().eq("id", deleteResId);
+                if (error) throw error;
+                qc.invalidateQueries({ queryKey: ["reservations"] });
+                toast({ title: "Reserva eliminada" });
+                if (detailRes?.id === deleteResId) setDetailRes(null);
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setDeleteResId(null);
+            }}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

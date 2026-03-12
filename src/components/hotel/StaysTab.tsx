@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building } from "lucide-react";
+import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import SignaturePad from "./SignaturePad";
@@ -33,7 +34,8 @@ const emptyForm: StayForm = { room_id: "", company_id: "", primary_guest_id: "",
 
 export default function StaysTab() {
   const restaurantId = useRestaurantId();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -46,6 +48,7 @@ export default function StaysTab() {
   const [quickGuestOpen, setQuickGuestOpen] = useState(false);
   const [quickGuestTarget, setQuickGuestTarget] = useState<"primary" | "companion">("primary");
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
+  const [deleteStayId, setDeleteStayId] = useState<string | null>(null);
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
@@ -362,6 +365,11 @@ export default function StaysTab() {
                     <Button variant="ghost" size="icon" title="Ver detalle" onClick={() => setDetailStay(s)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" title="Eliminar (Admin)" onClick={() => setDeleteStayId(s.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -627,6 +635,32 @@ export default function StaysTab() {
           )}
         </DialogContent>
       </Dialog>
+      {/* ── Delete Stay Dialog (Admin) ── */}
+      <AlertDialog open={!!deleteStayId} onOpenChange={() => setDeleteStayId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar estancia?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción eliminará la estancia y sus registros asociados. No se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!deleteStayId) return;
+              try {
+                await supabase.from("stay_guests").delete().eq("stay_id", deleteStayId);
+                await supabase.from("guest_signatures").delete().eq("stay_id", deleteStayId);
+                const { error } = await supabase.from("stays").delete().eq("id", deleteStayId);
+                if (error) throw error;
+                qc.invalidateQueries({ queryKey: ["stays"] });
+                toast({ title: "Estancia eliminada" });
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setDeleteStayId(null);
+            }}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
