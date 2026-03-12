@@ -233,6 +233,7 @@ export default function POSMenuTab() {
           )}
         </TableBody>
       </Table>
+      </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && closeDialog()}>
         <DialogContent className="max-w-lg">

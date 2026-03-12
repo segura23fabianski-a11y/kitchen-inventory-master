@@ -642,7 +642,7 @@ export default function POSRestaurantTab() {
         </div>
 
         {/* RIGHT: Cart / Order Summary */}
-        <div className="w-[280px] border-l flex flex-col flex-shrink-0 bg-background">
+        <div className="w-[280px] border-l flex flex-col flex-shrink-0 min-h-0 bg-background">
           <div className="p-3 border-b flex items-center justify-between flex-shrink-0">
             <div className="font-semibold text-sm flex items-center gap-1.5">
               <ShoppingCart className="h-4 w-4" />
