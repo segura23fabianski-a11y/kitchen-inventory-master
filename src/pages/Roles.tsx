@@ -19,6 +19,63 @@ import { Shield, Layers, Plus, Pencil, Trash2, Users, ChevronRight } from "lucid
 
 const CATEGORIES = ["General", "Inventario", "Compras", "Producción", "Análisis", "Hotel", "Housekeeping", "Lavandería", "POS", "Operación", "Administración"];
 
+function CollapsibleCategoryRows({
+  category,
+  functions: fns,
+  roleNames,
+  hasPermission,
+  togglePermission,
+}: {
+  category: string;
+  functions: any[];
+  roleNames: string[];
+  hasPermission: (role: string, key: string) => boolean;
+  togglePermission: any;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <>
+      <tr
+        className="bg-muted/50 cursor-pointer select-none hover:bg-muted/70 transition-colors"
+        onClick={() => setOpen(!open)}
+      >
+        <td colSpan={roleNames.length + 1} className="px-4 py-2">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            {category}
+            <Badge variant="secondary" className="text-xs ml-1">{fns.length}</Badge>
+          </div>
+        </td>
+      </tr>
+      {open && fns.map((fn) => (
+        <tr key={fn.key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+          <td className="p-4">
+            <p className="font-medium text-sm">{fn.label}</p>
+            <p className="text-xs text-muted-foreground">{fn.description}</p>
+          </td>
+          {roleNames.map((roleName) => {
+            const enabled = hasPermission(roleName, fn.key);
+            const isAdminCore = roleName === "admin" && ["roles", "users"].includes(fn.key);
+            return (
+              <td key={roleName} className="p-4 text-center">
+                <Switch
+                  checked={enabled}
+                  disabled={isAdminCore || togglePermission.isPending}
+                  onCheckedChange={(checked) =>
+                    togglePermission.mutate({ role: roleName, functionKey: fn.key, enabled: checked })
+                  }
+                />
+              </td>
+            );
+          })}
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export default function Roles() {
   const { toast } = useToast();
   const qc = useQueryClient();
