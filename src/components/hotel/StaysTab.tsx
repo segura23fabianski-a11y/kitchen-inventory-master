@@ -52,6 +52,8 @@ export default function StaysTab() {
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
   const [deleteStayId, setDeleteStayId] = useState<string | null>(null);
   const [addGuestToActiveStay, setAddGuestToActiveStay] = useState(false);
+  const [pendingAddGuest, setPendingAddGuest] = useState<{ guestId: string; guestName: string } | null>(null);
+  const [pendingPartialCheckout, setPendingPartialCheckout] = useState<{ sgId: string; guestId: string; guestName: string; isPrimary: boolean } | null>(null);
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
