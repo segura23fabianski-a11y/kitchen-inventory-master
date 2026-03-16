@@ -51,6 +51,7 @@ export default function StaysTab() {
   const [quickGuestTarget, setQuickGuestTarget] = useState<"primary" | "companion">("primary");
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
   const [deleteStayId, setDeleteStayId] = useState<string | null>(null);
+  const [addGuestToActiveStay, setAddGuestToActiveStay] = useState(false);
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
@@ -95,7 +96,7 @@ export default function StaysTab() {
   const { data: stays, isLoading } = useQuery({
     queryKey: ["stays"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stays" as any).select("*, rooms(room_number, room_types(name)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))").order("created_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("stays" as any).select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))").order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       return data as any[];
     },
@@ -606,9 +607,51 @@ export default function StaysTab() {
       {/* ── Quick Guest Dialog ── */}
       <QuickGuestDialog
         open={quickGuestOpen}
-        onOpenChange={setQuickGuestOpen}
-        onCreated={(guestId) => {
-          if (quickGuestTarget === "primary") {
+        onOpenChange={(v) => { setQuickGuestOpen(v); if (!v) setAddGuestToActiveStay(false); }}
+        onCreated={async (guestId) => {
+          if (addGuestToActiveStay && detailStay?.id) {
+            // Add guest directly to the active stay
+            try {
+              await supabase.from("stay_guests" as any).insert({
+                stay_id: detailStay.id, guest_id: guestId, is_primary: false,
+              } as any);
+              const currentCount = (detailStay.stay_guests?.length || 0) + 1;
+
+              // Recalculate rate
+              const { data: roomData } = await supabase.from("rooms" as any)
+                .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                .eq("id", detailStay.room_id).single();
+              const roomType = (roomData as any)?.room_types;
+
+              let newRate = detailStay.rate_per_night;
+              const isCorporate = detailStay.source_rate === "corporate";
+
+              if (isCorporate && detailStay.company_id && allCompanyRates) {
+                const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                if (currentCount === 1) {
+                  const cheapest = companyRates.reduce((min: any, cr: any) =>
+                    cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                  if (cheapest) newRate = cheapest.rate_per_night;
+                } else {
+                  const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
+                  if (matched) newRate = matched.rate_per_night;
+                }
+              } else if (roomType) {
+                newRate = getOccupancyRate(roomType, currentCount);
+              }
+
+              await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
+              qc.invalidateQueries({ queryKey: ["stays"] });
+              const { data: refreshed } = await supabase.from("stays" as any)
+                .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                .eq("id", detailStay.id).single();
+              setDetailStay(refreshed);
+              toast({ title: "Huésped creado y agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche` });
+            } catch (e: any) {
+              toast({ title: "Error", description: e.message, variant: "destructive" });
+            }
+            setAddGuestToActiveStay(false);
+          } else if (quickGuestTarget === "primary") {
             setForm(prev => ({ ...prev, primary_guest_id: guestId }));
           } else {
             addCompanion(guestId);
@@ -712,7 +755,7 @@ export default function StaysTab() {
                               // Refresh
                               qc.invalidateQueries({ queryKey: ["stays"] });
                               const { data: refreshed } = await supabase.from("stays" as any)
-                                .select("*, rooms(room_number, room_types(name)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                                .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                                 .eq("id", detailStay.id).single();
                               setDetailStay(refreshed);
                               toast({ title: "Huésped retirado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
@@ -731,15 +774,8 @@ export default function StaysTab() {
 
               {/* Add guest to active stay */}
               {detailStay.status === "checked_in" && (() => {
-                // Get max occupancy for this room
-                const stayRoomType = detailStay.rooms?.room_types;
                 const currentCount = detailStay.stay_guests?.length || 0;
-                // We need to look up max_occupancy - fetch from rooms query or use a reasonable default
-                const maxOcc = (() => {
-                  // Try to find from the rooms-for-checkin data (may not include occupied rooms)
-                  // Instead, we'll use a simple heuristic based on room type name or default to 3
-                  return 3; // We'll validate server-side
-                })();
+                const maxOcc = detailStay.rooms?.room_types?.max_occupancy || 2;
 
                 if (currentCount < maxOcc) {
                   const existingGuestIds = detailStay.stay_guests?.map((sg: any) => sg.guest_id) || [];
@@ -751,7 +787,7 @@ export default function StaysTab() {
                         <Label className="text-xs font-medium">Agregar huésped a la estancia</Label>
                         <Button
                           type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1"
-                          onClick={() => { setQuickGuestTarget("companion"); setQuickGuestOpen(true); }}
+                          onClick={() => { setAddGuestToActiveStay(true); setQuickGuestTarget("companion"); setQuickGuestOpen(true); }}
                         >
                           <UserPlus className="h-3.5 w-3.5" /> Crear nuevo
                         </Button>
@@ -799,7 +835,7 @@ export default function StaysTab() {
                             // Refresh detail
                             qc.invalidateQueries({ queryKey: ["stays"] });
                             const { data: refreshed } = await supabase.from("stays" as any)
-                              .select("*, rooms(room_number, room_types(name)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                              .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                               .eq("id", detailStay.id).single();
                             setDetailStay(refreshed);
                             toast({ title: "Huésped agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });

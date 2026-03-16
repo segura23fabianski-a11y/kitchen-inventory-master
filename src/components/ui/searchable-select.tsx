@@ -35,7 +35,7 @@ interface SearchableSelectProps {
   clearable?: boolean;
 }
 
-export function SearchableSelect({
+export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSelectProps>(function SearchableSelectInner({
   options,
   value,
   onValueChange,
@@ -46,7 +46,7 @@ export function SearchableSelect({
   triggerClassName,
   disabled = false,
   clearable = false,
-}: SearchableSelectProps) {
+}, ref) {
   const [open, setOpen] = React.useState(false);
 
   const selectedOption = options.find((o) => o.value === value);
@@ -55,6 +55,7 @@ export function SearchableSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={ref}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -120,4 +121,5 @@ export function SearchableSelect({
       </PopoverContent>
     </Popover>
   );
-}
+});
+SearchableSelect.displayName = "SearchableSelect";
