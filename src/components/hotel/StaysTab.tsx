@@ -607,9 +607,51 @@ export default function StaysTab() {
       {/* ── Quick Guest Dialog ── */}
       <QuickGuestDialog
         open={quickGuestOpen}
-        onOpenChange={setQuickGuestOpen}
-        onCreated={(guestId) => {
-          if (quickGuestTarget === "primary") {
+        onOpenChange={(v) => { setQuickGuestOpen(v); if (!v) setAddGuestToActiveStay(false); }}
+        onCreated={async (guestId) => {
+          if (addGuestToActiveStay && detailStay?.id) {
+            // Add guest directly to the active stay
+            try {
+              await supabase.from("stay_guests" as any).insert({
+                stay_id: detailStay.id, guest_id: guestId, is_primary: false,
+              } as any);
+              const currentCount = (detailStay.stay_guests?.length || 0) + 1;
+
+              // Recalculate rate
+              const { data: roomData } = await supabase.from("rooms" as any)
+                .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                .eq("id", detailStay.room_id).single();
+              const roomType = (roomData as any)?.room_types;
+
+              let newRate = detailStay.rate_per_night;
+              const isCorporate = detailStay.source_rate === "corporate";
+
+              if (isCorporate && detailStay.company_id && allCompanyRates) {
+                const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                if (currentCount === 1) {
+                  const cheapest = companyRates.reduce((min: any, cr: any) =>
+                    cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                  if (cheapest) newRate = cheapest.rate_per_night;
+                } else {
+                  const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
+                  if (matched) newRate = matched.rate_per_night;
+                }
+              } else if (roomType) {
+                newRate = getOccupancyRate(roomType, currentCount);
+              }
+
+              await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
+              qc.invalidateQueries({ queryKey: ["stays"] });
+              const { data: refreshed } = await supabase.from("stays" as any)
+                .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                .eq("id", detailStay.id).single();
+              setDetailStay(refreshed);
+              toast({ title: "Huésped creado y agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche` });
+            } catch (e: any) {
+              toast({ title: "Error", description: e.message, variant: "destructive" });
+            }
+            setAddGuestToActiveStay(false);
+          } else if (quickGuestTarget === "primary") {
             setForm(prev => ({ ...prev, primary_guest_id: guestId }));
           } else {
             addCompanion(guestId);
