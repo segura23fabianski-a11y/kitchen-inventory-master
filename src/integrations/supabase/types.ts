@@ -2991,6 +2991,9 @@ export type Database = {
           id: string
           max_occupancy: number
           name: string
+          rate_double: number
+          rate_single: number
+          rate_triple: number
           restaurant_id: string
         }
         Insert: {
@@ -3002,6 +3005,9 @@ export type Database = {
           id?: string
           max_occupancy?: number
           name: string
+          rate_double?: number
+          rate_single?: number
+          rate_triple?: number
           restaurant_id: string
         }
         Update: {
@@ -3013,6 +3019,9 @@ export type Database = {
           id?: string
           max_occupancy?: number
           name?: string
+          rate_double?: number
+          rate_single?: number
+          rate_triple?: number
           restaurant_id?: string
         }
         Relationships: [

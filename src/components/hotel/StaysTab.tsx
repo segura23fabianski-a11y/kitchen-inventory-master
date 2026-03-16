@@ -53,7 +53,7 @@ export default function StaysTab() {
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, room_type_id, room_types(name, base_rate, max_occupancy)").eq("status", "available").order("room_number");
+      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").eq("status", "available").order("room_number");
       if (error) throw error;
       return data as any[];
     },
@@ -105,30 +105,45 @@ export default function StaysTab() {
   const overCapacity = totalGuests > maxOccupancy;
   const availableCompanions = guests?.filter((g: any) => g.id !== form.primary_guest_id && !form.companion_ids.includes(g.id));
 
-  // Auto-detect corporate rate
+  // Helper: get rate based on number of guests
+  const getOccupancyRate = (roomType: any, numGuests: number): number => {
+    if (!roomType) return 0;
+    if (numGuests >= 3) return roomType.rate_triple || roomType.rate_double || roomType.rate_single || roomType.base_rate || 0;
+    if (numGuests === 2) return roomType.rate_double || roomType.rate_single || roomType.base_rate || 0;
+    return roomType.rate_single || roomType.base_rate || 0;
+  };
+
+  // Auto-detect corporate rate or occupancy-based rate
   useEffect(() => {
-    if (!form.room_id || !form.company_id || form.company_id === "none") {
-      if (form.room_id && selectedRoom) {
-        setForm(prev => ({ ...prev, rate_per_night: selectedRoom.room_types?.base_rate || 0, source_rate: "standard" }));
-        setRateInfo("");
+    if (!form.room_id || !selectedRoom) return;
+    const roomType = selectedRoom.room_types;
+    const hasCorporate = form.company_id && form.company_id !== "none";
+    const roomTypeId = selectedRoom.room_type_id;
+
+    if (hasCorporate && roomTypeId && allCompanyRates) {
+      const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
+      if (corpRate) {
+        setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
+        const includes: string[] = [];
+        if (corpRate.includes_laundry) includes.push("Lavandería");
+        if (corpRate.includes_housekeeping) includes.push("Housekeeping");
+        if (corpRate.includes_breakfast) includes.push("Desayuno");
+        setRateInfo(`Tarifa corporativa aplicada. Incluye: ${includes.join(", ") || "nada adicional"}`);
+        return;
+      } else {
+        setRateInfo("⚠ Sin tarifa corporativa para este tipo. Se usa tarifa por ocupación.");
       }
-      return;
-    }
-    const roomTypeId = selectedRoom?.room_type_id;
-    if (!roomTypeId || !allCompanyRates) return;
-    const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
-    if (corpRate) {
-      setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
-      const includes: string[] = [];
-      if (corpRate.includes_laundry) includes.push("Lavandería");
-      if (corpRate.includes_housekeeping) includes.push("Housekeeping");
-      if (corpRate.includes_breakfast) includes.push("Desayuno");
-      setRateInfo(`Tarifa corporativa aplicada. Incluye: ${includes.join(", ") || "nada adicional"}`);
     } else {
-      setForm(prev => ({ ...prev, rate_per_night: selectedRoom?.room_types?.base_rate || 0, source_rate: "standard" }));
-      setRateInfo("⚠ Sin tarifa corporativa para este tipo. Se usa tarifa base.");
+      setRateInfo("");
     }
-  }, [form.company_id, form.room_id, allCompanyRates, selectedRoom]);
+
+    // Apply occupancy-based rate
+    const autoRate = getOccupancyRate(roomType, totalGuests);
+    setForm(prev => ({ ...prev, rate_per_night: autoRate, source_rate: hasCorporate ? "standard" : "standard" }));
+    if (!hasCorporate && autoRate > 0) {
+      setRateInfo(`Tarifa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: $${autoRate.toLocaleString()}/noche`);
+    }
+  }, [form.company_id, form.room_id, form.companion_ids.length, allCompanyRates, selectedRoom, totalGuests]);
 
   const addCompanion = (guestId: string) => {
     if (form.companion_ids.length + 1 >= maxOccupancy) {
@@ -140,7 +155,8 @@ export default function StaysTab() {
   const removeCompanion = (guestId: string) => setForm({ ...form, companion_ids: form.companion_ids.filter(id => id !== guestId) });
   const handleRoomChange = (roomId: string) => {
     const room = rooms?.find((r: any) => r.id === roomId);
-    setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: room?.room_types?.base_rate || prev.rate_per_night }));
+    const autoRate = getOccupancyRate(room?.room_types, totalGuests);
+    setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: autoRate }));
   };
   const handleCompanyChange = (companyId: string) => setForm(prev => ({ ...prev, company_id: companyId }));
 
@@ -544,6 +560,15 @@ export default function StaysTab() {
             </div>
             {rateInfo && (
               <p className={`text-xs ${form.source_rate === "corporate" ? "text-primary" : "text-amber-600"}`}>{rateInfo}</p>
+            )}
+
+            {/* Guest count & rate summary */}
+            {form.room_id && form.primary_guest_id && (
+              <div className="rounded-md border p-3 bg-muted/50 space-y-1 text-sm">
+                <p><span className="font-medium">Huéspedes:</span> {totalGuests} persona{totalGuests > 1 ? "s" : ""}</p>
+                <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
+                {form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
+              </div>
             )}
 
             <div><Label>Método de Pago</Label><Input value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} placeholder="Efectivo, tarjeta, transferencia..." /></div>
