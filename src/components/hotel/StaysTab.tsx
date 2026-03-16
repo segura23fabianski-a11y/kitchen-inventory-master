@@ -105,30 +105,45 @@ export default function StaysTab() {
   const overCapacity = totalGuests > maxOccupancy;
   const availableCompanions = guests?.filter((g: any) => g.id !== form.primary_guest_id && !form.companion_ids.includes(g.id));
 
-  // Auto-detect corporate rate
+  // Helper: get rate based on number of guests
+  const getOccupancyRate = (roomType: any, numGuests: number): number => {
+    if (!roomType) return 0;
+    if (numGuests >= 3) return roomType.rate_triple || roomType.rate_double || roomType.rate_single || roomType.base_rate || 0;
+    if (numGuests === 2) return roomType.rate_double || roomType.rate_single || roomType.base_rate || 0;
+    return roomType.rate_single || roomType.base_rate || 0;
+  };
+
+  // Auto-detect corporate rate or occupancy-based rate
   useEffect(() => {
-    if (!form.room_id || !form.company_id || form.company_id === "none") {
-      if (form.room_id && selectedRoom) {
-        setForm(prev => ({ ...prev, rate_per_night: selectedRoom.room_types?.base_rate || 0, source_rate: "standard" }));
-        setRateInfo("");
+    if (!form.room_id || !selectedRoom) return;
+    const roomType = selectedRoom.room_types;
+    const hasCorporate = form.company_id && form.company_id !== "none";
+    const roomTypeId = selectedRoom.room_type_id;
+
+    if (hasCorporate && roomTypeId && allCompanyRates) {
+      const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
+      if (corpRate) {
+        setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
+        const includes: string[] = [];
+        if (corpRate.includes_laundry) includes.push("Lavandería");
+        if (corpRate.includes_housekeeping) includes.push("Housekeeping");
+        if (corpRate.includes_breakfast) includes.push("Desayuno");
+        setRateInfo(`Tarifa corporativa aplicada. Incluye: ${includes.join(", ") || "nada adicional"}`);
+        return;
+      } else {
+        setRateInfo("⚠ Sin tarifa corporativa para este tipo. Se usa tarifa por ocupación.");
       }
-      return;
-    }
-    const roomTypeId = selectedRoom?.room_type_id;
-    if (!roomTypeId || !allCompanyRates) return;
-    const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
-    if (corpRate) {
-      setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
-      const includes: string[] = [];
-      if (corpRate.includes_laundry) includes.push("Lavandería");
-      if (corpRate.includes_housekeeping) includes.push("Housekeeping");
-      if (corpRate.includes_breakfast) includes.push("Desayuno");
-      setRateInfo(`Tarifa corporativa aplicada. Incluye: ${includes.join(", ") || "nada adicional"}`);
     } else {
-      setForm(prev => ({ ...prev, rate_per_night: selectedRoom?.room_types?.base_rate || 0, source_rate: "standard" }));
-      setRateInfo("⚠ Sin tarifa corporativa para este tipo. Se usa tarifa base.");
+      setRateInfo("");
     }
-  }, [form.company_id, form.room_id, allCompanyRates, selectedRoom]);
+
+    // Apply occupancy-based rate
+    const autoRate = getOccupancyRate(roomType, totalGuests);
+    setForm(prev => ({ ...prev, rate_per_night: autoRate, source_rate: hasCorporate ? "standard" : "standard" }));
+    if (!hasCorporate && autoRate > 0) {
+      setRateInfo(`Tarifa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: $${autoRate.toLocaleString()}/noche`);
+    }
+  }, [form.company_id, form.room_id, form.companion_ids.length, allCompanyRates, selectedRoom, totalGuests]);
 
   const addCompanion = (guestId: string) => {
     if (form.companion_ids.length + 1 >= maxOccupancy) {
