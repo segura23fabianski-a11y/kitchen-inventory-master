@@ -45,7 +45,17 @@ import CorporateMasters from "./pages/CorporateMasters";
 
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // staleTime: 0 → los datos se consideran obsoletos inmediatamente,
+      // así cada invalidateQueries() dispara un refetch real sin esperar
+      staleTime: 0,
+      // refetchOnWindowFocus: true → al volver a la pestaña se refresca
+      refetchOnWindowFocus: true,
+    },
+  },
+});
 
 // Ordered list of routes with their permKeys for smart redirect
 const ROUTE_PERM_MAP = [
