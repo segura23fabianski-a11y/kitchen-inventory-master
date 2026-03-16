@@ -95,7 +95,7 @@ export default function StaysTab() {
   const { data: stays, isLoading } = useQuery({
     queryKey: ["stays"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stays" as any).select("*, rooms(room_number, room_types(name)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))").order("created_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("stays" as any).select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))").order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       return data as any[];
     },
