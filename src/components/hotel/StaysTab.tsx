@@ -731,15 +731,8 @@ export default function StaysTab() {
 
               {/* Add guest to active stay */}
               {detailStay.status === "checked_in" && (() => {
-                // Get max occupancy for this room
-                const stayRoomType = detailStay.rooms?.room_types;
                 const currentCount = detailStay.stay_guests?.length || 0;
-                // We need to look up max_occupancy - fetch from rooms query or use a reasonable default
-                const maxOcc = (() => {
-                  // Try to find from the rooms-for-checkin data (may not include occupied rooms)
-                  // Instead, we'll use a simple heuristic based on room type name or default to 3
-                  return 3; // We'll validate server-side
-                })();
+                const maxOcc = detailStay.rooms?.room_types?.max_occupancy || 2;
 
                 if (currentCount < maxOcc) {
                   const existingGuestIds = detailStay.stay_guests?.map((sg: any) => sg.guest_id) || [];
