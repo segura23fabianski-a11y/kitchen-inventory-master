@@ -357,7 +357,7 @@ export default function StaysTab() {
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <span>${(s.rate_per_night || 0).toLocaleString()}</span>
-                    {isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
+                    {canSeeCorporateRates && isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
                   </div>
                 </TableCell>
                 <TableCell>{format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</TableCell>
