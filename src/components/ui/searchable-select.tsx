@@ -46,7 +46,7 @@ export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSe
   triggerClassName,
   disabled = false,
   clearable = false,
-}: SearchableSelectProps) {
+}, ref) {
   const [open, setOpen] = React.useState(false);
 
   const selectedOption = options.find((o) => o.value === value);
