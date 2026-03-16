@@ -634,7 +634,7 @@ export default function StaysTab() {
               {detailStay.check_out_at && <p><span className="font-medium">Check-out:</span> {format(new Date(detailStay.check_out_at), "PPpp", { locale: es })}</p>}
               <p>
                 <span className="font-medium">Tarifa:</span> ${detailStay.rate_per_night?.toLocaleString()}/noche
-                {detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                {canSeeCorporateRates && detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
               </p>
               <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
