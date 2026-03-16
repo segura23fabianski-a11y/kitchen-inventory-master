@@ -36,6 +36,8 @@ export default function StaysTab() {
   const restaurantId = useRestaurantId();
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole("admin");
+  const isRecepcionista = hasRole("recepcionista");
+  const canSeeCorporateRates = isAdmin || !isRecepcionista;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -120,7 +122,7 @@ export default function StaysTab() {
     const hasCorporate = form.company_id && form.company_id !== "none";
     const roomTypeId = selectedRoom.room_type_id;
 
-    if (hasCorporate && roomTypeId && allCompanyRates) {
+    if (canSeeCorporateRates && hasCorporate && roomTypeId && allCompanyRates) {
       const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
       if (corpRate) {
         setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
@@ -355,7 +357,7 @@ export default function StaysTab() {
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <span>${(s.rate_per_night || 0).toLocaleString()}</span>
-                    {isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
+                    {canSeeCorporateRates && isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
                   </div>
                 </TableCell>
                 <TableCell>{format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</TableCell>
@@ -552,7 +554,7 @@ export default function StaysTab() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Label>Tarifa/Noche</Label>
-                  {form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                  {canSeeCorporateRates && form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
                 </div>
                 <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} />
               </div>
@@ -567,7 +569,7 @@ export default function StaysTab() {
               <div className="rounded-md border p-3 bg-muted/50 space-y-1 text-sm">
                 <p><span className="font-medium">Huéspedes:</span> {totalGuests} persona{totalGuests > 1 ? "s" : ""}</p>
                 <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
-                {form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
+                {canSeeCorporateRates && form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
               </div>
             )}
 
@@ -632,7 +634,7 @@ export default function StaysTab() {
               {detailStay.check_out_at && <p><span className="font-medium">Check-out:</span> {format(new Date(detailStay.check_out_at), "PPpp", { locale: es })}</p>}
               <p>
                 <span className="font-medium">Tarifa:</span> ${detailStay.rate_per_night?.toLocaleString()}/noche
-                {detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                {canSeeCorporateRates && detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
               </p>
               <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
