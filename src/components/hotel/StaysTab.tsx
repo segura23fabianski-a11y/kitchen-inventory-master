@@ -1033,7 +1033,7 @@ export default function StaysTab() {
 
                 // Refresh detail
                 const { data: refreshed } = await supabase.from("stays" as any)
-                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
                 toast({ title: "Habitación cambiada", description: `Movido a habitación #${pendingRoomChange.newRoomNumber}. Tarifa: $${newRate.toLocaleString()}/noche` });
