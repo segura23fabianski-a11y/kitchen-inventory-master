@@ -25,12 +25,12 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> =
 const CHECKOUT_LABELS: Record<string, string> = { normal: "Normal", unnotified: "Salida no notificada" };
 
 interface StayForm {
-  room_id: string; company_id: string; primary_guest_id: string;
+  room_id: string; company_id: string; contract_id: string; primary_guest_id: string;
   companion_ids: string[];
   expected_check_out: string; rate_per_night: number; payment_method: string; notes: string;
   source_rate: string;
 }
-const emptyForm: StayForm = { room_id: "", company_id: "", primary_guest_id: "", companion_ids: [], expected_check_out: "", rate_per_night: 0, payment_method: "", notes: "", source_rate: "standard" };
+const emptyForm: StayForm = { room_id: "", company_id: "", contract_id: "", primary_guest_id: "", companion_ids: [], expected_check_out: "", rate_per_night: 0, payment_method: "", notes: "", source_rate: "standard" };
 
 export default function StaysTab() {
   const restaurantId = useRestaurantId();
