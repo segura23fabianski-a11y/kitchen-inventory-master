@@ -122,7 +122,7 @@ export default function StaysTab() {
     const hasCorporate = form.company_id && form.company_id !== "none";
     const roomTypeId = selectedRoom.room_type_id;
 
-    if (hasCorporate && roomTypeId && allCompanyRates) {
+    if (canSeeCorporateRates && hasCorporate && roomTypeId && allCompanyRates) {
       const corpRate = allCompanyRates.find((cr: any) => cr.company_id === form.company_id && cr.room_type_id === roomTypeId);
       if (corpRate) {
         setForm(prev => ({ ...prev, rate_per_night: corpRate.rate_per_night, source_rate: "corporate" }));
