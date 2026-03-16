@@ -549,6 +549,28 @@ export default function StaysTab() {
               />
             </div>
 
+            {/* 3b. Contract (only when company selected) */}
+            {form.company_id && form.company_id !== "none" && companyContracts.length > 0 && (
+              <div>
+                <Label>Contrato / Frente</Label>
+                <SearchableSelect
+                  options={[
+                    { value: "none", label: "Sin contrato específico" },
+                    ...companyContracts.map((c: any) => ({
+                      value: c.id,
+                      label: `${c.name}${c.code ? ` (${c.code})` : ""}`,
+                      searchTerms: `${c.code || ""} ${c.name}`,
+                    })),
+                  ]}
+                  value={form.contract_id || "none"}
+                  onValueChange={(v) => setForm(prev => ({ ...prev, contract_id: v === "none" ? "" : v }))}
+                  placeholder="Seleccionar contrato..."
+                  searchPlaceholder="Nombre o código..."
+                  emptyMessage="Sin contratos para esta empresa"
+                />
+              </div>
+            )}
+
             {/* 4. Companions */}
             <div>
               <div className="flex items-center justify-between mb-1">
