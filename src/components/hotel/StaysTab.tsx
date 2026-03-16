@@ -719,52 +719,14 @@ export default function StaysTab() {
                       }}>
                         <Camera className="h-3 w-3 mr-1" />Firma
                       </Button>
-                      {/* Partial checkout: remove guest (only if not the last one, or if not primary when there are companions) */}
-                      {detailStay.stay_guests.length > 1 && !sg.is_primary && (
+                      {/* Partial checkout: any guest can leave if there are 2+ guests */}
+                      {detailStay.stay_guests.length > 1 && (
                         <Button
                           variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive"
-                          onClick={async () => {
-                            try {
-                              // Remove guest from stay
-                              await supabase.from("stay_guests" as any).delete().eq("id", sg.id);
-                              const newGuestCount = detailStay.stay_guests.length - 1;
-
-                              // Recalculate rate
-                              const { data: roomData } = await supabase.from("rooms" as any)
-                                .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
-                                .eq("id", detailStay.room_id).single();
-                              const roomType = (roomData as any)?.room_types;
-
-                              let newRate = detailStay.rate_per_night;
-                              const isCorporate = detailStay.source_rate === "corporate";
-
-                              if (isCorporate && detailStay.company_id && allCompanyRates) {
-                                const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
-                                if (newGuestCount === 1) {
-                                  const cheapest = companyRates.reduce((min: any, cr: any) =>
-                                    cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
-                                  if (cheapest) newRate = cheapest.rate_per_night;
-                                } else {
-                                  const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
-                                  if (matched) newRate = matched.rate_per_night;
-                                }
-                              } else if (roomType) {
-                                newRate = getOccupancyRate(roomType, newGuestCount);
-                              }
-
-                              await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
-
-                              // Refresh
-                              qc.invalidateQueries({ queryKey: ["stays"] });
-                              const { data: refreshed } = await supabase.from("stays" as any)
-                                .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
-                                .eq("id", detailStay.id).single();
-                              setDetailStay(refreshed);
-                              toast({ title: "Huésped retirado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
-                            } catch (e: any) {
-                              toast({ title: "Error", description: e.message, variant: "destructive" });
-                            }
-                          }}
+                          onClick={() => setPendingPartialCheckout({
+                            sgId: sg.id, guestId: sg.guest_id, isPrimary: sg.is_primary,
+                            guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}`,
+                          })}
                         >
                           <LogOut className="h-3 w-3 mr-1" />Salida parcial
                         </Button>
