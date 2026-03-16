@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building, Trash2 } from "lucide-react";
+import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building, Trash2, ArrowRightLeft } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -54,11 +54,22 @@ export default function StaysTab() {
   const [addGuestToActiveStay, setAddGuestToActiveStay] = useState(false);
   const [pendingAddGuest, setPendingAddGuest] = useState<{ guestId: string; guestName: string } | null>(null);
   const [pendingPartialCheckout, setPendingPartialCheckout] = useState<{ sgId: string; guestId: string; guestName: string; isPrimary: boolean } | null>(null);
+  const [pendingRoomChange, setPendingRoomChange] = useState<{ newRoomId: string; newRoomNumber: string } | null>(null);
+  const [roomChangeSelectValue, setRoomChangeSelectValue] = useState("");
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
     queryFn: async () => {
       const { data, error } = await supabase.from("rooms" as any).select("id, room_number, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").eq("status", "available").order("room_number");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: allRooms } = useQuery({
+    queryKey: ["all-rooms-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, status, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").order("room_number");
       if (error) throw error;
       return data as any[];
     },
@@ -777,6 +788,36 @@ export default function StaysTab() {
                 return null;
               })()}
 
+              {/* Change room for active stay */}
+              {detailStay.status === "checked_in" && (() => {
+                const currentGuestCount = detailStay.stay_guests?.length || 1;
+                const availableForChange = allRooms?.filter((r: any) =>
+                  r.id !== detailStay.room_id && r.status === "available" && (r.room_types?.max_occupancy || 2) >= currentGuestCount
+                ) || [];
+
+                return (
+                  <div className="pt-2 border-t space-y-2">
+                    <Label className="text-xs font-medium flex items-center gap-1"><ArrowRightLeft className="h-3.5 w-3.5" />Cambiar de habitación</Label>
+                    <SearchableSelect
+                      options={availableForChange.map((r: any) => ({
+                        value: r.id,
+                        label: `#${r.room_number} — ${r.room_types?.name} (máx ${r.room_types?.max_occupancy})`,
+                        searchTerms: r.room_number,
+                      }))}
+                      value={roomChangeSelectValue}
+                      onValueChange={(roomId) => {
+                        const room = allRooms?.find((r: any) => r.id === roomId);
+                        setRoomChangeSelectValue(roomId);
+                        setPendingRoomChange({ newRoomId: roomId, newRoomNumber: room?.room_number || "" });
+                      }}
+                      placeholder="Seleccionar nueva habitación..."
+                      searchPlaceholder="Número o tipo..."
+                      emptyMessage="Sin habitaciones disponibles para el número de huéspedes"
+                    />
+                  </div>
+                );
+              })()}
+
               {detailStay.notes && <p><span className="font-medium">Notas:</span> {detailStay.notes}</p>}
             </div>
           )}
@@ -887,6 +928,88 @@ export default function StaysTab() {
               }
               setPendingPartialCheckout(null);
             }}>Confirmar salida</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirm Room Change Dialog ── */}
+      <AlertDialog open={!!pendingRoomChange} onOpenChange={() => { setPendingRoomChange(null); setRoomChangeSelectValue(""); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cambiar de habitación?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se moverán los huéspedes de la habitación #{detailStay?.rooms?.room_number} a la habitación #{pendingRoomChange?.newRoomNumber}. La habitación anterior quedará en limpieza y la tarifa se recalculará.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!pendingRoomChange || !detailStay) return;
+              try {
+                const oldRoomId = detailStay.room_id;
+                const newRoomId = pendingRoomChange.newRoomId;
+                const guestCount = detailStay.stay_guests?.length || 1;
+
+                // Get new room type for rate recalculation
+                const { data: newRoomData } = await supabase.from("rooms" as any)
+                  .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                  .eq("id", newRoomId).single();
+                const newRoomType = (newRoomData as any)?.room_types;
+
+                let newRate = detailStay.rate_per_night;
+                const isCorporate = detailStay.source_rate === "corporate";
+
+                if (isCorporate && detailStay.company_id && allCompanyRates) {
+                  const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                  if (guestCount === 1) {
+                    const cheapest = companyRates.reduce((min: any, cr: any) => cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                    if (cheapest) newRate = cheapest.rate_per_night;
+                  } else {
+                    const matched = companyRates.find((cr: any) => cr.room_type_id === (newRoomData as any)?.room_type_id);
+                    if (matched) newRate = matched.rate_per_night;
+                  }
+                } else if (newRoomType) {
+                  newRate = getOccupancyRate(newRoomType, guestCount);
+                }
+
+                // Update stay with new room and rate
+                const { error } = await supabase.from("stays" as any)
+                  .update({ room_id: newRoomId, rate_per_night: newRate } as any)
+                  .eq("id", detailStay.id);
+                if (error) throw error;
+
+                // Set old room to cleaning
+                await supabase.from("rooms" as any).update({ status: "cleaning" } as any).eq("id", oldRoomId);
+                // Set new room to occupied
+                await supabase.from("rooms" as any).update({ status: "occupied" } as any).eq("id", newRoomId);
+
+                // Create housekeeping task for old room
+                if (detailStay.restaurant_id) {
+                  await supabase.from("housekeeping_tasks" as any).insert({
+                    restaurant_id: detailStay.restaurant_id, room_id: oldRoomId,
+                    task_type: "checkout_clean", status: "pending", priority: "normal",
+                    notes: `Limpieza por cambio de habitación - Hab #${detailStay.rooms?.room_number}`,
+                  } as any);
+                }
+
+                qc.invalidateQueries({ queryKey: ["stays"] });
+                qc.invalidateQueries({ queryKey: ["rooms"] });
+                qc.invalidateQueries({ queryKey: ["rooms-for-checkin"] });
+                qc.invalidateQueries({ queryKey: ["all-rooms-list"] });
+                qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+
+                // Refresh detail
+                const { data: refreshed } = await supabase.from("stays" as any)
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .eq("id", detailStay.id).single();
+                setDetailStay(refreshed);
+                toast({ title: "Habitación cambiada", description: `Movido a habitación #${pendingRoomChange.newRoomNumber}. Tarifa: $${newRate.toLocaleString()}/noche` });
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setPendingRoomChange(null);
+              setRoomChangeSelectValue("");
+            }}>Confirmar cambio</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
