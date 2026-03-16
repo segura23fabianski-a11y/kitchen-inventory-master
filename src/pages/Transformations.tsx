@@ -141,6 +141,8 @@ export default function Transformations() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
+      qc.invalidateQueries({ queryKey: ["transformation_runs"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
       setDefOpen(false);
       resetDefForm();
       toast({ title: "Proceso creado correctamente" });
@@ -217,12 +219,13 @@ export default function Transformations() {
       const unitCostInput = inputProduct.average_cost > 0 ? inputProduct.average_cost : (inputProduct.last_unit_cost || 0);
       const totalCostInput = inputQtyNum * unitCostInput;
 
-      // 1. SALIDA del producto de entrada
+      // 1. TRANSFORMACION del producto de entrada (no se registra como "salida"/gasto,
+      //    sino como "transformacion" para distinguirlo del consumo real de materia prima)
       const { error: e1 } = await supabase.from("inventory_movements").insert({
         restaurant_id: restaurantId,
         product_id: execInputId,
         user_id: user.id,
-        type: "salida",
+        type: "transformacion",
         quantity: inputQtyNum,
         unit_cost: unitCostInput,
         total_cost: totalCostInput,
@@ -301,7 +304,9 @@ export default function Transformations() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transformation_runs"] });
+      qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["recent-movements"] });
       resetExecForm();
       toast({ title: "Transformación registrada", description: "Inventario actualizado correctamente" });
     },
@@ -600,7 +605,7 @@ export default function Transformations() {
                               {run.notes && <span className="text-xs text-muted-foreground">{run.notes}</span>}
                             </div>
                             <div className="flex items-center gap-2 text-sm">
-                              <Badge variant="destructive" className="text-xs">ENTRADA</Badge>
+                              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">TRANSF.</Badge>
                               <span className="font-medium">{pMap[run.input_product_id]?.name ?? "—"}</span>
                               <span>{run.input_quantity} {pMap[run.input_product_id]?.unit}</span>
                               {run.input_unit_cost > 0 && (
@@ -652,7 +657,7 @@ export default function Transformations() {
                           <CardContent className="pt-4 space-y-2">
                             <h3 className="font-semibold">{def.name}</h3>
                             <div className="flex items-center gap-2 text-sm">
-                              <Badge variant="destructive" className="text-xs">ENTRADA</Badge>
+                              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">ENTRADA</Badge>
                               <span>{pMap[def.input_product_id]?.name ?? "—"} ({pMap[def.input_product_id]?.unit})</span>
                             </div>
                             <div className="ml-4 border-l-2 border-primary/20 pl-3 space-y-1">
