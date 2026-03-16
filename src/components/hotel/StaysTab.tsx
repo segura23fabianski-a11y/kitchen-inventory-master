@@ -155,7 +155,8 @@ export default function StaysTab() {
   const removeCompanion = (guestId: string) => setForm({ ...form, companion_ids: form.companion_ids.filter(id => id !== guestId) });
   const handleRoomChange = (roomId: string) => {
     const room = rooms?.find((r: any) => r.id === roomId);
-    setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: room?.room_types?.base_rate || prev.rate_per_night }));
+    const autoRate = getOccupancyRate(room?.room_types, totalGuests);
+    setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: autoRate }));
   };
   const handleCompanyChange = (companyId: string) => setForm(prev => ({ ...prev, company_id: companyId }));
 
