@@ -1101,6 +1101,3 @@ export default function Recipes() {
     </AppLayout>
   );
 }
-
-  );
-}
