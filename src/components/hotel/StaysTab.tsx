@@ -575,7 +575,7 @@ export default function StaysTab() {
                   <Label>Tarifa/Noche</Label>
                   {canSeeCorporateRates && form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
                 </div>
-                <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} />
+                <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} disabled={form.source_rate === "corporate"} />
               </div>
               <div><Label>Check-out Esperado</Label><Input type="datetime-local" value={form.expected_check_out} onChange={e => setForm({ ...form, expected_check_out: e.target.value })} /></div>
             </div>
