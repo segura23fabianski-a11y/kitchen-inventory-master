@@ -53,7 +53,7 @@ export default function StaysTab() {
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, room_type_id, room_types(name, base_rate, max_occupancy)").eq("status", "available").order("room_number");
+      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").eq("status", "available").order("room_number");
       if (error) throw error;
       return data as any[];
     },
