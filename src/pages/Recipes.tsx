@@ -354,11 +354,14 @@ export default function Recipes() {
         .eq("id", recipeId);
       if (error) throw error;
 
-      if (editRecipeMode === "fixed") {
-        // Delete old ingredients and re-insert
-        const { error: delErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
-        if (delErr) throw delErr;
+      // Fix duplicados: limpiar AMBAS tablas primero, siempre,
+      // para prevenir residuos al cambiar de modo y evitar re-inserts dobles
+      const { error: delIngErr } = await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+      if (delIngErr) throw delIngErr;
+      const { error: delCompErr } = await supabase.from("recipe_variable_components" as any).delete().eq("recipe_id", recipeId);
+      if (delCompErr) throw delCompErr;
 
+      if (editRecipeMode === "fixed") {
         const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
         if (validIngredients.length > 0) {
           const { error: insErr } = await supabase.from("recipe_ingredients").insert(
@@ -373,13 +376,7 @@ export default function Recipes() {
           );
           if (insErr) throw insErr;
         }
-
-        // Clean up components if switching from variable to fixed
-        await supabase.from("recipe_variable_components" as any).delete().eq("recipe_id", recipeId);
       } else {
-        // Delete old components and re-insert
-        await supabase.from("recipe_variable_components" as any).delete().eq("recipe_id", recipeId);
-
         const validComponents = editComponents.filter((c) => c.component_name.trim());
         if (validComponents.length > 0) {
           const { error: compErr } = await supabase.from("recipe_variable_components" as any).insert(
@@ -396,9 +393,6 @@ export default function Recipes() {
           );
           if (compErr) throw compErr;
         }
-
-        // Clean up ingredients if switching from fixed to variable
-        await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
       }
 
       await logAudit({
@@ -1105,5 +1099,8 @@ export default function Recipes() {
 
       </div>
     </AppLayout>
+  );
+}
+
   );
 }
