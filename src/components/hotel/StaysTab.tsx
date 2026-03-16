@@ -25,12 +25,12 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> =
 const CHECKOUT_LABELS: Record<string, string> = { normal: "Normal", unnotified: "Salida no notificada" };
 
 interface StayForm {
-  room_id: string; company_id: string; primary_guest_id: string;
+  room_id: string; company_id: string; contract_id: string; primary_guest_id: string;
   companion_ids: string[];
   expected_check_out: string; rate_per_night: number; payment_method: string; notes: string;
   source_rate: string;
 }
-const emptyForm: StayForm = { room_id: "", company_id: "", primary_guest_id: "", companion_ids: [], expected_check_out: "", rate_per_night: 0, payment_method: "", notes: "", source_rate: "standard" };
+const emptyForm: StayForm = { room_id: "", company_id: "", contract_id: "", primary_guest_id: "", companion_ids: [], expected_check_out: "", rate_per_night: 0, payment_method: "", notes: "", source_rate: "standard" };
 
 export default function StaysTab() {
   const restaurantId = useRestaurantId();
@@ -106,10 +106,18 @@ export default function StaysTab() {
     queryFn: async () => { const { data, error } = await supabase.from("company_rates" as any).select("*").eq("active", true); if (error) throw error; return data as any[]; },
   });
 
+  const { data: contracts } = useQuery({
+    queryKey: ["hotel-contracts-active"],
+    queryFn: async () => { const { data, error } = await supabase.from("contracts").select("id, name, code, company_id").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
+  });
+
+  // Contracts filtered by selected company
+  const companyContracts = contracts?.filter((c: any) => c.company_id === form.company_id) || [];
+
   const { data: stays, isLoading } = useQuery({
     queryKey: ["stays"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stays" as any).select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))").order("created_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("stays" as any).select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))").order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       return data as any[];
     },
@@ -193,7 +201,7 @@ export default function StaysTab() {
     const autoRate = getOccupancyRate(room?.room_types, totalGuests);
     setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: autoRate }));
   };
-  const handleCompanyChange = (companyId: string) => setForm(prev => ({ ...prev, company_id: companyId }));
+  const handleCompanyChange = (companyId: string) => setForm(prev => ({ ...prev, company_id: companyId, contract_id: "" }));
 
   // Twin validation: if room is twin type and company is set, all companions must be from same company
   // This is enforced by only allowing companions when validated
@@ -209,6 +217,7 @@ export default function StaysTab() {
       const { data: stay, error } = await supabase.from("stays" as any).insert({
         restaurant_id: restaurantId, room_id: form.room_id,
         company_id: form.company_id && form.company_id !== "none" ? form.company_id : null,
+        contract_id: form.contract_id || null,
         expected_check_out: form.expected_check_out || null,
         rate_per_night: rate, payment_method: form.payment_method || null,
         notes: form.notes.trim() || null, created_by: user.id,
@@ -368,14 +377,14 @@ export default function StaysTab() {
         <TableHeader>
           <TableRow>
             <TableHead>Habitación</TableHead><TableHead>Huésped</TableHead><TableHead>Huéspedes</TableHead>
-            <TableHead>Empresa</TableHead><TableHead>Tarifa</TableHead><TableHead>Check-in</TableHead>
+            <TableHead>Empresa</TableHead><TableHead>Contrato</TableHead><TableHead>Tarifa</TableHead><TableHead>Check-in</TableHead>
             <TableHead>Estado</TableHead><TableHead>Novedad</TableHead><TableHead>Total</TableHead>
             <TableHead className="w-32">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow> :
-           stays?.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Sin estancias</TableCell></TableRow> :
+          {isLoading ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow> :
+           stays?.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">Sin estancias</TableCell></TableRow> :
            stays?.map((s: any) => {
             const primary = s.stay_guests?.find((sg: any) => sg.is_primary);
             const guestName = primary?.hotel_guests ? `${primary.hotel_guests.first_name} ${primary.hotel_guests.last_name}` : "—";
@@ -387,6 +396,7 @@ export default function StaysTab() {
                 <TableCell>{guestName}</TableCell>
                 <TableCell><Badge variant="outline">{guestCount}</Badge></TableCell>
                 <TableCell>{s.hotel_companies?.name || "—"}</TableCell>
+                <TableCell>{s.contracts?.name || "—"}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <span>${(s.rate_per_night || 0).toLocaleString()}</span>
@@ -540,6 +550,28 @@ export default function StaysTab() {
               />
             </div>
 
+            {/* 3b. Contract (only when company selected) */}
+            {form.company_id && form.company_id !== "none" && companyContracts.length > 0 && (
+              <div>
+                <Label>Contrato / Frente</Label>
+                <SearchableSelect
+                  options={[
+                    { value: "none", label: "Sin contrato específico" },
+                    ...companyContracts.map((c: any) => ({
+                      value: c.id,
+                      label: `${c.name}${c.code ? ` (${c.code})` : ""}`,
+                      searchTerms: `${c.code || ""} ${c.name}`,
+                    })),
+                  ]}
+                  value={form.contract_id || "none"}
+                  onValueChange={(v) => setForm(prev => ({ ...prev, contract_id: v === "none" ? "" : v }))}
+                  placeholder="Seleccionar contrato..."
+                  searchPlaceholder="Nombre o código..."
+                  emptyMessage="Sin contratos para esta empresa"
+                />
+              </div>
+            )}
+
             {/* 4. Companions */}
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -656,7 +688,7 @@ export default function StaysTab() {
               await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
               qc.invalidateQueries({ queryKey: ["stays"] });
               const { data: refreshed } = await supabase.from("stays" as any)
-                .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                 .eq("id", detailStay.id).single();
               setDetailStay(refreshed);
               toast({ title: "Huésped creado y agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche` });
@@ -713,6 +745,7 @@ export default function StaysTab() {
               </p>
               <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
+              {detailStay.contracts?.name && <p><span className="font-medium">Contrato:</span> {detailStay.contracts.name}{detailStay.contracts.code ? ` (${detailStay.contracts.code})` : ""}</p>}
               {detailStay.payment_method && <p><span className="font-medium">Pago:</span> {detailStay.payment_method}</p>}
               {detailStay.checkout_type === "unnotified" && (
                 <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Salida no notificada</Badge>
@@ -862,7 +895,7 @@ export default function StaysTab() {
                 await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
                 qc.invalidateQueries({ queryKey: ["stays"] });
                 const { data: refreshed } = await supabase.from("stays" as any)
-                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
                 toast({ title: "Huésped agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
@@ -919,7 +952,7 @@ export default function StaysTab() {
                 await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
                 qc.invalidateQueries({ queryKey: ["stays"] });
                 const { data: refreshed } = await supabase.from("stays" as any)
-                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
                 toast({ title: "Huésped retirado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
@@ -1000,7 +1033,7 @@ export default function StaysTab() {
 
                 // Refresh detail
                 const { data: refreshed } = await supabase.from("stays" as any)
-                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
                 toast({ title: "Habitación cambiada", description: `Movido a habitación #${pendingRoomChange.newRoomNumber}. Tarifa: $${newRate.toLocaleString()}/noche` });

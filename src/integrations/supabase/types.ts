@@ -3237,6 +3237,7 @@ export type Database = {
           check_out_at: string | null
           checkout_type: string
           company_id: string | null
+          contract_id: string | null
           created_at: string
           created_by: string
           expected_check_out: string | null
@@ -3255,6 +3256,7 @@ export type Database = {
           check_out_at?: string | null
           checkout_type?: string
           company_id?: string | null
+          contract_id?: string | null
           created_at?: string
           created_by: string
           expected_check_out?: string | null
@@ -3273,6 +3275,7 @@ export type Database = {
           check_out_at?: string | null
           checkout_type?: string
           company_id?: string | null
+          contract_id?: string | null
           created_at?: string
           created_by?: string
           expected_check_out?: string | null
@@ -3292,6 +3295,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "hotel_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stays_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
           {
