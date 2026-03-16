@@ -578,7 +578,6 @@ export default function StaysTab() {
             <Button className="w-full" onClick={() => checkInMutation.mutate()} disabled={!form.room_id || !form.primary_guest_id || overCapacity || checkInMutation.isPending}>
               <LogIn className="h-4 w-4 mr-2" />{checkInMutation.isPending ? "Registrando..." : "Registrar Check-in"}
             </Button>
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
