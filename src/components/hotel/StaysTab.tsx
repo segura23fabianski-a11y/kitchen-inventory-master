@@ -554,7 +554,7 @@ export default function StaysTab() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Label>Tarifa/Noche</Label>
-                  {form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                  {canSeeCorporateRates && form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
                 </div>
                 <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} />
               </div>
