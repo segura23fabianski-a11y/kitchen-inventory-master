@@ -3,12 +3,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye } from "lucide-react";
+import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye, Receipt } from "lucide-react";
 import { generatePurchaseOrderPdf, PdfOrderData, PdfSettings } from "./generatePurchaseOrderPdf";
 import { usePdfSettings } from "@/hooks/use-pdf-settings";
 import { useAuth } from "@/lib/auth";
@@ -20,13 +23,19 @@ export default function OrdersList() {
   const { toast } = useToast();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission("purchase_orders_create");
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const isAdmin = hasRole("admin");
   const qc = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewOrder, setViewOrder] = useState<any>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const { data: pdfSettings } = usePdfSettings();
+
+  // Convert to invoice state
+  const [convertOrder, setConvertOrder] = useState<any>(null);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [allComplete, setAllComplete] = useState(false);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -102,6 +111,112 @@ export default function OrdersList() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // Open convert dialog — fetch order items
+  const openConvertDialog = async (order: any) => {
+    const { data: items, error } = await supabase
+      .from("purchase_order_items")
+      .select("*, products!inner(name, unit)")
+      .eq("purchase_order_id", order.id);
+    if (error) {
+      toast({ title: "Error cargando items", description: error.message, variant: "destructive" });
+      return;
+    }
+    setInvoiceItems(
+      (items || []).map((it: any) => ({
+        product_id: it.product_id,
+        product_name: it.products?.name || "",
+        product_unit: it.products?.unit || "",
+        quantity_ordered: Number(it.quantity),
+        quantity_received: Number(it.quantity),
+        unit_cost: it.unit_cost != null ? Number(it.unit_cost) : 0,
+      }))
+    );
+    setInvoiceNumber("");
+    setAllComplete(true);
+    setConvertOrder(order);
+  };
+
+  // Toggle all complete
+  const handleAllComplete = (checked: boolean) => {
+    setAllComplete(checked);
+    if (checked) {
+      setInvoiceItems((prev) =>
+        prev.map((it) => ({ ...it, quantity_received: it.quantity_ordered }))
+      );
+    }
+  };
+
+  const updateInvoiceItem = (index: number, field: string, value: number) => {
+    setInvoiceItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+    if (field === "quantity_received") setAllComplete(false);
+  };
+
+  const invoiceTotal = invoiceItems.reduce(
+    (sum, it) => sum + Number(it.quantity_received || 0) * Number(it.unit_cost || 0),
+    0
+  );
+  const hasValidItems = invoiceItems.some((it) => Number(it.quantity_received) > 0);
+
+  const convertToInvoice = useMutation({
+    mutationFn: async () => {
+      if (!convertOrder || !user) throw new Error("Datos incompletos");
+      if (!invoiceNumber.trim()) throw new Error("Ingrese el número de factura");
+
+      const { data: invoice, error: invErr } = await supabase
+        .from("purchase_invoices" as any)
+        .insert({
+          restaurant_id: convertOrder.restaurant_id,
+          invoice_number: invoiceNumber.trim(),
+          supplier_name: (convertOrder as any).suppliers?.name,
+          supplier_id: convertOrder.supplier_id,
+          invoice_date: new Date().toISOString().split("T")[0],
+          status: "draft",
+          created_by: user.id,
+        } as any)
+        .select("id")
+        .single();
+      if (invErr) throw invErr;
+
+      const items = invoiceItems
+        .filter((i) => Number(i.quantity_received) > 0)
+        .map((i) => ({
+          restaurant_id: convertOrder.restaurant_id,
+          invoice_id: (invoice as any).id,
+          product_id: i.product_id,
+          quantity: Number(i.quantity_received),
+          unit_cost: Number(i.unit_cost),
+          line_total: Number(i.quantity_received) * Number(i.unit_cost),
+        }));
+
+      const { error: itemsErr } = await supabase
+        .from("purchase_invoice_items" as any)
+        .insert(items as any);
+      if (itemsErr) throw itemsErr;
+
+      // Mark order as received if it wasn't
+      if (convertOrder.status !== "received") {
+        await supabase
+          .from("purchase_orders")
+          .update({ status: "received" })
+          .eq("id", convertOrder.id);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      setConvertOrder(null);
+      setInvoiceNumber("");
+      setInvoiceItems([]);
+      setAllComplete(false);
+      toast({ title: "Factura creada correctamente", description: "Puedes verla en el módulo de Facturas de Compra" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const handlePdf = async (order: any, action: "download" | "preview") => {
     // Fetch supplier details
     const { data: supplier } = await supabase
@@ -169,7 +284,7 @@ export default function OrdersList() {
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Productos</TableHead>
                 <TableHead className="text-right">Costo estimado</TableHead>
-                <TableHead className="w-36" />
+                <TableHead className="w-44" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -200,6 +315,12 @@ export default function OrdersList() {
                         <Button size="icon" variant="ghost" onClick={() => handlePdf(o, "preview")} title="Vista previa PDF">
                           <Eye className="h-4 w-4 text-muted-foreground" />
                         </Button>
+                        {/* Convert to invoice button for sent/received */}
+                        {(o.status === "sent" || o.status === "received") && canCreate && (
+                          <Button size="icon" variant="ghost" onClick={() => openConvertDialog(o)} title="Convertir a Factura">
+                            <Receipt className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        )}
                         {o.status === "draft" && canCreate && (
                           <>
                             <Button size="icon" variant="ghost" onClick={() => updateStatus.mutate({ id: o.id, status: "sent" })} title="Marcar enviado">
@@ -281,6 +402,116 @@ export default function OrdersList() {
               Total: <span className="text-primary">
                 ${orderItems.reduce((acc: number, item: any) => acc + (Number(item.quantity) * (item.unit_cost ? Number(item.unit_cost) : 0)), 0).toFixed(2)}
               </span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert to Invoice Dialog */}
+      <Dialog open={!!convertOrder} onOpenChange={(v) => { if (!v) { setConvertOrder(null); setInvoiceItems([]); setInvoiceNumber(""); setAllComplete(false); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-emerald-600" />
+              Convertir Pedido a Factura
+            </DialogTitle>
+          </DialogHeader>
+          {convertOrder && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Pedido <span className="font-mono font-semibold text-primary">{convertOrder.order_number}</span> — {(convertOrder as any).suppliers?.name}
+              </div>
+
+              {/* Invoice number */}
+              <div>
+                <Label>Número de Factura del Proveedor *</Label>
+                <Input
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Ej: FAC-001234"
+                  className="mt-1"
+                />
+              </div>
+
+              {/* All complete checkbox */}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="all-complete"
+                  checked={allComplete}
+                  onCheckedChange={(checked) => handleAllComplete(!!checked)}
+                />
+                <Label htmlFor="all-complete" className="cursor-pointer text-sm">
+                  Todo llegó completo (llenar cantidades con lo pedido)
+                </Label>
+              </div>
+
+              {/* Editable items table */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Producto</TableHead>
+                    <TableHead className="text-right w-24">Pedido</TableHead>
+                    <TableHead className="text-right w-28">Recibido</TableHead>
+                    <TableHead className="text-right w-28">Precio Unit.</TableHead>
+                    <TableHead className="text-right w-28">Subtotal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoiceItems.map((item, idx) => {
+                    const subtotal = Number(item.quantity_received || 0) * Number(item.unit_cost || 0);
+                    return (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          {item.product_name}
+                          <span className="text-muted-foreground text-xs ml-1">({item.product_unit})</span>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.quantity_ordered}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={item.quantity_received}
+                            onChange={(e) => updateInvoiceItem(idx, "quantity_received", Number(e.target.value))}
+                            className="h-8 w-24 text-right ml-auto"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={item.unit_cost}
+                            onChange={(e) => updateInvoiceItem(idx, "unit_cost", Number(e.target.value))}
+                            className="h-8 w-24 text-right ml-auto"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          ${subtotal.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {/* Total */}
+              <div className="text-right text-sm font-semibold border-t pt-2">
+                Total Factura: <span className="text-primary text-base">${invoiceTotal.toFixed(2)}</span>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setConvertOrder(null); setInvoiceItems([]); setInvoiceNumber(""); setAllComplete(false); }}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => convertToInvoice.mutate()}
+                  disabled={!invoiceNumber.trim() || !hasValidItems || convertToInvoice.isPending}
+                >
+                  <Receipt className="h-4 w-4 mr-1" />
+                  {convertToInvoice.isPending ? "Creando..." : "Crear Factura"}
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
