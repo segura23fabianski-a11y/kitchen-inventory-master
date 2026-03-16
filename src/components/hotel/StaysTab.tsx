@@ -782,6 +782,115 @@ export default function StaysTab() {
           )}
         </DialogContent>
       </Dialog>
+      {/* ── Confirm Add Guest Dialog ── */}
+      <AlertDialog open={!!pendingAddGuest} onOpenChange={() => setPendingAddGuest(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Agregar huésped a la estancia?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se agregará a <span className="font-semibold">{pendingAddGuest?.guestName}</span> a la habitación #{detailStay?.rooms?.room_number}. La tarifa por noche se recalculará automáticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!pendingAddGuest || !detailStay) return;
+              try {
+                await supabase.from("stay_guests" as any).insert({
+                  stay_id: detailStay.id, guest_id: pendingAddGuest.guestId, is_primary: false,
+                } as any);
+                const newGuestCount = (detailStay.stay_guests?.length || 0) + 1;
+                const { data: roomData } = await supabase.from("rooms" as any)
+                  .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                  .eq("id", detailStay.room_id).single();
+                const roomType = (roomData as any)?.room_types;
+                let newRate = detailStay.rate_per_night;
+                const isCorporate = detailStay.source_rate === "corporate";
+                if (isCorporate && detailStay.company_id && allCompanyRates) {
+                  const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                  if (newGuestCount === 1) {
+                    const cheapest = companyRates.reduce((min: any, cr: any) => cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                    if (cheapest) newRate = cheapest.rate_per_night;
+                  } else {
+                    const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
+                    if (matched) newRate = matched.rate_per_night;
+                  }
+                } else if (roomType) {
+                  newRate = getOccupancyRate(roomType, newGuestCount);
+                }
+                await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
+                qc.invalidateQueries({ queryKey: ["stays"] });
+                const { data: refreshed } = await supabase.from("stays" as any)
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .eq("id", detailStay.id).single();
+                setDetailStay(refreshed);
+                toast({ title: "Huésped agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setPendingAddGuest(null);
+            }}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Confirm Partial Checkout Dialog ── */}
+      <AlertDialog open={!!pendingPartialCheckout} onOpenChange={() => setPendingPartialCheckout(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Salida parcial de huésped?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se retirará a <span className="font-semibold">{pendingPartialCheckout?.guestName}</span>{pendingPartialCheckout?.isPrimary ? " (titular)" : ""} de la habitación #{detailStay?.rooms?.room_number}. La tarifa por noche se recalculará automáticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+              if (!pendingPartialCheckout || !detailStay) return;
+              try {
+                // If removing the primary, promote another guest to primary
+                if (pendingPartialCheckout.isPrimary) {
+                  const otherGuest = detailStay.stay_guests?.find((sg: any) => sg.id !== pendingPartialCheckout.sgId);
+                  if (otherGuest) {
+                    await supabase.from("stay_guests" as any).update({ is_primary: true } as any).eq("id", otherGuest.id);
+                  }
+                }
+                await supabase.from("stay_guests" as any).delete().eq("id", pendingPartialCheckout.sgId);
+                const newGuestCount = detailStay.stay_guests.length - 1;
+                const { data: roomData } = await supabase.from("rooms" as any)
+                  .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                  .eq("id", detailStay.room_id).single();
+                const roomType = (roomData as any)?.room_types;
+                let newRate = detailStay.rate_per_night;
+                const isCorporate = detailStay.source_rate === "corporate";
+                if (isCorporate && detailStay.company_id && allCompanyRates) {
+                  const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                  if (newGuestCount === 1) {
+                    const cheapest = companyRates.reduce((min: any, cr: any) => cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                    if (cheapest) newRate = cheapest.rate_per_night;
+                  } else {
+                    const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
+                    if (matched) newRate = matched.rate_per_night;
+                  }
+                } else if (roomType) {
+                  newRate = getOccupancyRate(roomType, newGuestCount);
+                }
+                await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
+                qc.invalidateQueries({ queryKey: ["stays"] });
+                const { data: refreshed } = await supabase.from("stays" as any)
+                  .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                  .eq("id", detailStay.id).single();
+                setDetailStay(refreshed);
+                toast({ title: "Huésped retirado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
+              } catch (e: any) {
+                toast({ title: "Error", description: e.message, variant: "destructive" });
+              }
+              setPendingPartialCheckout(null);
+            }}>Confirmar salida</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Delete Stay Dialog (Admin) ── */}
       <AlertDialog open={!!deleteStayId} onOpenChange={() => setDeleteStayId(null)}>
         <AlertDialogContent>
