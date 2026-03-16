@@ -788,6 +788,36 @@ export default function StaysTab() {
                 return null;
               })()}
 
+              {/* Change room for active stay */}
+              {detailStay.status === "checked_in" && (() => {
+                const currentGuestCount = detailStay.stay_guests?.length || 1;
+                const availableForChange = allRooms?.filter((r: any) =>
+                  r.id !== detailStay.room_id && r.status === "available" && (r.room_types?.max_occupancy || 2) >= currentGuestCount
+                ) || [];
+
+                return (
+                  <div className="pt-2 border-t space-y-2">
+                    <Label className="text-xs font-medium flex items-center gap-1"><ArrowRightLeft className="h-3.5 w-3.5" />Cambiar de habitación</Label>
+                    <SearchableSelect
+                      options={availableForChange.map((r: any) => ({
+                        value: r.id,
+                        label: `#${r.room_number} — ${r.room_types?.name} (máx ${r.room_types?.max_occupancy})`,
+                        searchTerms: r.room_number,
+                      }))}
+                      value={roomChangeSelectValue}
+                      onValueChange={(roomId) => {
+                        const room = allRooms?.find((r: any) => r.id === roomId);
+                        setRoomChangeSelectValue(roomId);
+                        setPendingRoomChange({ newRoomId: roomId, newRoomNumber: room?.room_number || "" });
+                      }}
+                      placeholder="Seleccionar nueva habitación..."
+                      searchPlaceholder="Número o tipo..."
+                      emptyMessage="Sin habitaciones disponibles para el número de huéspedes"
+                    />
+                  </div>
+                );
+              })()}
+
               {detailStay.notes && <p><span className="font-medium">Notas:</span> {detailStay.notes}</p>}
             </div>
           )}
