@@ -763,49 +763,9 @@ export default function StaysTab() {
                           searchTerms: `${g.document_number} ${g.first_name} ${g.last_name}`,
                         }))}
                         value=""
-                        onValueChange={async (guestId) => {
-                          try {
-                            // Add guest to stay
-                            await supabase.from("stay_guests" as any).insert({
-                              stay_id: detailStay.id, guest_id: guestId, is_primary: false,
-                            } as any);
-                            const newGuestCount = currentCount + 1;
-
-                            // Recalculate rate
-                            const { data: roomData } = await supabase.from("rooms" as any)
-                              .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
-                              .eq("id", detailStay.room_id).single();
-                            const roomType = (roomData as any)?.room_types;
-
-                            let newRate = detailStay.rate_per_night;
-                            const isCorporate = detailStay.source_rate === "corporate";
-
-                            if (isCorporate && detailStay.company_id && allCompanyRates) {
-                              const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
-                              if (newGuestCount === 1) {
-                                const cheapest = companyRates.reduce((min: any, cr: any) =>
-                                  cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
-                                if (cheapest) newRate = cheapest.rate_per_night;
-                              } else {
-                                const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
-                                if (matched) newRate = matched.rate_per_night;
-                              }
-                            } else if (roomType) {
-                              newRate = getOccupancyRate(roomType, newGuestCount);
-                            }
-
-                            await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
-
-                            // Refresh detail
-                            qc.invalidateQueries({ queryKey: ["stays"] });
-                            const { data: refreshed } = await supabase.from("stays" as any)
-                              .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
-                              .eq("id", detailStay.id).single();
-                            setDetailStay(refreshed);
-                            toast({ title: "Huésped agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
-                          } catch (e: any) {
-                            toast({ title: "Error", description: e.message, variant: "destructive" });
-                          }
+                        onValueChange={(guestId) => {
+                          const g = guests?.find((g: any) => g.id === guestId);
+                          setPendingAddGuest({ guestId, guestName: g ? `${g.first_name} ${g.last_name}` : guestId });
                         }}
                         placeholder="Buscar huésped por nombre o documento..."
                         searchPlaceholder="Nombre, apellido o documento..."
