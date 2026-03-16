@@ -569,7 +569,7 @@ export default function StaysTab() {
               <div className="rounded-md border p-3 bg-muted/50 space-y-1 text-sm">
                 <p><span className="font-medium">Huéspedes:</span> {totalGuests} persona{totalGuests > 1 ? "s" : ""}</p>
                 <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
-                {form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
+                {canSeeCorporateRates && form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
               </div>
             )}
 
