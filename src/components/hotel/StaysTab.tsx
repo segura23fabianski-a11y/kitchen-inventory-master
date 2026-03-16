@@ -562,12 +562,22 @@ export default function StaysTab() {
               <p className={`text-xs ${form.source_rate === "corporate" ? "text-primary" : "text-amber-600"}`}>{rateInfo}</p>
             )}
 
+            {/* Guest count & rate summary */}
+            {form.room_id && form.primary_guest_id && (
+              <div className="rounded-md border p-3 bg-muted/50 space-y-1 text-sm">
+                <p><span className="font-medium">Huéspedes:</span> {totalGuests} persona{totalGuests > 1 ? "s" : ""}</p>
+                <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
+                {form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
+              </div>
+            )}
+
             <div><Label>Método de Pago</Label><Input value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} placeholder="Efectivo, tarjeta, transferencia..." /></div>
             <div><Label>Notas</Label><Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
 
             {/* 6. Confirm */}
             <Button className="w-full" onClick={() => checkInMutation.mutate()} disabled={!form.room_id || !form.primary_guest_id || overCapacity || checkInMutation.isPending}>
               <LogIn className="h-4 w-4 mr-2" />{checkInMutation.isPending ? "Registrando..." : "Registrar Check-in"}
+            </Button>
             </Button>
           </div>
         </DialogContent>
