@@ -121,4 +121,5 @@ export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSe
       </PopoverContent>
     </Popover>
   );
-}
+});
+SearchableSelect.displayName = "SearchableSelect";
