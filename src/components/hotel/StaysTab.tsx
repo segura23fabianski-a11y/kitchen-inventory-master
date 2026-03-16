@@ -66,6 +66,15 @@ export default function StaysTab() {
     },
   });
 
+  const { data: allRooms } = useQuery({
+    queryKey: ["all-rooms-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, status, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").order("room_number");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const { data: guests } = useQuery({
     queryKey: ["hotel-guests"],
     queryFn: async () => { const { data, error } = await supabase.from("hotel_guests" as any).select("id, first_name, last_name, document_number, document_type").order("last_name"); if (error) throw error; return data as any[]; },
