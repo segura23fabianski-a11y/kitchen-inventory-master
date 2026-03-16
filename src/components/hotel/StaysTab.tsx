@@ -745,7 +745,7 @@ export default function StaysTab() {
                         <Label className="text-xs font-medium">Agregar huésped a la estancia</Label>
                         <Button
                           type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1"
-                          onClick={() => { setQuickGuestTarget("companion"); setQuickGuestOpen(true); }}
+                          onClick={() => { setAddGuestToActiveStay(true); setQuickGuestTarget("companion"); setQuickGuestOpen(true); }}
                         >
                           <UserPlus className="h-3.5 w-3.5" /> Crear nuevo
                         </Button>
