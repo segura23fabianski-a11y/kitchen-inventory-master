@@ -217,6 +217,7 @@ export default function StaysTab() {
       const { data: stay, error } = await supabase.from("stays" as any).insert({
         restaurant_id: restaurantId, room_id: form.room_id,
         company_id: form.company_id && form.company_id !== "none" ? form.company_id : null,
+        contract_id: form.contract_id || null,
         expected_check_out: form.expected_check_out || null,
         rate_per_night: rate, payment_method: form.payment_method || null,
         notes: form.notes.trim() || null, created_by: user.id,
