@@ -377,14 +377,14 @@ export default function StaysTab() {
         <TableHeader>
           <TableRow>
             <TableHead>Habitación</TableHead><TableHead>Huésped</TableHead><TableHead>Huéspedes</TableHead>
-            <TableHead>Empresa</TableHead><TableHead>Tarifa</TableHead><TableHead>Check-in</TableHead>
+            <TableHead>Empresa</TableHead><TableHead>Contrato</TableHead><TableHead>Tarifa</TableHead><TableHead>Check-in</TableHead>
             <TableHead>Estado</TableHead><TableHead>Novedad</TableHead><TableHead>Total</TableHead>
             <TableHead className="w-32">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow> :
-           stays?.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Sin estancias</TableCell></TableRow> :
+          {isLoading ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow> :
+           stays?.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">Sin estancias</TableCell></TableRow> :
            stays?.map((s: any) => {
             const primary = s.stay_guests?.find((sg: any) => sg.is_primary);
             const guestName = primary?.hotel_guests ? `${primary.hotel_guests.first_name} ${primary.hotel_guests.last_name}` : "—";
@@ -396,6 +396,7 @@ export default function StaysTab() {
                 <TableCell>{guestName}</TableCell>
                 <TableCell><Badge variant="outline">{guestCount}</Badge></TableCell>
                 <TableCell>{s.hotel_companies?.name || "—"}</TableCell>
+                <TableCell>{s.contracts?.name || "—"}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <span>${(s.rate_per_night || 0).toLocaleString()}</span>
