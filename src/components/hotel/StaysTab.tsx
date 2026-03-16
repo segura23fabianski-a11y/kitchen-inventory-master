@@ -51,6 +51,7 @@ export default function StaysTab() {
   const [quickGuestTarget, setQuickGuestTarget] = useState<"primary" | "companion">("primary");
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
   const [deleteStayId, setDeleteStayId] = useState<string | null>(null);
+  const [addGuestToActiveStay, setAddGuestToActiveStay] = useState(false);
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
