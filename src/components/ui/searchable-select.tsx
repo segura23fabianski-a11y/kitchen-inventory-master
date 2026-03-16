@@ -35,7 +35,7 @@ interface SearchableSelectProps {
   clearable?: boolean;
 }
 
-export function SearchableSelect({
+export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSelectProps>(function SearchableSelectInner({
   options,
   value,
   onValueChange,
