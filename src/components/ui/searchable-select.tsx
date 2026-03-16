@@ -55,6 +55,7 @@ export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSe
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={ref}
           variant="outline"
           role="combobox"
           aria-expanded={open}
