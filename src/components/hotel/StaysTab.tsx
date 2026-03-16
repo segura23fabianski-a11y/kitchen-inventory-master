@@ -106,6 +106,14 @@ export default function StaysTab() {
     queryFn: async () => { const { data, error } = await supabase.from("company_rates" as any).select("*").eq("active", true); if (error) throw error; return data as any[]; },
   });
 
+  const { data: contracts } = useQuery({
+    queryKey: ["hotel-contracts-active"],
+    queryFn: async () => { const { data, error } = await supabase.from("contracts").select("id, name, code, company_id").eq("active", true).order("name"); if (error) throw error; return data as any[]; },
+  });
+
+  // Contracts filtered by selected company
+  const companyContracts = contracts?.filter((c: any) => c.company_id === form.company_id) || [];
+
   const { data: stays, isLoading } = useQuery({
     queryKey: ["stays"],
     queryFn: async () => {
