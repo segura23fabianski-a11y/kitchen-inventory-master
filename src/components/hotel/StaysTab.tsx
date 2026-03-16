@@ -201,7 +201,7 @@ export default function StaysTab() {
     const autoRate = getOccupancyRate(room?.room_types, totalGuests);
     setForm(prev => ({ ...prev, room_id: roomId, rate_per_night: autoRate }));
   };
-  const handleCompanyChange = (companyId: string) => setForm(prev => ({ ...prev, company_id: companyId }));
+  const handleCompanyChange = (companyId: string) => setForm(prev => ({ ...prev, company_id: companyId, contract_id: "" }));
 
   // Twin validation: if room is twin type and company is set, all companions must be from same company
   // This is enforced by only allowing companions when validated
