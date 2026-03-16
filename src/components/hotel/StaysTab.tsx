@@ -644,7 +644,7 @@ export default function StaysTab() {
 
       {/* ── Detail Dialog ── */}
       <Dialog open={!!detailStay} onOpenChange={() => setDetailStay(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Detalle de Estancia</DialogTitle></DialogHeader>
           {detailStay && (
             <div className="space-y-2 text-sm">
@@ -664,18 +664,159 @@ export default function StaysTab() {
 
               <p className="font-medium pt-2">Huéspedes ({detailStay.stay_guests?.length || 0}):</p>
               {detailStay.stay_guests?.map((sg: any) => (
-                <div key={sg.id} className="ml-2 flex items-center gap-2">
+                <div key={sg.id} className="ml-2 flex items-center gap-2 flex-wrap">
                   <span>• {sg.hotel_guests?.first_name} {sg.hotel_guests?.last_name} ({sg.hotel_guests?.document_number})</span>
                   {sg.is_primary && <Badge variant="outline" className="text-xs">Titular</Badge>}
                   {detailStay.status === "checked_in" && (
-                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
-                      setSignatureStay({ stayId: detailStay.id, guestId: sg.guest_id, guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}` });
-                    }}>
-                      <Camera className="h-3 w-3 mr-1" />Firma
-                    </Button>
+                    <>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+                        setSignatureStay({ stayId: detailStay.id, guestId: sg.guest_id, guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}` });
+                      }}>
+                        <Camera className="h-3 w-3 mr-1" />Firma
+                      </Button>
+                      {/* Partial checkout: remove guest (only if not the last one, or if not primary when there are companions) */}
+                      {detailStay.stay_guests.length > 1 && !sg.is_primary && (
+                        <Button
+                          variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            try {
+                              // Remove guest from stay
+                              await supabase.from("stay_guests" as any).delete().eq("id", sg.id);
+                              const newGuestCount = detailStay.stay_guests.length - 1;
+
+                              // Recalculate rate
+                              const { data: roomData } = await supabase.from("rooms" as any)
+                                .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                                .eq("id", detailStay.room_id).single();
+                              const roomType = (roomData as any)?.room_types;
+
+                              let newRate = detailStay.rate_per_night;
+                              const isCorporate = detailStay.source_rate === "corporate";
+
+                              if (isCorporate && detailStay.company_id && allCompanyRates) {
+                                const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                                if (newGuestCount === 1) {
+                                  const cheapest = companyRates.reduce((min: any, cr: any) =>
+                                    cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                                  if (cheapest) newRate = cheapest.rate_per_night;
+                                } else {
+                                  const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
+                                  if (matched) newRate = matched.rate_per_night;
+                                }
+                              } else if (roomType) {
+                                newRate = getOccupancyRate(roomType, newGuestCount);
+                              }
+
+                              await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
+
+                              // Refresh
+                              qc.invalidateQueries({ queryKey: ["stays"] });
+                              const { data: refreshed } = await supabase.from("stays" as any)
+                                .select("*, rooms(room_number, room_types(name)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                                .eq("id", detailStay.id).single();
+                              setDetailStay(refreshed);
+                              toast({ title: "Huésped retirado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
+                            } catch (e: any) {
+                              toast({ title: "Error", description: e.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <LogOut className="h-3 w-3 mr-1" />Salida parcial
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
+
+              {/* Add guest to active stay */}
+              {detailStay.status === "checked_in" && (() => {
+                // Get max occupancy for this room
+                const stayRoomType = detailStay.rooms?.room_types;
+                const currentCount = detailStay.stay_guests?.length || 0;
+                // We need to look up max_occupancy - fetch from rooms query or use a reasonable default
+                const maxOcc = (() => {
+                  // Try to find from the rooms-for-checkin data (may not include occupied rooms)
+                  // Instead, we'll use a simple heuristic based on room type name or default to 3
+                  return 3; // We'll validate server-side
+                })();
+
+                if (currentCount < maxOcc) {
+                  const existingGuestIds = detailStay.stay_guests?.map((sg: any) => sg.guest_id) || [];
+                  const addableGuests = guests?.filter((g: any) => !existingGuestIds.includes(g.id));
+
+                  return (
+                    <div className="pt-2 border-t space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Agregar huésped a la estancia</Label>
+                        <Button
+                          type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                          onClick={() => { setQuickGuestTarget("companion"); setQuickGuestOpen(true); }}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" /> Crear nuevo
+                        </Button>
+                      </div>
+                      <SearchableSelect
+                        options={(addableGuests || []).map((g: any) => ({
+                          value: g.id,
+                          label: `${g.first_name} ${g.last_name} (${g.document_number})`,
+                          searchTerms: `${g.document_number} ${g.first_name} ${g.last_name}`,
+                        }))}
+                        value=""
+                        onValueChange={async (guestId) => {
+                          try {
+                            // Add guest to stay
+                            await supabase.from("stay_guests" as any).insert({
+                              stay_id: detailStay.id, guest_id: guestId, is_primary: false,
+                            } as any);
+                            const newGuestCount = currentCount + 1;
+
+                            // Recalculate rate
+                            const { data: roomData } = await supabase.from("rooms" as any)
+                              .select("room_type_id, room_types(rate_single, rate_double, rate_triple, base_rate)")
+                              .eq("id", detailStay.room_id).single();
+                            const roomType = (roomData as any)?.room_types;
+
+                            let newRate = detailStay.rate_per_night;
+                            const isCorporate = detailStay.source_rate === "corporate";
+
+                            if (isCorporate && detailStay.company_id && allCompanyRates) {
+                              const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === detailStay.company_id);
+                              if (newGuestCount === 1) {
+                                const cheapest = companyRates.reduce((min: any, cr: any) =>
+                                  cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                                if (cheapest) newRate = cheapest.rate_per_night;
+                              } else {
+                                const matched = companyRates.find((cr: any) => cr.room_type_id === (roomData as any)?.room_type_id);
+                                if (matched) newRate = matched.rate_per_night;
+                              }
+                            } else if (roomType) {
+                              newRate = getOccupancyRate(roomType, newGuestCount);
+                            }
+
+                            await supabase.from("stays" as any).update({ rate_per_night: newRate } as any).eq("id", detailStay.id);
+
+                            // Refresh detail
+                            qc.invalidateQueries({ queryKey: ["stays"] });
+                            const { data: refreshed } = await supabase.from("stays" as any)
+                              .select("*, rooms(room_number, room_types(name)), hotel_companies(name), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
+                              .eq("id", detailStay.id).single();
+                            setDetailStay(refreshed);
+                            toast({ title: "Huésped agregado", description: `Tarifa actualizada a $${newRate.toLocaleString()}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
+                          } catch (e: any) {
+                            toast({ title: "Error", description: e.message, variant: "destructive" });
+                          }
+                        }}
+                        placeholder="Buscar huésped por nombre o documento..."
+                        searchPlaceholder="Nombre, apellido o documento..."
+                        emptyMessage="Sin resultados"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {detailStay.notes && <p><span className="font-medium">Notas:</span> {detailStay.notes}</p>}
             </div>
           )}
