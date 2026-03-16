@@ -36,6 +36,8 @@ export default function StaysTab() {
   const restaurantId = useRestaurantId();
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole("admin");
+  const isRecepcionista = hasRole("recepcionista");
+  const canSeeCorporateRates = isAdmin || !isRecepcionista;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
