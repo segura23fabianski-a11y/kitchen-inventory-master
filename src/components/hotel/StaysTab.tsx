@@ -745,6 +745,7 @@ export default function StaysTab() {
               </p>
               <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
+              {detailStay.contracts?.name && <p><span className="font-medium">Contrato:</span> {detailStay.contracts.name}{detailStay.contracts.code ? ` (${detailStay.contracts.code})` : ""}</p>}
               {detailStay.payment_method && <p><span className="font-medium">Pago:</span> {detailStay.payment_method}</p>}
               {detailStay.checkout_type === "unnotified" && (
                 <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Salida no notificada</Badge>
