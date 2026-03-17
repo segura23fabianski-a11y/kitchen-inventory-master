@@ -2,10 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useRestaurantId } from "@/hooks/use-restaurant";
+import { usePermissions } from "@/hooks/use-permissions";
 
 export function useBackdate() {
   const { user } = useAuth();
   const restaurantId = useRestaurantId();
+  const { hasPermission } = usePermissions();
 
   const { data: canBackdate } = useQuery({
     queryKey: ["can-backdate", user?.id],
@@ -21,7 +23,8 @@ export function useBackdate() {
     enabled: !!user,
   });
 
-  const { data: initMode } = useQuery({
+  // Check global setting
+  const { data: initModeGlobal } = useQuery({
     queryKey: ["init-mode", restaurantId],
     queryFn: async () => {
       const { data } = await supabase
@@ -34,6 +37,10 @@ export function useBackdate() {
     },
     enabled: !!restaurantId,
   });
+
+  // Init mode is allowed if the global setting is on AND the user's role has the permission
+  const hasInitPermission = hasPermission("inventory_init_mode");
+  const initMode = !!(initModeGlobal && hasInitPermission);
 
   const { data: maxDays } = useQuery({
     queryKey: ["backdate-max-days", restaurantId],
@@ -51,5 +58,5 @@ export function useBackdate() {
 
   const backdatingAllowed = !!(canBackdate && initMode);
 
-  return { canBackdate: !!canBackdate, initMode: !!initMode, backdatingAllowed, maxDays: maxDays ?? 45 };
+  return { canBackdate: !!canBackdate, initMode, backdatingAllowed, maxDays: maxDays ?? 45 };
 }
