@@ -121,14 +121,18 @@ export default function Reports() {
     },
   });
 
-  // Recipes with ingredients
+  // Recipes with ingredients (include unit for conversion)
   const { data: recipes } = useQuery({
     queryKey: ["report-recipes"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, recipe_ingredients(product_id, quantity)")
+        .select("id, name, recipe_ingredients(product_id, quantity, unit)")
         .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
       if (error) throw error;
       return data;
     },
