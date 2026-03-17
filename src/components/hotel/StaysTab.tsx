@@ -407,13 +407,13 @@ export default function StaysTab() {
                 <TableCell>{s.hotel_companies?.name || "—"}</TableCell>
                 <TableCell>{s.contracts?.name || "—"}</TableCell>
                 <TableCell>
-                  {canSeeCorporateRates ? (
+                  {(canSeeCorporateRates || !isCorporate) ? (
                     <div className="flex items-center gap-1">
                       <span>${(s.rate_per_night || 0).toLocaleString()}</span>
-                      {isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
+                      {canSeeCorporateRates && isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
                     </div>
                   ) : (
-                    <span className="text-muted-foreground text-xs">—</span>
+                    <span className="text-muted-foreground text-xs">Corporativa</span>
                   )}
                 </TableCell>
                 <TableCell>{format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</TableCell>
@@ -423,7 +423,7 @@ export default function StaysTab() {
                     <Badge variant="destructive" className="text-xs"><AlertTriangle className="h-3 w-3 mr-0.5" />No notificada</Badge>
                   )}
                 </TableCell>
-                <TableCell>{canSeeCorporateRates ? `$${(s.total_amount || 0).toLocaleString()}` : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                <TableCell>{(canSeeCorporateRates || !isCorporate) ? `$${(s.total_amount || 0).toLocaleString()}` : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     {s.status === "checked_in" && (
@@ -644,14 +644,14 @@ export default function StaysTab() {
             </div>
 
             {/* 5. Rate & Checkout */}
-            <div className={canSeeCorporateRates ? "grid grid-cols-2 gap-3" : ""}>
-              {canSeeCorporateRates && (
+            <div className={(canSeeCorporateRates || form.source_rate !== "corporate") ? "grid grid-cols-2 gap-3" : ""}>
+              {(canSeeCorporateRates || form.source_rate !== "corporate") && (
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Label>Tarifa/Noche</Label>
                     {form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
                   </div>
-                  <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} disabled={form.source_rate === "corporate"} />
+                  <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} disabled={form.source_rate === "corporate" || !canSeeCorporateRates} />
                 </div>
               )}
               <div><Label>Check-out Esperado</Label><Input type="datetime-local" value={form.expected_check_out} onChange={e => setForm({ ...form, expected_check_out: e.target.value })} /></div>
@@ -664,7 +664,7 @@ export default function StaysTab() {
             {form.room_id && form.primary_guest_id && (
               <div className="rounded-md border p-3 bg-muted/50 space-y-1 text-sm">
                 <p><span className="font-medium">Huéspedes:</span> {totalGuests} persona{totalGuests > 1 ? "s" : ""}</p>
-                {canSeeCorporateRates && (
+                {(canSeeCorporateRates || form.source_rate !== "corporate") && (
                   <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
                 )}
                 {canSeeCorporateRates && form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
@@ -773,13 +773,15 @@ export default function StaysTab() {
               <p><span className="font-medium">Habitación:</span> #{detailStay.rooms?.room_number} ({detailStay.rooms?.room_types?.name})</p>
               <p><span className="font-medium">Check-in:</span> {format(new Date(detailStay.check_in_at), "PPpp", { locale: es })}</p>
               {detailStay.check_out_at && <p><span className="font-medium">Check-out:</span> {format(new Date(detailStay.check_out_at), "PPpp", { locale: es })}</p>}
-              {canSeeCorporateRates && (
+              {(canSeeCorporateRates || detailStay.source_rate !== "corporate") ? (
                 <p>
                   <span className="font-medium">Tarifa:</span> ${detailStay.rate_per_night?.toLocaleString()}/noche
-                  {detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                  {canSeeCorporateRates && detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
                 </p>
+              ) : (
+                <p className="text-xs text-primary">✓ Tarifa corporativa aplicada</p>
               )}
-              {canSeeCorporateRates && <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>}
+              {(canSeeCorporateRates || detailStay.source_rate !== "corporate") && <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>}
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
               {detailStay.contracts?.name && <p><span className="font-medium">Contrato:</span> {detailStay.contracts.name}{detailStay.contracts.code ? ` (${detailStay.contracts.code})` : ""}</p>}
               {detailStay.payment_method && <p><span className="font-medium">Pago:</span> {detailStay.payment_method}</p>}
