@@ -423,16 +423,22 @@ export default function KitchenKiosk() {
           if (c.componentId !== componentId) return c;
           const recipeIngs = ings.map((ri: any) => {
             const prod = products?.find(p => p.id === ri.product_id);
+            const ingredientUnit = ri.unit ?? prod?.unit ?? "unidad";
+            const productBaseUnit = prod?.unit ?? "unidad";
             const qtyPerService = Number(ri.quantity);
             const totalQty = qtyPerService * prev.servings;
+            // Convert average_cost (per product base unit) to cost per ingredient unit
+            // e.g. if product is in kg ($4794/kg) and ingredient is in g, cost per g = $4.794
+            const costPerProductUnit = Number(prod?.average_cost ?? 0);
+            const costPerIngredientUnit = costPerProductUnit * convertToProductUnit(1, ingredientUnit, productBaseUnit);
             return {
               ingredientId: ri.product_id + "_" + recipeId,
               productId: ri.product_id,
               productName: prod?.name ?? "?",
-              productUnit: ri.unit ?? prod?.unit ?? "unidad",
+              productUnit: ingredientUnit,
               theoreticalQty: totalQty,
               actualQty: totalQty,
-              unitCost: Number(prod?.average_cost ?? 0),
+              unitCost: costPerIngredientUnit,
             };
           });
           return {
