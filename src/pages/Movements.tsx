@@ -108,7 +108,7 @@ export default function Movements() {
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost, barcode").order("name");
+      const { data, error } = await supabase.from("products").select("id, name, unit, average_cost, barcode, current_stock").order("name");
       if (error) throw error;
       return data;
     },
