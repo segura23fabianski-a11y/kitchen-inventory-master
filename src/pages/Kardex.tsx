@@ -159,7 +159,7 @@ export default function Kardex() {
 
     return filtered.map((m) => {
       const isEntry = m.type === "entrada";
-      const isExit = m.type === "salida" || m.type === "operational_consumption";
+      const isExit = ["salida", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño", "pos_sale", "transformacion"].includes(m.type);
       const entrada = isEntry ? Number(m.quantity) : 0;
       const salida = isExit ? Number(m.quantity) : 0;
 
