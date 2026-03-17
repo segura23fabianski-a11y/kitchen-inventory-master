@@ -423,7 +423,7 @@ export default function StaysTab() {
                     <Badge variant="destructive" className="text-xs"><AlertTriangle className="h-3 w-3 mr-0.5" />No notificada</Badge>
                   )}
                 </TableCell>
-                <TableCell>{canSeeCorporateRates ? `$${(s.total_amount || 0).toLocaleString()}` : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                <TableCell>{(canSeeCorporateRates || !isCorporate) ? `$${(s.total_amount || 0).toLocaleString()}` : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     {s.status === "checked_in" && (
