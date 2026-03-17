@@ -548,7 +548,7 @@ export default function Reports() {
                         <TableHead className="text-right">Costo Teórico</TableHead>
                         <TableHead className="text-right">Costo Real (prom.)</TableHead>
                         <TableHead className="text-right">Diferencia</TableHead>
-                        <TableHead className="text-right">Consumos</TableHead>
+                        <TableHead className="text-right">Servicios</TableHead>
                         <TableHead className="text-right">Total Real</TableHead>
                       </TableRow>
                     </TableHeader>
