@@ -265,6 +265,11 @@ export default function Movements() {
           {canCreate && (
           <div className="flex items-center gap-2">
             {allowedTypes.includes("entrada") && <BulkUploadDialog products={products} />}
+            {allowedTypes.includes("salida") && (
+              <Button variant="outline" onClick={() => setBulkExitOpen(true)}>
+                <PackageMinus className="mr-2 h-4 w-4" /> Salidas Masivas
+              </Button>
+            )}
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Movimiento</Button>
