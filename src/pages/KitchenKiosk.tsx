@@ -423,16 +423,22 @@ export default function KitchenKiosk() {
           if (c.componentId !== componentId) return c;
           const recipeIngs = ings.map((ri: any) => {
             const prod = products?.find(p => p.id === ri.product_id);
+            const ingredientUnit = ri.unit ?? prod?.unit ?? "unidad";
+            const productBaseUnit = prod?.unit ?? "unidad";
             const qtyPerService = Number(ri.quantity);
             const totalQty = qtyPerService * prev.servings;
+            // Convert average_cost (per product base unit) to cost per ingredient unit
+            // e.g. if product is in kg ($4794/kg) and ingredient is in g, cost per g = $4.794
+            const costPerProductUnit = Number(prod?.average_cost ?? 0);
+            const costPerIngredientUnit = costPerProductUnit * convertToProductUnit(1, ingredientUnit, productBaseUnit);
             return {
               ingredientId: ri.product_id + "_" + recipeId,
               productId: ri.product_id,
               productName: prod?.name ?? "?",
-              productUnit: ri.unit ?? prod?.unit ?? "unidad",
+              productUnit: ingredientUnit,
               theoreticalQty: totalQty,
               actualQty: totalQty,
-              unitCost: Number(prod?.average_cost ?? 0),
+              unitCost: costPerIngredientUnit,
             };
           });
           return {
@@ -509,7 +515,8 @@ export default function KitchenKiosk() {
           for (const ri of comp.recipeIngredients) {
             const prod = products?.find((p) => p.id === ri.productId);
             if (!prod) return false;
-            if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+            const qtyInBaseUnit = convertToProductUnit(ri.actualQty, ri.productUnit, prod.unit);
+            if (qtyInBaseUnit > Number(prod.current_stock ?? 0)) return false;
           }
         }
       }
@@ -643,18 +650,21 @@ export default function KitchenKiosk() {
             for (const ri of comp.recipeIngredients) {
               const prod = products?.find((p) => p.id === ri.productId);
               if (!prod) continue;
-              const cost = Number(prod.average_cost ?? 0);
-              const lineCost = ri.actualQty * cost;
+              // ri.unitCost is already converted to cost-per-ingredient-unit
+              const lineCost = ri.actualQty * ri.unitCost;
               totalCost += lineCost;
+              // Convert actualQty from ingredient unit to product base unit for inventory
+              const qtyInBaseUnit = convertToProductUnit(ri.actualQty, ri.productUnit, prod.unit);
+              const costPerBaseUnit = Number(prod.average_cost ?? 0);
               itemsForLog.push({
-                componentName: comp.componentName, productId: ri.productId, qty: ri.actualQty, unitCost: cost, lineCost,
+                componentName: comp.componentName, productId: ri.productId, qty: ri.actualQty, unitCost: ri.unitCost, lineCost,
                 isRecipeComponent: true, selectedRecipeId: comp.selectedRecipeId,
                 theoreticalQty: ri.theoreticalQty, actualQty: ri.actualQty,
                 productionRunId: null, costSource: "theoretical",
               });
 
               const { error } = await supabase.from("inventory_movements").insert({
-                product_id: ri.productId, user_id: user!.id, type: "salida", quantity: ri.actualQty, unit_cost: cost, total_cost: lineCost,
+                product_id: ri.productId, user_id: user!.id, type: "salida", quantity: qtyInBaseUnit, unit_cost: costPerBaseUnit, total_cost: lineCost,
                 notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
                 restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
               });
@@ -699,18 +709,12 @@ export default function KitchenKiosk() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Get relevant recipes for a product (fixed recipes that use it + all combo recipes)
+  // Get relevant recipes for a product (all fixed recipes + all combo recipes)
   const getProductRecipes = (productId: string) => {
     const result: { id: string; name: string; isCombo: boolean }[] = [];
-    // Fixed recipes that contain this product
-    const recipeIds = recipesForProduct.get(productId);
-    if (recipeIds) {
-      for (const id of recipeIds) {
-        const recipe = recipes?.find(r => r.id === id);
-        if (recipe && (recipe as any).recipe_mode !== "variable_combo") {
-          result.push({ id, name: recipe.name, isCombo: false });
-        }
-      }
+    // All fixed recipes (products may not be pre-assigned but can still be used)
+    for (const r of fixedRecipes) {
+      result.push({ id: r.id, name: r.name, isCombo: false });
     }
     // All combo recipes (any product can fill any component)
     for (const r of comboRecipes) {
