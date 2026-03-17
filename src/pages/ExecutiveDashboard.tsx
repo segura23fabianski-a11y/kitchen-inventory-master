@@ -82,7 +82,7 @@ export default function ExecutiveDashboard() {
     if (!movements?.length) return [];
     const grouped = new Map<string, number>();
     for (const m of movements) {
-      const date = parseISO(m.created_at);
+      const date = parseISO(m.movement_date);
       let key: string;
       if (costPeriod === "day") key = format(date, "yyyy-MM-dd");
       else if (costPeriod === "week") key = format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
