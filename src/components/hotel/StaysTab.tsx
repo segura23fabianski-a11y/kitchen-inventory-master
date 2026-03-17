@@ -1068,6 +1068,142 @@ export default function StaysTab() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* ── Edit Stay Dialog (Admin) ── */}
+      <Dialog open={!!editStay} onOpenChange={() => setEditStay(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle><Pencil className="h-5 w-5 inline mr-2" />Editar Estancia</DialogTitle></DialogHeader>
+          {editStay && (
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 bg-muted/50 text-sm space-y-1">
+                <p><span className="font-medium">Habitación:</span> #{editStay.rooms?.room_number} ({editStay.rooms?.room_types?.name})</p>
+                <p><span className="font-medium">Check-in:</span> {format(new Date(editStay.check_in_at), "PPpp", { locale: es })}</p>
+                <p><span className="font-medium">Estado:</span> <Badge variant={STATUS_VARIANTS[editStay.status] || "secondary"}>{STATUS_LABELS[editStay.status] || editStay.status}</Badge></p>
+              </div>
+
+              {/* Company */}
+              <div>
+                <Label>Empresa</Label>
+                <SearchableSelect
+                  options={companyOptions}
+                  value={editForm.company_id || "none"}
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, company_id: v === "none" ? "" : v, contract_id: "" }))}
+                  placeholder="Buscar empresa o NIT..."
+                  searchPlaceholder="Nombre o NIT..."
+                  emptyMessage="Sin resultados"
+                />
+              </div>
+
+              {/* Contract */}
+              {editForm.company_id && (() => {
+                const editContracts = contracts?.filter((c: any) => c.company_id === editForm.company_id) || [];
+                if (editContracts.length === 0) return null;
+                return (
+                  <div>
+                    <Label>Contrato / Frente</Label>
+                    <SearchableSelect
+                      options={[
+                        { value: "none", label: "Sin contrato específico" },
+                        ...editContracts.map((c: any) => ({
+                          value: c.id,
+                          label: `${c.name}${c.code ? ` (${c.code})` : ""}`,
+                          searchTerms: `${c.code || ""} ${c.name}`,
+                        })),
+                      ]}
+                      value={editForm.contract_id || "none"}
+                      onValueChange={(v) => setEditForm(prev => ({ ...prev, contract_id: v === "none" ? "" : v }))}
+                      placeholder="Seleccionar contrato..."
+                      searchPlaceholder="Nombre o código..."
+                      emptyMessage="Sin contratos"
+                    />
+                  </div>
+                );
+              })()}
+
+              {/* Rate */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tarifa/Noche ($)</Label>
+                  <Input type="number" value={editForm.rate_per_night} onChange={e => setEditForm(prev => ({ ...prev, rate_per_night: +e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Tipo de Tarifa</Label>
+                  <Select value={editForm.source_rate} onValueChange={v => setEditForm(prev => ({ ...prev, source_rate: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Estándar</SelectItem>
+                      <SelectItem value="corporate">Corporativa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Auto-apply corporate rate button */}
+              {editForm.company_id && allCompanyRates && (() => {
+                const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === editForm.company_id);
+                if (companyRates.length === 0) return null;
+                const guestCount = editStay.stay_guests?.length || 1;
+                const roomTypeId = editStay.rooms?.room_type_id;
+                let suggestedRate: any;
+                if (guestCount === 1) {
+                  suggestedRate = companyRates.reduce((min: any, cr: any) => cr.rate_per_night < min.rate_per_night ? cr : min, companyRates[0]);
+                } else {
+                  suggestedRate = companyRates.find((cr: any) => cr.room_type_id === roomTypeId);
+                }
+                if (!suggestedRate) return null;
+                return (
+                  <Button type="button" variant="outline" size="sm" className="w-full text-xs"
+                    onClick={() => setEditForm(prev => ({ ...prev, rate_per_night: suggestedRate.rate_per_night, source_rate: "corporate" }))}>
+                    <Building2 className="h-3.5 w-3.5 mr-1" />
+                    Aplicar tarifa corporativa: ${suggestedRate.rate_per_night.toLocaleString()}/noche ({guestCount} persona{guestCount > 1 ? "s" : ""})
+                  </Button>
+                );
+              })()}
+
+              {/* Expected checkout */}
+              <div>
+                <Label>Check-out Esperado</Label>
+                <Input type="datetime-local" value={editForm.expected_check_out} onChange={e => setEditForm(prev => ({ ...prev, expected_check_out: e.target.value }))} />
+              </div>
+
+              {/* Payment method */}
+              <div>
+                <Label>Método de Pago</Label>
+                <Input value={editForm.payment_method} onChange={e => setEditForm(prev => ({ ...prev, payment_method: e.target.value }))} placeholder="Efectivo, tarjeta, transferencia..." />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>Notas</Label>
+                <Input value={editForm.notes} onChange={e => setEditForm(prev => ({ ...prev, notes: e.target.value }))} />
+              </div>
+
+              <Button className="w-full" onClick={async () => {
+                try {
+                  const updateData: any = {
+                    rate_per_night: editForm.rate_per_night,
+                    source_rate: editForm.source_rate,
+                    company_id: editForm.company_id || null,
+                    contract_id: editForm.contract_id || null,
+                    payment_method: editForm.payment_method.trim() || null,
+                    notes: editForm.notes.trim() || null,
+                    expected_check_out: editForm.expected_check_out || null,
+                  };
+                  const { error } = await supabase.from("stays" as any).update(updateData).eq("id", editStay.id);
+                  if (error) throw error;
+                  qc.invalidateQueries({ queryKey: ["stays"] });
+                  toast({ title: "Estancia actualizada", description: `Tarifa: $${editForm.rate_per_night.toLocaleString()}/noche` });
+                  setEditStay(null);
+                } catch (e: any) {
+                  toast({ title: "Error", description: e.message, variant: "destructive" });
+                }
+              }}>
+                Guardar Cambios
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Delete Stay Dialog (Admin) ── */}
       <AlertDialog open={!!deleteStayId} onOpenChange={() => setDeleteStayId(null)}>
         <AlertDialogContent>
