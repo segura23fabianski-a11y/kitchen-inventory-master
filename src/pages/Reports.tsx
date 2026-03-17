@@ -121,14 +121,28 @@ export default function Reports() {
     },
   });
 
-  // Recipes with ingredients (include unit for conversion)
+  // Recipes with ingredients and components (for variable combos)
   const { data: recipes } = useQuery({
     queryKey: ["report-recipes"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, recipe_ingredients(product_id, quantity, unit)")
+        .select("id, name, recipe_type, recipe_ingredients(product_id, quantity, unit), recipe_variable_components(average_component_cost)")
         .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Combo execution logs for real cost of variable combos
+  const { data: comboExecutions } = useQuery({
+    queryKey: ["report-combo-executions", fromISO, toISO],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combo_execution_logs")
+        .select("recipe_id, servings, total_cost, unit_cost")
+        .gte("executed_at", fromISO)
+        .lte("executed_at", toISO);
       if (error) throw error;
       return data;
     },
@@ -225,33 +239,68 @@ export default function Reports() {
   // Count services (portions) not individual ingredient movements
   const recipeData = useMemo(() => {
     if (!recipes?.length) return [];
-    const realCostMap = new Map<string, number>();
-    const realCountMap = new Map<string, number>();
+
+    // For fixed recipes: aggregate inventory_movements by recipe_id
+    const fixedRealCostMap = new Map<string, number>();
+    const fixedRealCountMap = new Map<string, number>();
     for (const s of movements ?? []) {
       if (s.recipe_id) {
-        realCostMap.set(s.recipe_id, (realCostMap.get(s.recipe_id) ?? 0) + Number(s.total_cost));
-        realCountMap.set(s.recipe_id, (realCountMap.get(s.recipe_id) ?? 0) + 1);
+        fixedRealCostMap.set(s.recipe_id, (fixedRealCostMap.get(s.recipe_id) ?? 0) + Number(s.total_cost));
+        fixedRealCountMap.set(s.recipe_id, (fixedRealCountMap.get(s.recipe_id) ?? 0) + 1);
       }
     }
+
+    // For variable combos: aggregate combo_execution_logs
+    const comboRealCostMap = new Map<string, number>();
+    const comboServingsMap = new Map<string, number>();
+    for (const ex of comboExecutions ?? []) {
+      comboRealCostMap.set(ex.recipe_id, (comboRealCostMap.get(ex.recipe_id) ?? 0) + Number(ex.total_cost));
+      comboServingsMap.set(ex.recipe_id, (comboServingsMap.get(ex.recipe_id) ?? 0) + Number(ex.servings));
+    }
+
     return recipes.map((r) => {
-      // Theoretical cost with unit conversion
-      const theoretical = (r.recipe_ingredients ?? []).reduce((sum, ing) => {
-        const prod = productMap.get(ing.product_id);
-        if (!prod) return sum;
-        const qtyInProdUnit = convertToProductUnit(Number(ing.quantity), ing.unit, prod.unit);
-        return sum + qtyInProdUnit * Number(prod.average_cost);
-      }, 0);
-      const totalReal = realCostMap.get(r.id) ?? 0;
-      // Each service generates one movement per ingredient, so divide by ingredient count
-      const ingredientCount = (r.recipe_ingredients ?? []).length;
-      const rawMovements = realCountMap.get(r.id) ?? 0;
-      const count = ingredientCount > 0 ? Math.round(rawMovements / ingredientCount) : rawMovements;
+      const isCombo = r.recipe_type === "variable_combo";
+
+      // Theoretical cost
+      let theoretical = 0;
+      if (isCombo) {
+        // Sum of average_component_cost for each component
+        theoretical = (r.recipe_variable_components ?? []).reduce(
+          (sum, comp) => sum + Number(comp.average_component_cost ?? 0), 0
+        );
+      } else {
+        // Fixed: sum ingredient qty × product average_cost (with unit conversion)
+        theoretical = (r.recipe_ingredients ?? []).reduce((sum, ing) => {
+          const prod = productMap.get(ing.product_id);
+          if (!prod) return sum;
+          const qtyInProdUnit = convertToProductUnit(Number(ing.quantity), ing.unit, prod.unit);
+          return sum + qtyInProdUnit * Number(prod.average_cost);
+        }, 0);
+      }
+
+      // Real cost & service count
+      let totalReal = 0;
+      let count = 0;
+      if (isCombo) {
+        totalReal = comboRealCostMap.get(r.id) ?? 0;
+        count = comboServingsMap.get(r.id) ?? 0;
+      } else {
+        totalReal = fixedRealCostMap.get(r.id) ?? 0;
+        const ingredientCount = (r.recipe_ingredients ?? []).length;
+        const rawMovements = fixedRealCountMap.get(r.id) ?? 0;
+        count = ingredientCount > 0 ? Math.round(rawMovements / ingredientCount) : rawMovements;
+      }
+
       const avgReal = count > 0 ? totalReal / count : 0;
       const diff = count > 0 ? avgReal - theoretical : 0;
       const diffPct = theoretical > 0 && count > 0 ? (diff / theoretical) * 100 : 0;
-      return { id: r.id, name: r.name, theoretical: Math.round(theoretical * 100) / 100, avgReal: Math.round(avgReal * 100) / 100, totalReal: Math.round(totalReal * 100) / 100, count, diff: Math.round(diff * 100) / 100, diffPct: Math.round(diffPct * 10) / 10 };
+      return {
+        id: r.id, name: r.name, theoretical: Math.round(theoretical * 100) / 100,
+        avgReal: Math.round(avgReal * 100) / 100, totalReal: Math.round(totalReal * 100) / 100,
+        count, diff: Math.round(diff * 100) / 100, diffPct: Math.round(diffPct * 10) / 10,
+      };
     });
-  }, [recipes, movements, productMap]);
+  }, [recipes, movements, comboExecutions, productMap]);
 
   const filteredRecipeData = useMemo(() => {
     if (!recipeSearch) return recipeData;
@@ -499,7 +548,7 @@ export default function Reports() {
                         <TableHead className="text-right">Costo Teórico</TableHead>
                         <TableHead className="text-right">Costo Real (prom.)</TableHead>
                         <TableHead className="text-right">Diferencia</TableHead>
-                        <TableHead className="text-right">Consumos</TableHead>
+                        <TableHead className="text-right">Servicios</TableHead>
                         <TableHead className="text-right">Total Real</TableHead>
                       </TableRow>
                     </TableHeader>
