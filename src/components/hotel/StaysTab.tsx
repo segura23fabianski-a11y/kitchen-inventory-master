@@ -432,6 +432,22 @@ export default function StaysTab() {
                       <Eye className="h-4 w-4" />
                     </Button>
                     {isAdmin && (
+                      <Button variant="ghost" size="icon" title="Editar (Admin)" onClick={() => {
+                        setEditStay(s);
+                        setEditForm({
+                          rate_per_night: s.rate_per_night || 0,
+                          source_rate: s.source_rate || "standard",
+                          company_id: s.company_id || "",
+                          contract_id: s.contract_id || "",
+                          payment_method: s.payment_method || "",
+                          notes: s.notes || "",
+                          expected_check_out: s.expected_check_out ? s.expected_check_out.slice(0, 16) : "",
+                        });
+                      }}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {isAdmin && (
                       <Button variant="ghost" size="icon" title="Eliminar (Admin)" onClick={() => setDeleteStayId(s.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
