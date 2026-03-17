@@ -3192,6 +3192,48 @@ export type Database = {
           },
         ]
       }
+      service_type_components: {
+        Row: {
+          component_id: string
+          created_at: string
+          id: string
+          restaurant_id: string
+          service_type: string
+          sort_order: number
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          id?: string
+          restaurant_id: string
+          service_type: string
+          sort_order?: number
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          id?: string
+          restaurant_id?: string
+          service_type?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_type_components_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "meal_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_type_components_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stay_guests: {
         Row: {
           created_at: string
