@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useBranding } from "@/hooks/use-branding";
 
@@ -183,6 +183,25 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
   const currentTab = searchParams.get("tab");
   const { openGroups, toggle } = useOpenGroups(location.pathname, currentTab);
   const branding = useBranding();
+  const navRef = useRef<HTMLElement>(null);
+
+  // Preserve sidebar nav scroll position across route changes
+  const navScrollTop = useRef(0);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const handleScroll = () => { navScrollTop.current = nav.scrollTop; };
+    nav.addEventListener("scroll", handleScroll, { passive: true });
+    return () => nav.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Restore scroll after render
+  useEffect(() => {
+    const nav = navRef.current;
+    if (nav && navScrollTop.current > 0) {
+      nav.scrollTop = navScrollTop.current;
+    }
+  });
 
   const visibleGroups = navGroups
     .map((g) => ({
@@ -217,8 +236,11 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
         </span>
       </div>
 
-      {/* Grouped navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+      {/* Grouped navigation — preserve scroll position across re-renders */}
+      <nav
+        ref={navRef}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+      >
         {visibleGroups.map((group) => {
           const isOpen = !!openGroups[group.id];
           const hasActiveRoute = group.items.some((i) => isItemActive(i));

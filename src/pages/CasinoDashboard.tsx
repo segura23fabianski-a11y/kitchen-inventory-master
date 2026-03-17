@@ -2,12 +2,11 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { usePermissions } from "@/hooks/use-permissions";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   DollarSign, TrendingUp, TrendingDown, Utensils, Coffee, Sun, Moon, Cookie,
@@ -75,16 +74,32 @@ export default function CasinoDashboard() {
     },
   });
 
-  // Today's POS orders (sales)
+  // Today's POS orders (sales) — use movement_date-equivalent for consistency
   const { data: todayOrders } = useQuery({
     queryKey: ["casino-orders-today", todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pos_orders")
-        .select("total, status, service_period")
+        .select("id, total, status, service_period")
         .gte("created_at", `${todayStr}T00:00:00`)
         .lte("created_at", `${todayStr}T23:59:59`)
         .neq("status", "cancelled");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Today's POS order items with menu item details
+  const orderIds = useMemo(() => todayOrders?.map((o) => o.id) ?? [], [todayOrders]);
+  const { data: todayOrderItems } = useQuery({
+    queryKey: ["casino-order-items-today", orderIds],
+    enabled: orderIds.length > 0,
+    queryFn: async () => {
+      // Fetch in batches if needed (Supabase in() has limits)
+      const { data, error } = await supabase
+        .from("pos_order_items")
+        .select("order_id, quantity, total, unit_price, menu_items:menu_item_id(name, linked_recipe_id, linked_product_id, item_type)")
+        .in("order_id", orderIds);
       if (error) throw error;
       return data;
     },
@@ -138,7 +153,7 @@ export default function CasinoDashboard() {
     return counts;
   }, [todayCombos, todayRuns]);
 
-  // Menu profitability table
+  // Menu profitability table — includes combos, production runs AND POS menu items
   const menuRows = useMemo(() => {
     const rows: any[] = [];
 
@@ -151,8 +166,12 @@ export default function CasinoDashboard() {
       }
     }
 
+    // Track which recipe_ids are already covered by combos/runs to avoid duplicates
+    const coveredRecipeIds = new Set<string>();
+
     todayCombos?.forEach((c: any) => {
       const recipeId = c.recipe_id;
+      coveredRecipeIds.add(recipeId);
       const theoreticalUnit = comboTheoreticalMap.get(recipeId) ?? null;
       rows.push({
         name: c.recipes?.name ?? "Combo",
@@ -162,10 +181,12 @@ export default function CasinoDashboard() {
         theoreticalUnit,
         theoreticalTotal: theoreticalUnit !== null ? theoreticalUnit * Number(c.servings) : null,
         source: "combo",
+        saleTotal: 0,
       });
     });
 
     todayRuns?.forEach((r: any) => {
+      coveredRecipeIds.add(r.recipe_id);
       const theoreticalUnit = Number(r.theoretical_unit_cost);
       rows.push({
         name: r.recipes?.name ?? "Producción",
@@ -175,11 +196,60 @@ export default function CasinoDashboard() {
         theoreticalUnit,
         theoreticalTotal: theoreticalUnit * Number(r.quantity_produced),
         source: "production",
+        saleTotal: 0,
       });
     });
 
+    // Aggregate POS order items by menu item name
+    if (todayOrderItems?.length) {
+      const posItemMap = new Map<string, { name: string; qty: number; saleTotal: number; recipeId: string | null }>();
+      for (const item of todayOrderItems) {
+        const menuItem = item.menu_items as any;
+        if (!menuItem) continue;
+        const key = menuItem.name;
+        const existing = posItemMap.get(key);
+        if (existing) {
+          existing.qty += Number(item.quantity);
+          existing.saleTotal += Number(item.total);
+        } else {
+          posItemMap.set(key, {
+            name: menuItem.name,
+            qty: Number(item.quantity),
+            saleTotal: Number(item.total),
+            recipeId: menuItem.linked_recipe_id,
+          });
+        }
+      }
+
+      for (const [, posItem] of posItemMap) {
+        // Skip if already covered by combo/production run
+        if (posItem.recipeId && coveredRecipeIds.has(posItem.recipeId)) {
+          // Just add sale total to the existing row
+          const existingRow = rows.find((r) =>
+            (r.source === "combo" || r.source === "production") &&
+            r.name.toLowerCase().includes(posItem.name.substring(0, 10).toLowerCase())
+          );
+          if (existingRow) {
+            existingRow.saleTotal += posItem.saleTotal;
+          }
+          continue;
+        }
+
+        rows.push({
+          name: posItem.name,
+          qty: posItem.qty,
+          realUnit: null,
+          realTotal: null,
+          theoreticalUnit: null,
+          theoreticalTotal: null,
+          source: "pos_menu",
+          saleTotal: posItem.saleTotal,
+        });
+      }
+    }
+
     return rows;
-  }, [todayCombos, todayRuns, variableComponents]);
+  }, [todayCombos, todayRuns, variableComponents, todayOrderItems]);
 
   // Sales by service period
   const salesByPeriod = useMemo(() => {
@@ -200,18 +270,19 @@ export default function CasinoDashboard() {
     { key: "lonche", label: "Lonches", icon: Cookie, color: "text-pink-600" },
   ];
 
-  const getTrafficLight = (theoreticalUnit: number | null, realUnit: number): "green" | "yellow" | "red" => {
-    if (theoreticalUnit === null || theoreticalUnit === 0) return "green";
+  const getTrafficLight = (theoreticalUnit: number | null, realUnit: number | null): "green" | "yellow" | "red" | "none" => {
+    if (theoreticalUnit === null || theoreticalUnit === 0 || realUnit === null) return "none";
     const deviation = ((realUnit - theoreticalUnit) / theoreticalUnit) * 100;
     if (deviation <= 5) return "green";
     if (deviation <= 15) return "yellow";
     return "red";
   };
 
-  const TrafficIcon = ({ status }: { status: "green" | "yellow" | "red" }) => {
+  const TrafficIcon = ({ status }: { status: "green" | "yellow" | "red" | "none" }) => {
     if (status === "green") return <CheckCircle className="h-4 w-4 text-green-600" />;
     if (status === "yellow") return <MinusCircle className="h-4 w-4 text-amber-500" />;
-    return <AlertCircle className="h-4 w-4 text-destructive" />;
+    if (status === "red") return <AlertCircle className="h-4 w-4 text-destructive" />;
+    return <span className="text-muted-foreground text-xs">—</span>;
   };
 
   return (
@@ -313,6 +384,7 @@ export default function CasinoDashboard() {
                   <TableHead>Estado</TableHead>
                   <TableHead>Menú / Receta</TableHead>
                   <TableHead className="text-right">Cantidad</TableHead>
+                  <TableHead className="text-right">Venta</TableHead>
                   <TableHead className="text-right">Teórico Unit.</TableHead>
                   <TableHead className="text-right">Teórico Total</TableHead>
                   <TableHead className="text-right">Real Unit.</TableHead>
@@ -323,29 +395,41 @@ export default function CasinoDashboard() {
               <TableBody>
                 {menuRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Sin producción registrada hoy
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Sin producción ni ventas registradas hoy
                     </TableCell>
                   </TableRow>
                 ) : (
                   menuRows.map((row, i) => {
                     const light = getTrafficLight(row.theoreticalUnit, row.realUnit);
-                    const deviation = row.theoreticalUnit
+                    const deviation = row.theoreticalUnit && row.realUnit
                       ? row.realUnit - row.theoreticalUnit
                       : null;
                     return (
                       <TableRow key={i}>
                         <TableCell><TrafficIcon status={light} /></TableCell>
-                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {row.name}
+                          {row.source === "pos_menu" && (
+                            <Badge variant="outline" className="ml-2 text-xs">POS</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-mono">{row.qty}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {row.saleTotal > 0 ? fmt(row.saleTotal) : "—"}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {row.theoreticalUnit ? fmt(row.theoreticalUnit) : "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {row.theoreticalTotal ? fmt(row.theoreticalTotal) : "—"}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold">{fmt(row.realUnit)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{fmt(row.realTotal)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">
+                          {row.realUnit !== null ? fmt(row.realUnit) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {row.realTotal !== null ? fmt(row.realTotal) : "—"}
+                        </TableCell>
                         <TableCell className="text-right">
                           {deviation !== null ? (
                             <Badge
@@ -355,7 +439,7 @@ export default function CasinoDashboard() {
                               {deviation > 0 ? "+" : ""}{fmt(deviation)}
                             </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Sin teórico</span>
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -368,7 +452,7 @@ export default function CasinoDashboard() {
         </Card>
 
         {/* Legend */}
-        <div className="flex items-center gap-6 text-xs text-muted-foreground">
+        <div className="flex items-center gap-6 text-xs text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5 text-green-600" /> Dentro del objetivo (≤5%)</span>
           <span className="flex items-center gap-1"><MinusCircle className="h-3.5 w-3.5 text-amber-500" /> Ligera desviación (5-15%)</span>
           <span className="flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5 text-destructive" /> Fuera del objetivo (&gt;15%)</span>
