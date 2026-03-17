@@ -6,6 +6,8 @@ import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAudit } from "@/hooks/use-audit";
 import { useBackdate } from "@/hooks/use-backdate";
 import { useToast } from "@/hooks/use-toast";
+import { convertToProductUnit } from "@/lib/unit-conversion";
+import { UnitSelector } from "@/components/UnitSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -31,6 +33,7 @@ interface ExitLine {
   id: string;
   productId: string;
   quantity: string;
+  unit: string;
 }
 
 let lineCounter = 0;
@@ -38,6 +41,7 @@ const newLine = (): ExitLine => ({
   id: `bel-${++lineCounter}`,
   productId: "",
   quantity: "",
+  unit: "",
 });
 
 export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogProps) {
@@ -80,18 +84,30 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
     setLines((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.id !== id)));
 
   const updateLine = (id: string, field: keyof ExitLine, value: string) =>
-    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        const updated = { ...l, [field]: value };
+        if (field === "productId") {
+          const prod = productMap[value];
+          updated.unit = prod?.unit ?? "";
+        }
+        return updated;
+      })
+    );
 
   const validLines = lines.filter((l) => l.productId && parseFloat(l.quantity) > 0);
-  const isBackdating = backdatingAllowed && movementDate != null;
+  const isBackdating = movementDate != null;
+  const needsReason = backdatingAllowed && isBackdating;
   const isValid =
-    validLines.length > 0 && (!isBackdating || (notes && notes.trim().length > 0));
+    validLines.length > 0 && (!needsReason || (notes && notes.trim().length > 0));
 
   const totalCost = validLines.reduce((sum, l) => {
     const prod = productMap[l.productId];
     const qty = parseFloat(l.quantity) || 0;
     const uc = prod ? Number(prod.average_cost ?? 0) : 0;
-    return sum + qty * uc;
+    const baseQty = prod ? convertToProductUnit(qty, l.unit || prod.unit, prod.unit) : qty;
+    return sum + baseQty * uc;
   }, 0);
 
   const buildMovementDate = (): string | undefined => {
@@ -114,23 +130,25 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
       if (!user || !restaurantId) throw new Error("Sin sesión");
       const mDate = buildMovementDate();
 
-      if (mDate && (!notes || notes.trim() === "")) {
+      if (needsReason && (!notes || notes.trim() === "")) {
         throw new Error("Se requiere un motivo obligatorio al registrar con fecha anterior");
       }
 
       for (const line of validLines) {
         const prod = productMap[line.productId];
         if (!prod) continue;
-        const qty = parseFloat(line.quantity);
+        const rawQty = parseFloat(line.quantity);
+        const lineUnit = line.unit || prod.unit;
+        const baseQty = convertToProductUnit(rawQty, lineUnit, prod.unit);
         const uc = Number(prod.average_cost ?? 0);
 
         const insertData: any = {
           product_id: line.productId,
           user_id: user.id,
           type: "salida",
-          quantity: qty,
+          quantity: baseQty,
           unit_cost: uc,
-          total_cost: qty * uc,
+          total_cost: baseQty * uc,
           notes: notes || "Salida masiva",
           restaurant_id: restaurantId,
           source_module: "bulk_exit",
@@ -152,7 +170,9 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
             after: {
               product_id: line.productId,
               type: "salida",
-              quantity: qty,
+              quantity: baseQty,
+              input_unit: lineUnit,
+              input_quantity: rawQty,
               unit_cost: uc,
               notes,
               movement_date: mDate,
@@ -199,71 +219,72 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Date picker */}
-          {backdatingAllowed && (
-            <Card className="border-dashed border-warning">
-              <CardContent className="pt-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-warning">
-                  <CalendarIcon className="h-4 w-4" />
-                  Fecha de las salidas (modo inicialización)
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {movementDate
-                          ? format(movementDate, "dd/MM/yyyy", { locale: es })
-                          : "Hoy (actual)"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={movementDate}
-                        onSelect={(d) => {
-                          setMovementDate(d);
-                          setDatePickerOpen(false);
-                        }}
-                        disabled={(date) => date > new Date() || date < minDate}
-                        initialFocus
-                      />
-                      {movementDate && (
-                        <div className="border-t p-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              setMovementDate(undefined);
-                              setDatePickerOpen(false);
-                            }}
-                          >
-                            Usar fecha actual
-                          </Button>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                  <Input
-                    type="time"
-                    value={movementTime}
-                    onChange={(e) => setMovementTime(e.target.value)}
-                    disabled={!movementDate}
-                  />
-                </div>
-                {movementDate && (
-                  <p className="text-xs text-muted-foreground">
-                    Se registrará con fecha efectiva:{" "}
-                    {format(movementDate, "dd MMM yyyy", { locale: es })} {movementTime}h
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Date picker — always visible */}
+          <Card className="border-dashed border-warning">
+            <CardContent className="pt-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-warning">
+                <CalendarIcon className="h-4 w-4" />
+                Fecha de las salidas
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {movementDate
+                        ? format(movementDate, "dd/MM/yyyy", { locale: es })
+                        : "Hoy (actual)"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={movementDate}
+                      onSelect={(d) => {
+                        setMovementDate(d);
+                        setDatePickerOpen(false);
+                      }}
+                      disabled={(date) =>
+                        date > new Date() || (backdatingAllowed ? date < minDate : false)
+                      }
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                    {movementDate && (
+                      <div className="border-t p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            setMovementDate(undefined);
+                            setDatePickerOpen(false);
+                          }}
+                        >
+                          Usar fecha actual
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  type="time"
+                  value={movementTime}
+                  onChange={(e) => setMovementTime(e.target.value)}
+                  disabled={!movementDate}
+                />
+              </div>
+              {movementDate && (
+                <p className="text-xs text-muted-foreground">
+                  Se registrará con fecha efectiva:{" "}
+                  {format(movementDate, "dd MMM yyyy", { locale: es })} {movementTime}h
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Product lines */}
           <div className="space-y-2">
@@ -272,15 +293,14 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
               {lines.map((line, idx) => {
                 const prod = productMap[line.productId];
                 const qty = parseFloat(line.quantity) || 0;
+                const lineUnit = line.unit || (prod?.unit ?? "");
+                const baseQty = prod ? convertToProductUnit(qty, lineUnit, prod.unit) : qty;
                 const stock = prod ? Number(prod.current_stock ?? 0) : 0;
-                const insuf = prod && qty > stock;
+                const insuf = prod && baseQty > stock;
 
                 return (
-                  <div
-                    key={line.id}
-                    className="grid grid-cols-12 gap-2 items-end"
-                  >
-                    <div className="col-span-6">
+                  <div key={line.id} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-5">
                       {idx === 0 && (
                         <Label className="text-xs text-muted-foreground">Producto</Label>
                       )}
@@ -292,7 +312,7 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
                         searchPlaceholder="Buscar producto..."
                       />
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       {idx === 0 && (
                         <Label className="text-xs text-muted-foreground">Cantidad</Label>
                       )}
@@ -301,17 +321,31 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
                         value={line.quantity}
                         onChange={(v) => updateLine(line.id, "quantity", v)}
                         placeholder="0"
-                        keypadLabel={prod ? `${prod.name} (${prod.unit})` : "Cantidad"}
+                        keypadLabel={prod ? `${prod.name}` : "Cantidad"}
                         forceKeypad
                       />
+                    </div>
+                    <div className="col-span-2">
+                      {idx === 0 && (
+                        <Label className="text-xs text-muted-foreground">Unidad</Label>
+                      )}
+                      {prod ? (
+                        <UnitSelector
+                          productUnit={prod.unit}
+                          value={lineUnit}
+                          onChange={(u) => updateLine(line.id, "unit", u)}
+                        />
+                      ) : (
+                        <p className="h-10 flex items-center text-sm text-muted-foreground">—</p>
+                      )}
                     </div>
                     <div className="col-span-2 text-xs text-muted-foreground flex items-center gap-1 h-10">
                       {prod && (
                         <span>
-                          {prod.unit}
+                          {stock} {prod.unit}
                           {insuf && (
                             <Badge variant="destructive" className="ml-1 text-[10px] px-1 h-4">
-                              Stock: {stock}
+                              Insuf.
                             </Badge>
                           )}
                         </span>
@@ -340,17 +374,17 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label>{isBackdating ? "Motivo / Notas *" : "Notas (opcional)"}</Label>
+            <Label>{needsReason ? "Motivo / Notas *" : "Notas (opcional)"}</Label>
             <KioskTextInput
               value={notes}
               onChange={setNotes}
               placeholder={
-                isBackdating
+                needsReason
                   ? "Motivo obligatorio para registro con fecha anterior..."
                   : "Observaciones de las salidas..."
               }
               keyboardLabel="Notas de salida"
-              required={isBackdating}
+              required={needsReason}
             />
           </div>
 
