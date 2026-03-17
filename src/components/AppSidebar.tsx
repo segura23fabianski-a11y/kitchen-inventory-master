@@ -183,6 +183,25 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
   const currentTab = searchParams.get("tab");
   const { openGroups, toggle } = useOpenGroups(location.pathname, currentTab);
   const branding = useBranding();
+  const navRef = useRef<HTMLElement>(null);
+
+  // Preserve sidebar nav scroll position across route changes
+  const navScrollTop = useRef(0);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const handleScroll = () => { navScrollTop.current = nav.scrollTop; };
+    nav.addEventListener("scroll", handleScroll, { passive: true });
+    return () => nav.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Restore scroll after render
+  useEffect(() => {
+    const nav = navRef.current;
+    if (nav && navScrollTop.current > 0) {
+      nav.scrollTop = navScrollTop.current;
+    }
+  });
 
   const visibleGroups = navGroups
     .map((g) => ({
