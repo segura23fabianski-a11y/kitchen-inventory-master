@@ -24,9 +24,9 @@ export default function Reports() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("created_at, total_cost")
+        .select("movement_date, total_cost")
         .eq("type", "salida")
-        .order("created_at", { ascending: true });
+        .order("movement_date", { ascending: true });
       if (error) throw error;
       return data;
     },
