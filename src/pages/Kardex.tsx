@@ -29,6 +29,7 @@ const typeLabels: Record<string, string> = {
   desperdicio: "Desperdicio",
   vencimiento: "Vencimiento",
   daño: "Daño",
+  transformacion: "Transformación",
 };
 
 const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
