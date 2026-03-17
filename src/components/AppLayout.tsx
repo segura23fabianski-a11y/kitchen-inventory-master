@@ -1,14 +1,23 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { DesktopSidebar, MobileSidebarContent } from "./AppSidebar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useBranding } from "@/hooks/use-branding";
+import { useLocation } from "react-router-dom";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const branding = useBranding();
+  const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    }
+  }, [location.pathname, location.search]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,7 +43,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </Sheet>
 
       {/* Main content */}
-      <main className="md:pl-64">
+      <main ref={mainRef} className="md:pl-64 overflow-y-auto h-screen">
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
