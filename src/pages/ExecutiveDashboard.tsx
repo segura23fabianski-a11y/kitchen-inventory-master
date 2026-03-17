@@ -38,9 +38,9 @@ export default function ExecutiveDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("product_id, recipe_id, quantity, total_cost, unit_cost, created_at, type")
+        .select("product_id, recipe_id, quantity, total_cost, unit_cost, movement_date, type")
         .eq("type", "salida")
-        .order("created_at", { ascending: true });
+        .order("movement_date", { ascending: true });
       if (error) throw error;
       return data;
     },
