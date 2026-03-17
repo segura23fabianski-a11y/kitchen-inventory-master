@@ -18,6 +18,7 @@ import { format, startOfWeek, startOfMonth, parseISO, startOfDay, endOfDay, subD
 import { es } from "date-fns/locale";
 import { DollarSign, TrendingDown, ChefHat, ArrowUpDown, AlertTriangle, CalendarIcon, Package, Percent, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { convertToProductUnit } from "@/lib/unit-conversion";
 
 type Period = "day" | "week" | "month";
 
