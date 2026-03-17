@@ -42,6 +42,7 @@ const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" |
   desperdicio: "destructive",
   vencimiento: "outline",
   daño: "default",
+  transformacion: "outline",
 };
 
 function getDocumentOrigin(mov: any, recipesMap: Map<string, string>, servicesMap: Map<string, string>): string {
