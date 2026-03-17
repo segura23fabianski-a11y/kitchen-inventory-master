@@ -217,8 +217,11 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
         </span>
       </div>
 
-      {/* Grouped navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+      {/* Grouped navigation — preserve scroll position across re-renders */}
+      <nav
+        ref={navRef}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+      >
         {visibleGroups.map((group) => {
           const isOpen = !!openGroups[group.id];
           const hasActiveRoute = group.items.some((i) => isItemActive(i));
