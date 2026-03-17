@@ -46,6 +46,7 @@ const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" |
 };
 
 function getDocumentOrigin(mov: any, recipesMap: Map<string, string>, servicesMap: Map<string, string>): string {
+  if (mov.type === "transformacion") return mov.notes || "Transformación de producto";
   if (mov.recipe_id && recipesMap.has(mov.recipe_id)) return `Receta: ${recipesMap.get(mov.recipe_id)}`;
   if (mov.service_id && servicesMap.has(mov.service_id)) return `Servicio: ${servicesMap.get(mov.service_id)}`;
   if (mov.type === "ajuste") return "Ajuste manual";
