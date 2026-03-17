@@ -36,9 +36,9 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("product_id, recipe_id, quantity, total_cost, created_at")
+        .select("product_id, recipe_id, quantity, total_cost, movement_date")
         .eq("type", "salida")
-        .order("created_at", { ascending: true });
+        .order("movement_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -73,8 +73,8 @@ export default function Dashboard() {
     }
 
     for (const [pid, entries] of byProduct) {
-      const historic = entries.filter((e) => isAfter(parseISO(e.created_at), thirtyDaysAgo));
-      const recent = entries.filter((e) => isAfter(parseISO(e.created_at), sevenDaysAgo));
+      const historic = entries.filter((e) => isAfter(parseISO(e.movement_date), thirtyDaysAgo));
+      const recent = entries.filter((e) => isAfter(parseISO(e.movement_date), sevenDaysAgo));
       if (historic.length < 3) continue; // need minimum data
 
       const historicDailyAvg = historic.reduce((s, e) => s + Number(e.quantity), 0) / 30;
@@ -107,8 +107,8 @@ export default function Dashboard() {
     const recipeMap = new Map(recipes?.map((r) => [r.id, r.name]) ?? []);
 
     for (const [rid, entries] of byRecipe) {
-      const historic = entries.filter((e) => isAfter(parseISO(e.created_at), thirtyDaysAgo));
-      const recent = entries.filter((e) => isAfter(parseISO(e.created_at), sevenDaysAgo));
+      const historic = entries.filter((e) => isAfter(parseISO(e.movement_date), thirtyDaysAgo));
+      const recent = entries.filter((e) => isAfter(parseISO(e.movement_date), sevenDaysAgo));
       if (historic.length < 3) continue;
 
       const historicDailyAvg = historic.reduce((s, e) => s + Number(e.total_cost), 0) / 30;

@@ -38,9 +38,9 @@ export default function ExecutiveDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("product_id, recipe_id, quantity, total_cost, unit_cost, created_at, type")
+        .select("product_id, recipe_id, quantity, total_cost, unit_cost, movement_date, type")
         .eq("type", "salida")
-        .order("created_at", { ascending: true });
+        .order("movement_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -82,7 +82,7 @@ export default function ExecutiveDashboard() {
     if (!movements?.length) return [];
     const grouped = new Map<string, number>();
     for (const m of movements) {
-      const date = parseISO(m.created_at);
+      const date = parseISO(m.movement_date);
       let key: string;
       if (costPeriod === "day") key = format(date, "yyyy-MM-dd");
       else if (costPeriod === "week") key = format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
@@ -205,7 +205,7 @@ export default function ExecutiveDashboard() {
     // Calculate daily average consumption over last 30 days
     const now = new Date();
     const thirtyDaysAgo = subDays(now, 30);
-    const recentMovements = movements.filter((m) => isAfterDate(m.created_at, thirtyDaysAgo));
+    const recentMovements = movements.filter((m) => isAfterDate(m.movement_date, thirtyDaysAgo));
 
     const dailyConsumption = new Map<string, number>();
     for (const m of recentMovements) {
@@ -214,7 +214,7 @@ export default function ExecutiveDashboard() {
 
     const daySpan = Math.max(
       1,
-      differenceInDays(now, recentMovements.length > 0 ? parseISO(recentMovements[0].created_at) : thirtyDaysAgo)
+      differenceInDays(now, recentMovements.length > 0 ? parseISO(recentMovements[0].movement_date) : thirtyDaysAgo)
     );
 
     return products

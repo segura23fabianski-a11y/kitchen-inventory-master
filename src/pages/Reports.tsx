@@ -24,9 +24,9 @@ export default function Reports() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_movements")
-        .select("created_at, total_cost")
+        .select("movement_date, total_cost")
         .eq("type", "salida")
-        .order("created_at", { ascending: true });
+        .order("movement_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -76,7 +76,7 @@ export default function Reports() {
     if (!movements?.length) return [];
     const grouped = new Map<string, number>();
     for (const m of movements) {
-      const date = parseISO(m.created_at);
+      const date = parseISO(m.movement_date);
       let key: string;
       if (period === "day") key = format(date, "yyyy-MM-dd");
       else if (period === "week") key = format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
