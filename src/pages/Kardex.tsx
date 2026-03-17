@@ -149,7 +149,7 @@ export default function Kardex() {
     for (const m of movements) {
       if (m.type === "entrada") {
         runningBalance += Number(m.quantity);
-      } else if (m.type === "salida" || m.type === "operational_consumption") {
+      } else if (["salida", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño", "pos_sale", "transformacion"].includes(m.type)) {
         runningBalance -= Number(m.quantity);
       } else if (m.type === "ajuste") {
         runningBalance = Number(m.quantity);
