@@ -407,13 +407,13 @@ export default function StaysTab() {
                 <TableCell>{s.hotel_companies?.name || "—"}</TableCell>
                 <TableCell>{s.contracts?.name || "—"}</TableCell>
                 <TableCell>
-                  {canSeeCorporateRates ? (
+                  {(canSeeCorporateRates || !isCorporate) ? (
                     <div className="flex items-center gap-1">
                       <span>${(s.rate_per_night || 0).toLocaleString()}</span>
-                      {isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
+                      {canSeeCorporateRates && isCorporate && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corp</Badge>}
                     </div>
                   ) : (
-                    <span className="text-muted-foreground text-xs">—</span>
+                    <span className="text-muted-foreground text-xs">Corporativa</span>
                   )}
                 </TableCell>
                 <TableCell>{format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</TableCell>
