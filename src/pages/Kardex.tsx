@@ -29,6 +29,7 @@ const typeLabels: Record<string, string> = {
   desperdicio: "Desperdicio",
   vencimiento: "Vencimiento",
   daño: "Daño",
+  transformacion: "Transformación",
 };
 
 const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -41,9 +42,11 @@ const typeBadgeVariant: Record<string, "default" | "secondary" | "destructive" |
   desperdicio: "destructive",
   vencimiento: "outline",
   daño: "default",
+  transformacion: "outline",
 };
 
 function getDocumentOrigin(mov: any, recipesMap: Map<string, string>, servicesMap: Map<string, string>): string {
+  if (mov.type === "transformacion") return mov.notes || "Transformación de producto";
   if (mov.recipe_id && recipesMap.has(mov.recipe_id)) return `Receta: ${recipesMap.get(mov.recipe_id)}`;
   if (mov.service_id && servicesMap.has(mov.service_id)) return `Servicio: ${servicesMap.get(mov.service_id)}`;
   if (mov.type === "ajuste") return "Ajuste manual";
@@ -147,7 +150,7 @@ export default function Kardex() {
     for (const m of movements) {
       if (m.type === "entrada") {
         runningBalance += Number(m.quantity);
-      } else if (m.type === "salida" || m.type === "operational_consumption") {
+      } else if (["salida", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño", "pos_sale", "transformacion"].includes(m.type)) {
         runningBalance -= Number(m.quantity);
       } else if (m.type === "ajuste") {
         runningBalance = Number(m.quantity);
@@ -157,7 +160,7 @@ export default function Kardex() {
 
     return filtered.map((m) => {
       const isEntry = m.type === "entrada";
-      const isExit = m.type === "salida" || m.type === "operational_consumption";
+      const isExit = ["salida", "operational_consumption", "merma", "desperdicio", "vencimiento", "daño", "pos_sale", "transformacion"].includes(m.type);
       const entrada = isEntry ? Number(m.quantity) : 0;
       const salida = isExit ? Number(m.quantity) : 0;
 
@@ -349,6 +352,7 @@ export default function Kardex() {
                       <SelectItem value="pos_sale">Venta POS</SelectItem>
                       <SelectItem value="ajuste">Ajuste</SelectItem>
                       <SelectItem value="operational_consumption">Consumo Op.</SelectItem>
+                      <SelectItem value="transformacion">Transformación</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
