@@ -107,8 +107,8 @@ export default function Dashboard() {
     const recipeMap = new Map(recipes?.map((r) => [r.id, r.name]) ?? []);
 
     for (const [rid, entries] of byRecipe) {
-      const historic = entries.filter((e) => isAfter(parseISO(e.created_at), thirtyDaysAgo));
-      const recent = entries.filter((e) => isAfter(parseISO(e.created_at), sevenDaysAgo));
+      const historic = entries.filter((e) => isAfter(parseISO(e.movement_date), thirtyDaysAgo));
+      const recent = entries.filter((e) => isAfter(parseISO(e.movement_date), sevenDaysAgo));
       if (historic.length < 3) continue;
 
       const historicDailyAvg = historic.reduce((s, e) => s + Number(e.total_cost), 0) / 30;

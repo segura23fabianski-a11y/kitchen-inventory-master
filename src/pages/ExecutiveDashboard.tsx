@@ -214,7 +214,7 @@ export default function ExecutiveDashboard() {
 
     const daySpan = Math.max(
       1,
-      differenceInDays(now, recentMovements.length > 0 ? parseISO(recentMovements[0].created_at) : thirtyDaysAgo)
+      differenceInDays(now, recentMovements.length > 0 ? parseISO(recentMovements[0].movement_date) : thirtyDaysAgo)
     );
 
     return products
