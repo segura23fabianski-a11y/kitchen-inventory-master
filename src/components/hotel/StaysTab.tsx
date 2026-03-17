@@ -773,13 +773,15 @@ export default function StaysTab() {
               <p><span className="font-medium">Habitación:</span> #{detailStay.rooms?.room_number} ({detailStay.rooms?.room_types?.name})</p>
               <p><span className="font-medium">Check-in:</span> {format(new Date(detailStay.check_in_at), "PPpp", { locale: es })}</p>
               {detailStay.check_out_at && <p><span className="font-medium">Check-out:</span> {format(new Date(detailStay.check_out_at), "PPpp", { locale: es })}</p>}
-              {canSeeCorporateRates && (
+              {(canSeeCorporateRates || detailStay.source_rate !== "corporate") ? (
                 <p>
                   <span className="font-medium">Tarifa:</span> ${detailStay.rate_per_night?.toLocaleString()}/noche
-                  {detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                  {canSeeCorporateRates && detailStay.source_rate === "corporate" && <Badge variant="outline" className="ml-2 text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
                 </p>
+              ) : (
+                <p className="text-xs text-primary">✓ Tarifa corporativa aplicada</p>
               )}
-              {canSeeCorporateRates && <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>}
+              {(canSeeCorporateRates || detailStay.source_rate !== "corporate") && <p><span className="font-medium">Total:</span> ${detailStay.total_amount?.toLocaleString()}</p>}
               {detailStay.hotel_companies?.name && <p><span className="font-medium">Empresa:</span> {detailStay.hotel_companies.name}</p>}
               {detailStay.contracts?.name && <p><span className="font-medium">Contrato:</span> {detailStay.contracts.name}{detailStay.contracts.code ? ` (${detailStay.contracts.code})` : ""}</p>}
               {detailStay.payment_method && <p><span className="font-medium">Pago:</span> {detailStay.payment_method}</p>}
