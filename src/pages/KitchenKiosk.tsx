@@ -515,7 +515,8 @@ export default function KitchenKiosk() {
           for (const ri of comp.recipeIngredients) {
             const prod = products?.find((p) => p.id === ri.productId);
             if (!prod) return false;
-            if (ri.actualQty > Number(prod.current_stock ?? 0)) return false;
+            const qtyInBaseUnit = convertToProductUnit(ri.actualQty, ri.productUnit, prod.unit);
+            if (qtyInBaseUnit > Number(prod.current_stock ?? 0)) return false;
           }
         }
       }
