@@ -351,6 +351,7 @@ export default function Kardex() {
                       <SelectItem value="pos_sale">Venta POS</SelectItem>
                       <SelectItem value="ajuste">Ajuste</SelectItem>
                       <SelectItem value="operational_consumption">Consumo Op.</SelectItem>
+                      <SelectItem value="transformacion">Transformación</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
