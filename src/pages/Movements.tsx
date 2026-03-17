@@ -21,8 +21,9 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon, PackageMinus } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
+import { BulkExitDialog } from "@/components/BulkExitDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
@@ -34,6 +35,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 
 export default function Movements() {
   const [open, setOpen] = useState(false);
+  const [bulkExitOpen, setBulkExitOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [inputUnit, setInputUnit] = useState("");
@@ -263,6 +265,11 @@ export default function Movements() {
           {canCreate && (
           <div className="flex items-center gap-2">
             {allowedTypes.includes("entrada") && <BulkUploadDialog products={products} />}
+            {allowedTypes.includes("salida") && (
+              <Button variant="outline" onClick={() => setBulkExitOpen(true)}>
+                <PackageMinus className="mr-2 h-4 w-4" /> Salidas Masivas
+              </Button>
+            )}
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Movimiento</Button>
@@ -419,6 +426,7 @@ export default function Movements() {
             </Dialog>
           </div>
           )}
+          <BulkExitDialog open={bulkExitOpen} onOpenChange={setBulkExitOpen} products={products ?? []} />
         </div>
 
         <Card>
