@@ -121,14 +121,28 @@ export default function Reports() {
     },
   });
 
-  // Recipes with ingredients (include unit for conversion)
+  // Recipes with ingredients and components (for variable combos)
   const { data: recipes } = useQuery({
     queryKey: ["report-recipes"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, recipe_ingredients(product_id, quantity, unit)")
+        .select("id, name, recipe_type, recipe_ingredients(product_id, quantity, unit), recipe_variable_components(average_component_cost)")
         .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Combo execution logs for real cost of variable combos
+  const { data: comboExecutions } = useQuery({
+    queryKey: ["report-combo-executions", fromISO, toISO],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combo_execution_logs")
+        .select("recipe_id, servings, total_cost, unit_cost")
+        .gte("executed_at", fromISO)
+        .lte("executed_at", toISO);
       if (error) throw error;
       return data;
     },
