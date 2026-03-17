@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon, PackageMinus } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { BulkExitDialog } from "@/components/BulkExitDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
