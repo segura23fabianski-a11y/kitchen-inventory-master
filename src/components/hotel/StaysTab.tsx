@@ -644,14 +644,16 @@ export default function StaysTab() {
             </div>
 
             {/* 5. Rate & Checkout */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Label>Tarifa/Noche</Label>
-                  {canSeeCorporateRates && form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+            <div className={canSeeCorporateRates ? "grid grid-cols-2 gap-3" : ""}>
+              {canSeeCorporateRates && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Label>Tarifa/Noche</Label>
+                    {form.source_rate === "corporate" && <Badge variant="outline" className="text-xs"><Building2 className="h-3 w-3 mr-0.5" />Corporativa</Badge>}
+                  </div>
+                  <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} disabled={form.source_rate === "corporate"} />
                 </div>
-                <Input type="number" value={form.rate_per_night} onChange={e => setForm({ ...form, rate_per_night: +e.target.value })} disabled={form.source_rate === "corporate"} />
-              </div>
+              )}
               <div><Label>Check-out Esperado</Label><Input type="datetime-local" value={form.expected_check_out} onChange={e => setForm({ ...form, expected_check_out: e.target.value })} /></div>
             </div>
             {rateInfo && (
@@ -662,8 +664,11 @@ export default function StaysTab() {
             {form.room_id && form.primary_guest_id && (
               <div className="rounded-md border p-3 bg-muted/50 space-y-1 text-sm">
                 <p><span className="font-medium">Huéspedes:</span> {totalGuests} persona{totalGuests > 1 ? "s" : ""}</p>
-                <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
+                {canSeeCorporateRates && (
+                  <p><span className="font-medium">Tarifa aplicada:</span> ${form.rate_per_night.toLocaleString()}/noche (tarifa para {totalGuests} persona{totalGuests > 1 ? "s" : ""})</p>
+                )}
                 {canSeeCorporateRates && form.source_rate === "corporate" && <p className="text-xs text-primary">Tarifa corporativa</p>}
+                {!canSeeCorporateRates && form.source_rate === "corporate" && <p className="text-xs text-primary">✓ Tarifa corporativa aplicada</p>}
               </div>
             )}
 
