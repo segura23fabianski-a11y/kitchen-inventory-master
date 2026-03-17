@@ -73,8 +73,8 @@ export default function Dashboard() {
     }
 
     for (const [pid, entries] of byProduct) {
-      const historic = entries.filter((e) => isAfter(parseISO(e.created_at), thirtyDaysAgo));
-      const recent = entries.filter((e) => isAfter(parseISO(e.created_at), sevenDaysAgo));
+      const historic = entries.filter((e) => isAfter(parseISO(e.movement_date), thirtyDaysAgo));
+      const recent = entries.filter((e) => isAfter(parseISO(e.movement_date), sevenDaysAgo));
       if (historic.length < 3) continue; // need minimum data
 
       const historicDailyAvg = historic.reduce((s, e) => s + Number(e.quantity), 0) / 30;
