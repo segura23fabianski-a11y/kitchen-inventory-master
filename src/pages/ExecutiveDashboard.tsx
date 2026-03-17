@@ -205,7 +205,7 @@ export default function ExecutiveDashboard() {
     // Calculate daily average consumption over last 30 days
     const now = new Date();
     const thirtyDaysAgo = subDays(now, 30);
-    const recentMovements = movements.filter((m) => isAfterDate(m.created_at, thirtyDaysAgo));
+    const recentMovements = movements.filter((m) => isAfterDate(m.movement_date, thirtyDaysAgo));
 
     const dailyConsumption = new Map<string, number>();
     for (const m of recentMovements) {
