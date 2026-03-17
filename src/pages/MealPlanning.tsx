@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -18,7 +18,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, ArrowLeft, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, ChevronLeft, ChevronRight, ArrowLeft, Settings2 } from "lucide-react";
 import { format, addDays, parseISO, eachDayOfInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -30,7 +30,7 @@ const SERVICE_TYPES = [
   { value: "lonche", label: "Lonche" },
 ];
 
-// ─── Components Tab ────────────────────────────────────────────
+// ─── Components Tab (components + service templates) ────────────
 function ComponentsConfig({ restaurantId }: { restaurantId: string }) {
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,6 +47,19 @@ function ComponentsConfig({ restaurantId }: { restaurantId: string }) {
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: serviceTemplates = [] } = useQuery({
+    queryKey: ["service-type-components", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_type_components" as any)
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
     },
   });
 
@@ -81,6 +94,32 @@ function ComponentsConfig({ restaurantId }: { restaurantId: string }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meal-components"] }),
   });
 
+  const addToService = useMutation({
+    mutationFn: async ({ serviceType, componentId }: { serviceType: string; componentId: string }) => {
+      const existing = serviceTemplates.filter((t: any) => t.service_type === serviceType);
+      const { error } = await supabase
+        .from("service_type_components" as any)
+        .insert({ restaurant_id: restaurantId, service_type: serviceType, component_id: componentId, sort_order: existing.length } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["service-type-components"] });
+      toast.success("Componente asignado al servicio");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const removeFromService = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("service_type_components" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["service-type-components"] });
+      toast.success("Componente removido");
+    },
+  });
+
   const openNew = () => {
     setEditing(null);
     setForm({ name: "", description: "", sort_order: components.length });
@@ -92,46 +131,105 @@ function ComponentsConfig({ restaurantId }: { restaurantId: string }) {
     setDialogOpen(true);
   };
 
+  const activeComponents = components.filter((c: any) => c.active);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Componentes de Servicio</h2>
-        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Nuevo Componente</Button>
+    <div className="space-y-6">
+      {/* Components list */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Componentes de Servicio</h2>
+          <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Nuevo Componente</Button>
+        </div>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Orden</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Descripción</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-20">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+              ) : components.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No hay componentes. Crea el primero.</TableCell></TableRow>
+              ) : (
+                components.map((c: any) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-mono text-sm">{c.sort_order}</TableCell>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{c.description || "—"}</TableCell>
+                    <TableCell>
+                      <Switch checked={c.active} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, active: v })} />
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
       </div>
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Orden</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="w-20">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
-            ) : components.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No hay componentes. Crea el primero.</TableCell></TableRow>
-            ) : (
-              components.map((c: any) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-mono text-sm">{c.sort_order}</TableCell>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.description || "—"}</TableCell>
-                  <TableCell>
-                    <Switch checked={c.active} onCheckedChange={(v) => toggleMutation.mutate({ id: c.id, active: v })} />
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+
+      {/* Service Templates */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Settings2 className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Plantillas por Servicio</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Asigna qué componentes lleva cada servicio. Al planear la minuta, estos componentes aparecerán automáticamente y solo tendrás que elegir la receta para cada uno.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {SERVICE_TYPES.map((st) => {
+            const assigned = serviceTemplates
+              .filter((t: any) => t.service_type === st.value)
+              .map((t: any) => ({ ...t, component: components.find((c: any) => c.id === t.component_id) }))
+              .sort((a: any, b: any) => a.sort_order - b.sort_order);
+            const assignedIds = new Set(assigned.map((a: any) => a.component_id));
+            const available = activeComponents.filter((c: any) => !assignedIds.has(c.id));
+
+            return (
+              <Card key={st.value}>
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-sm font-semibold">{st.label}</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 space-y-2">
+                  {assigned.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Sin componentes asignados</p>
+                  )}
+                  {assigned.map((a: any) => (
+                    <div key={a.id} className="flex items-center justify-between rounded-md border border-border px-2.5 py-1.5">
+                      <span className="text-sm font-medium">{a.component?.name || "?"}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromService.mutate(a.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  {available.length > 0 && (
+                    <Select onValueChange={(componentId) => addToService.mutate({ serviceType: st.value, componentId })}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="+ Agregar componente..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {available.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -288,6 +386,19 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
     },
   });
 
+  const { data: serviceTemplates = [] } = useQuery({
+    queryKey: ["service-type-components", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_type_components" as any)
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const { data: recipes = [] } = useQuery({
     queryKey: ["recipes-list", restaurantId],
     queryFn: async () => {
@@ -296,6 +407,17 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
       return data;
     },
   });
+
+  // Group templates by service type
+  const templatesByService = useMemo(() => {
+    const map = new Map<string, any[]>();
+    serviceTemplates.forEach((t: any) => {
+      const arr = map.get(t.service_type) || [];
+      arr.push(t);
+      map.set(t.service_type, arr);
+    });
+    return map;
+  }, [serviceTemplates]);
 
   const days = plan ? eachDayOfInterval({ start: parseISO(plan.start_date), end: parseISO(plan.end_date) }) : [];
   const [selectedDay, setSelectedDay] = useState(0);
@@ -368,6 +490,7 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
               existingService={services.find((s: any) => s.service_date === format(currentDay, "yyyy-MM-dd") && s.service_type === st.value)}
               components={components}
               recipes={recipes}
+              templateComponents={templatesByService.get(st.value) || []}
             />
           ))}
         </div>
@@ -376,14 +499,37 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
   );
 }
 
-function ServiceCard({ restaurantId, planId, date, serviceType, serviceLabel, existingService, components, recipes }: any) {
+function ServiceCard({ restaurantId, planId, date, serviceType, serviceLabel, existingService, components, recipes, templateComponents }: any) {
   const qc = useQueryClient();
   const [servings, setServings] = useState<number>(existingService?.projected_servings || 0);
-  const [addingItem, setAddingItem] = useState(false);
-  const [newComponentId, setNewComponentId] = useState("");
-  const [newRecipeId, setNewRecipeId] = useState("");
 
   const items: any[] = existingService?.meal_plan_service_items || [];
+
+  // Build a map of component_id → existing item for quick lookup
+  const itemByComponent = useMemo(() => {
+    const map = new Map<string, any>();
+    items.forEach((item: any) => map.set(item.component_id, item));
+    return map;
+  }, [items]);
+
+  // Template components with their component details
+  const templateRows = useMemo(() => {
+    return templateComponents
+      .map((tc: any) => {
+        const comp = components.find((c: any) => c.id === tc.component_id);
+        const existingItem = itemByComponent.get(tc.component_id);
+        return {
+          templateId: tc.id,
+          componentId: tc.component_id,
+          componentName: comp?.name || "?",
+          sortOrder: tc.sort_order,
+          existingItem,
+          selectedRecipeId: existingItem?.recipe_id || "",
+          selectedRecipeName: existingItem?.recipes?.name || "",
+        };
+      })
+      .sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+  }, [templateComponents, components, itemByComponent]);
 
   const upsertServiceMutation = useMutation({
     mutationFn: async (projected: number) => {
@@ -404,8 +550,10 @@ function ServiceCard({ restaurantId, planId, date, serviceType, serviceLabel, ex
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meal-plan-services", planId] }),
   });
 
-  const addItemMutation = useMutation({
-    mutationFn: async () => {
+  // Upsert a recipe for a component: if item exists update, else insert
+  const setRecipeMutation = useMutation({
+    mutationFn: async ({ componentId, recipeId }: { componentId: string; recipeId: string }) => {
+      // Ensure service exists
       let serviceId = existingService?.id;
       if (!serviceId) {
         const { data, error } = await supabase
@@ -416,28 +564,43 @@ function ServiceCard({ restaurantId, planId, date, serviceType, serviceLabel, ex
         if (error) throw error;
         serviceId = data.id;
       }
-      const { error } = await supabase
-        .from("meal_plan_service_items")
-        .insert({ meal_plan_service_id: serviceId, restaurant_id: restaurantId, component_id: newComponentId, recipe_id: newRecipeId, sort_order: items.length });
-      if (error) throw error;
+
+      const existing = itemByComponent.get(componentId);
+      if (existing) {
+        if (recipeId) {
+          const { error } = await supabase
+            .from("meal_plan_service_items")
+            .update({ recipe_id: recipeId })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          // Clear recipe → delete the item
+          const { error } = await supabase
+            .from("meal_plan_service_items")
+            .delete()
+            .eq("id", existing.id);
+          if (error) throw error;
+        }
+      } else if (recipeId) {
+        const { error } = await supabase
+          .from("meal_plan_service_items")
+          .insert({
+            meal_plan_service_id: serviceId,
+            restaurant_id: restaurantId,
+            component_id: componentId,
+            recipe_id: recipeId,
+            sort_order: templateComponents.findIndex((tc: any) => tc.component_id === componentId),
+          });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["meal-plan-services", planId] });
-      setAddingItem(false);
-      setNewComponentId("");
-      setNewRecipeId("");
-      toast.success("Componente agregado");
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  const removeItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      const { error } = await supabase.from("meal_plan_service_items").delete().eq("id", itemId);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["meal-plan-services", planId] }); toast.success("Item eliminado"); },
-  });
+  const hasTemplate = templateRows.length > 0;
 
   return (
     <Card>
@@ -457,44 +620,27 @@ function ServiceCard({ restaurantId, planId, date, serviceType, serviceLabel, ex
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-3 space-y-2">
-        {items.length === 0 && !addingItem && (
-          <p className="text-sm text-muted-foreground">Sin componentes asignados.</p>
-        )}
-        {items.map((item: any) => (
-          <div key={item.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-            <div>
-              <Badge variant="outline" className="mr-2">{item.meal_components?.name || "?"}</Badge>
-              <span className="text-sm">{item.recipes?.name || "?"}</span>
-            </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItemMutation.mutate(item.id)}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        ))}
-        {addingItem ? (
-          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 p-3">
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={newComponentId} onValueChange={setNewComponentId}>
-                <SelectTrigger><SelectValue placeholder="Componente" /></SelectTrigger>
-                <SelectContent>{components.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-              <SearchableSelect
-                options={recipes.map((r: any) => ({ value: r.id, label: r.name }))}
-                value={newRecipeId}
-                onValueChange={setNewRecipeId}
-                placeholder="Receta"
-                searchPlaceholder="Buscar receta..."
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setAddingItem(false)}>Cancelar</Button>
-              <Button size="sm" disabled={!newComponentId || !newRecipeId || addItemMutation.isPending} onClick={() => addItemMutation.mutate()}>Agregar</Button>
-            </div>
-          </div>
+        {!hasTemplate ? (
+          <p className="text-sm text-muted-foreground text-center py-3">
+            No hay plantilla configurada para {serviceLabel}. Ve a la pestaña <strong>Componentes</strong> para asignar componentes a este servicio.
+          </p>
         ) : (
-          <Button variant="outline" size="sm" className="w-full" onClick={() => setAddingItem(true)}>
-            <Plus className="h-3.5 w-3.5 mr-1" />Agregar componente
-          </Button>
+          templateRows.map((row: any) => (
+            <div key={row.componentId} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+              <Badge variant="outline" className="shrink-0 text-xs">{row.componentName}</Badge>
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
+                  options={recipes.map((r: any) => ({ value: r.id, label: r.name }))}
+                  value={row.selectedRecipeId}
+                  onValueChange={(recipeId) => setRecipeMutation.mutate({ componentId: row.componentId, recipeId })}
+                  placeholder={`¿Qué ${row.componentName.toLowerCase()} hoy?`}
+                  searchPlaceholder="Buscar receta..."
+                  triggerClassName="h-8 text-xs"
+                  clearable
+                />
+              </div>
+            </div>
+          ))
         )}
       </CardContent>
     </Card>
@@ -515,7 +661,6 @@ function RequirementsView({ planId, restaurantId }: { planId: string; restaurant
     },
   });
 
-  // Gather unique recipe IDs with servings
   const recipeServingsMap = new Map<string, number>();
   services.forEach((s: any) => {
     s.meal_plan_service_items?.forEach((item: any) => {
@@ -539,7 +684,6 @@ function RequirementsView({ planId, restaurantId }: { planId: string; restaurant
     enabled: recipeIds.length > 0,
   });
 
-  // Consolidate requirements by product
   const productMap = new Map<string, { name: string; unit: string; required: number; stock: number; avgCost: number }>();
 
   ingredients.forEach((ing: any) => {
@@ -610,7 +754,7 @@ function RequirementsView({ planId, restaurantId }: { planId: string; restaurant
           </TableHeader>
           <TableBody>
             {requirements.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No hay requerimientos. Agrega componentes a la minuta.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No hay requerimientos. Asigna recetas en la minuta.</TableCell></TableRow>
             ) : (
               requirements.map((r) => (
                 <TableRow key={r.id}>
