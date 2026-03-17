@@ -149,7 +149,7 @@ export default function StaysTab() {
     const hasCorporate = form.company_id && form.company_id !== "none";
     const roomTypeId = selectedRoom.room_type_id;
 
-    if (canSeeCorporateRates && hasCorporate && allCompanyRates) {
+    if (hasCorporate && allCompanyRates) {
       // Get all company rates for this company
       const companyRates = allCompanyRates.filter((cr: any) => cr.company_id === form.company_id);
 
@@ -169,17 +169,21 @@ export default function StaysTab() {
 
         if (selectedCorpRate) {
           setForm(prev => ({ ...prev, rate_per_night: selectedCorpRate.rate_per_night, source_rate: "corporate" }));
-          const includes: string[] = [];
-          if (selectedCorpRate.includes_laundry) includes.push("Lavandería");
-          if (selectedCorpRate.includes_housekeeping) includes.push("Housekeeping");
-          if (selectedCorpRate.includes_breakfast) includes.push("Desayuno");
-          setRateInfo(`Tarifa corporativa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: $${selectedCorpRate.rate_per_night.toLocaleString()}/noche. Incluye: ${includes.join(", ") || "nada adicional"}`);
+          if (canSeeCorporateRates) {
+            const includes: string[] = [];
+            if (selectedCorpRate.includes_laundry) includes.push("Lavandería");
+            if (selectedCorpRate.includes_housekeeping) includes.push("Housekeeping");
+            if (selectedCorpRate.includes_breakfast) includes.push("Desayuno");
+            setRateInfo(`Tarifa corporativa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: $${selectedCorpRate.rate_per_night.toLocaleString()}/noche. Incluye: ${includes.join(", ") || "nada adicional"}`);
+          } else {
+            setRateInfo("Tarifa corporativa aplicada automáticamente");
+          }
           return;
         } else {
-          setRateInfo("⚠ Sin tarifa corporativa para este tipo. Se usa tarifa por ocupación.");
+          setRateInfo(canSeeCorporateRates ? "⚠ Sin tarifa corporativa para este tipo. Se usa tarifa por ocupación." : "");
         }
       } else {
-        setRateInfo("⚠ Sin tarifa corporativa para esta empresa. Se usa tarifa por ocupación.");
+        setRateInfo(canSeeCorporateRates ? "⚠ Sin tarifa corporativa para esta empresa. Se usa tarifa por ocupación." : "");
       }
     } else {
       setRateInfo("");
