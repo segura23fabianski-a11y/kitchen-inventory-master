@@ -56,6 +56,11 @@ export default function StaysTab() {
   const [pendingPartialCheckout, setPendingPartialCheckout] = useState<{ sgId: string; guestId: string; guestName: string; isPrimary: boolean } | null>(null);
   const [pendingRoomChange, setPendingRoomChange] = useState<{ newRoomId: string; newRoomNumber: string } | null>(null);
   const [roomChangeSelectValue, setRoomChangeSelectValue] = useState("");
+  const [editStay, setEditStay] = useState<any>(null);
+  const [editForm, setEditForm] = useState<{
+    rate_per_night: number; source_rate: string; company_id: string; contract_id: string;
+    payment_method: string; notes: string; expected_check_out: string;
+  }>({ rate_per_night: 0, source_rate: "standard", company_id: "", contract_id: "", payment_method: "", notes: "", expected_check_out: "" });
 
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
