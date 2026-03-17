@@ -264,7 +264,7 @@ export default function Movements() {
           </div>
           {canCreate && (
           <div className="flex items-center gap-2">
-            {allowedTypes.includes("entrada") && <BulkUploadDialog products={products} />}
+            {allowedTypes.includes("entrada") && <BulkUploadDialog products={products ?? []} />}
             {allowedTypes.includes("salida") && (
               <Button variant="outline" onClick={() => setBulkExitOpen(true)}>
                 <PackageMinus className="mr-2 h-4 w-4" /> Salidas Masivas
