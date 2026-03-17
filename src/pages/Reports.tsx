@@ -133,10 +133,6 @@ export default function Reports() {
       return data;
     },
   });
-      if (error) throw error;
-      return data;
-    },
-  });
 
   const productMap = useMemo(() => new Map(products?.map((p) => [p.id, p]) ?? []), [products]);
 
