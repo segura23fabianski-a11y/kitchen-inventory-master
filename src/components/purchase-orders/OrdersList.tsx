@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye, Receipt } from "lucide-react";
+import { Send, PackageCheck, Trash2, FileText, XCircle, Plus, Download, Eye, Receipt, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { generatePurchaseOrderPdf, PdfOrderData, PdfSettings } from "./generatePurchaseOrderPdf";
 import { usePdfSettings } from "@/hooks/use-pdf-settings";
 import { useAuth } from "@/lib/auth";
@@ -36,6 +37,19 @@ export default function OrdersList() {
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [allComplete, setAllComplete] = useState(false);
+
+  // Products for the convert dialog product selector
+  const { data: allProducts } = useQuery({
+    queryKey: ["products-for-invoice"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, unit, last_unit_cost")
+        .order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -146,7 +160,7 @@ export default function OrdersList() {
     }
   };
 
-  const updateInvoiceItem = (index: number, field: string, value: number) => {
+  const updateInvoiceItem = (index: number, field: string, value: any) => {
     setInvoiceItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
@@ -155,11 +169,45 @@ export default function OrdersList() {
     if (field === "quantity_received") setAllComplete(false);
   };
 
+  const changeInvoiceProduct = (index: number, productId: string) => {
+    const prod = allProducts?.find((p: any) => p.id === productId);
+    if (!prod) return;
+    setInvoiceItems((prev) => {
+      const copy = [...prev];
+      copy[index] = {
+        ...copy[index],
+        product_id: prod.id,
+        product_name: prod.name,
+        product_unit: prod.unit,
+        unit_cost: prod.last_unit_cost ?? copy[index].unit_cost,
+      };
+      return copy;
+    });
+  };
+
+  const removeInvoiceItem = (index: number) => {
+    setInvoiceItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addInvoiceItem = () => {
+    setInvoiceItems((prev) => [
+      ...prev,
+      {
+        product_id: "",
+        product_name: "",
+        product_unit: "",
+        quantity_ordered: 0,
+        quantity_received: 0,
+        unit_cost: 0,
+      },
+    ]);
+  };
+
   const invoiceTotal = invoiceItems.reduce(
     (sum, it) => sum + Number(it.quantity_received || 0) * Number(it.unit_cost || 0),
     0
   );
-  const hasValidItems = invoiceItems.some((it) => Number(it.quantity_received) > 0);
+  const hasValidItems = invoiceItems.some((it) => Number(it.quantity_received) > 0 && !!it.product_id);
 
   const convertToInvoice = useMutation({
     mutationFn: async () => {
@@ -409,7 +457,7 @@ export default function OrdersList() {
 
       {/* Convert to Invoice Dialog */}
       <Dialog open={!!convertOrder} onOpenChange={(v) => { if (!v) { setConvertOrder(null); setInvoiceItems([]); setInvoiceNumber(""); setAllComplete(false); } }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-emerald-600" />
@@ -450,10 +498,11 @@ export default function OrdersList() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Producto</TableHead>
-                    <TableHead className="text-right w-24">Pedido</TableHead>
+                    <TableHead className="text-right w-20">Pedido</TableHead>
                     <TableHead className="text-right w-28">Recibido</TableHead>
                     <TableHead className="text-right w-28">Precio Unit.</TableHead>
-                    <TableHead className="text-right w-28">Subtotal</TableHead>
+                    <TableHead className="text-right w-24">Subtotal</TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -461,12 +510,31 @@ export default function OrdersList() {
                     const subtotal = Number(item.quantity_received || 0) * Number(item.unit_cost || 0);
                     return (
                       <TableRow key={idx}>
-                        <TableCell>
-                          {item.product_name}
-                          <span className="text-muted-foreground text-xs ml-1">({item.product_unit})</span>
+                        <TableCell className="p-2">
+                          <Select
+                            value={item.product_id || ""}
+                            onValueChange={(val) => changeInvoiceProduct(idx, val)}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Seleccionar producto">
+                                {item.product_name
+                                  ? `${item.product_name} (${item.product_unit})`
+                                  : "Seleccionar producto"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {allProducts?.map((p: any) => (
+                                <SelectItem key={p.id} value={p.id} className="text-xs">
+                                  {p.name} <span className="text-muted-foreground">({p.unit})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground">{item.quantity_ordered}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-muted-foreground text-xs p-2">
+                          {item.quantity_ordered || "—"}
+                        </TableCell>
+                        <TableCell className="text-right p-2">
                           <Input
                             type="number"
                             min="0"
@@ -476,7 +544,7 @@ export default function OrdersList() {
                             className="h-8 w-24 text-right ml-auto"
                           />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right p-2">
                           <Input
                             type="number"
                             min="0"
@@ -486,14 +554,31 @@ export default function OrdersList() {
                             className="h-8 w-24 text-right ml-auto"
                           />
                         </TableCell>
-                        <TableCell className="text-right font-medium">
+                        <TableCell className="text-right font-medium p-2">
                           ${subtotal.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => removeInvoiceItem(idx)}
+                            title="Quitar línea"
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
+
+              {/* Add item button */}
+              <Button variant="outline" size="sm" onClick={addInvoiceItem} className="mt-1">
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar producto
+              </Button>
 
               {/* Total */}
               <div className="text-right text-sm font-semibold border-t pt-2">
