@@ -405,6 +405,7 @@ export default function Recipes() {
       sort_order: c.sort_order,
       average_component_cost: Number(c.average_component_cost ?? 0),
     })));
+    setEditTags(tagsByRecipe.get(recipe.id) ?? []);
     setEditMode(true);
   };
 
