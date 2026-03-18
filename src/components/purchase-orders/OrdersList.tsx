@@ -498,10 +498,11 @@ export default function OrdersList() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Producto</TableHead>
-                    <TableHead className="text-right w-24">Pedido</TableHead>
+                    <TableHead className="text-right w-20">Pedido</TableHead>
                     <TableHead className="text-right w-28">Recibido</TableHead>
                     <TableHead className="text-right w-28">Precio Unit.</TableHead>
-                    <TableHead className="text-right w-28">Subtotal</TableHead>
+                    <TableHead className="text-right w-24">Subtotal</TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -509,12 +510,31 @@ export default function OrdersList() {
                     const subtotal = Number(item.quantity_received || 0) * Number(item.unit_cost || 0);
                     return (
                       <TableRow key={idx}>
-                        <TableCell>
-                          {item.product_name}
-                          <span className="text-muted-foreground text-xs ml-1">({item.product_unit})</span>
+                        <TableCell className="p-2">
+                          <Select
+                            value={item.product_id || ""}
+                            onValueChange={(val) => changeInvoiceProduct(idx, val)}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Seleccionar producto">
+                                {item.product_name
+                                  ? `${item.product_name} (${item.product_unit})`
+                                  : "Seleccionar producto"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {allProducts?.map((p: any) => (
+                                <SelectItem key={p.id} value={p.id} className="text-xs">
+                                  {p.name} <span className="text-muted-foreground">({p.unit})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground">{item.quantity_ordered}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-muted-foreground text-xs p-2">
+                          {item.quantity_ordered || "—"}
+                        </TableCell>
+                        <TableCell className="text-right p-2">
                           <Input
                             type="number"
                             min="0"
@@ -524,7 +544,7 @@ export default function OrdersList() {
                             className="h-8 w-24 text-right ml-auto"
                           />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right p-2">
                           <Input
                             type="number"
                             min="0"
@@ -534,14 +554,31 @@ export default function OrdersList() {
                             className="h-8 w-24 text-right ml-auto"
                           />
                         </TableCell>
-                        <TableCell className="text-right font-medium">
+                        <TableCell className="text-right font-medium p-2">
                           ${subtotal.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => removeInvoiceItem(idx)}
+                            title="Quitar línea"
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
+
+              {/* Add item button */}
+              <Button variant="outline" size="sm" onClick={addInvoiceItem} className="mt-1">
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar producto
+              </Button>
 
               {/* Total */}
               <div className="text-right text-sm font-semibold border-t pt-2">
