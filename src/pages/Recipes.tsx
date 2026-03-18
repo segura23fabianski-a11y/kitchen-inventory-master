@@ -91,6 +91,50 @@ export default function Recipes() {
     },
   });
 
+  // Fetch meal components for tagging
+  const { data: mealComponents = [] } = useQuery({
+    queryKey: ["meal-components-for-tags", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meal_components")
+        .select("id, name")
+        .eq("restaurant_id", restaurantId!)
+        .eq("active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch all recipe component tags
+  const { data: allRecipeTags = [] } = useQuery({
+    queryKey: ["recipe-component-tags", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_component_tags" as any)
+        .select("*")
+        .eq("restaurant_id", restaurantId!);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  const tagsByRecipe = useMemo(() => {
+    const map = new Map<string, string[]>();
+    allRecipeTags.forEach((t: any) => {
+      const arr = map.get(t.recipe_id) || [];
+      arr.push(t.component_id);
+      map.set(t.recipe_id, arr);
+    });
+    return map;
+  }, [allRecipeTags]);
+
+  // State for tags in create/edit
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [editTags, setEditTags] = useState<string[]>([]);
+
   const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
 
   const { data: recipes, isLoading } = useQuery({
@@ -230,7 +274,45 @@ export default function Recipes() {
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
-  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); };
+  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); };
+
+  const toggleTag = (tagList: string[], setTagList: (v: string[]) => void, componentId: string) => {
+    setTagList(tagList.includes(componentId) ? tagList.filter(id => id !== componentId) : [...tagList, componentId]);
+  };
+
+  const saveTagsForRecipe = async (recipeId: string, tags: string[]) => {
+    // Delete existing tags
+    await supabase.from("recipe_component_tags" as any).delete().eq("recipe_id", recipeId);
+    // Insert new tags
+    if (tags.length > 0) {
+      await supabase.from("recipe_component_tags" as any).insert(
+        tags.map(componentId => ({ recipe_id: recipeId, component_id: componentId, restaurant_id: restaurantId! }))
+      );
+    }
+  };
+
+  const renderTagSelector = (tags: string[], setTags: (v: string[]) => void) => (
+    mealComponents.length > 0 ? (
+      <div className="space-y-2">
+        <Label className="text-sm">Etiquetas de Componente (para planeación de minutas)</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {mealComponents.map((mc: any) => (
+            <Badge
+              key={mc.id}
+              variant={tags.includes(mc.id) ? "default" : "outline"}
+              className="cursor-pointer select-none"
+              onClick={() => toggleTag(tags, setTags, mc.id)}
+            >
+              {mc.name}
+            </Badge>
+          ))}
+        </div>
+        {tags.length > 0 && (
+          <p className="text-xs text-muted-foreground">{tags.length} etiqueta(s) seleccionada(s)</p>
+        )}
+      </div>
+    ) : null
+  );
 
   const createRecipe = useMutation({
     mutationFn: async () => {
@@ -255,11 +337,15 @@ export default function Recipes() {
         }
       }
 
+      // Save component tags
+      await saveTagsForRecipe(recipe.id, selectedTags);
+
       await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, recipe_type: recipeType, recipe_mode: recipeMode }, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
       qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
+      qc.invalidateQueries({ queryKey: ["recipe-component-tags"] });
       setOpen(false);
       resetForm();
       toast({ title: "Receta creada" });
@@ -319,6 +405,7 @@ export default function Recipes() {
       sort_order: c.sort_order,
       average_component_cost: Number(c.average_component_cost ?? 0),
     })));
+    setEditTags(tagsByRecipe.get(recipe.id) ?? []);
     setEditMode(true);
   };
 
@@ -395,6 +482,9 @@ export default function Recipes() {
         }
       }
 
+      // Save component tags
+      await saveTagsForRecipe(recipeId, editTags);
+
       await logAudit({
         entityType: "recipe",
         entityId: recipeId,
@@ -407,6 +497,7 @@ export default function Recipes() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
       qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
+      qc.invalidateQueries({ queryKey: ["recipe-component-tags"] });
       setEditMode(false);
       toast({ title: "Receta actualizada" });
     },
@@ -703,6 +794,8 @@ export default function Recipes() {
                     <KioskTextInput value={description} onChange={setDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción de receta" />
                   </div>
 
+                  {renderTagSelector(selectedTags, setSelectedTags)}
+
                   {recipeMode === "fixed"
                     ? renderIngredientEditor(ingredients, addIngredientLine, removeIngredientLine, updateIngredient, recipeType, newCost)
                     : renderComponentEditor(components, addComponent, removeComponent, updateComponent)
@@ -802,6 +895,19 @@ export default function Recipes() {
                             </div>
                           </div>
                         )}
+                        {/* Component tags */}
+                        {(() => {
+                          const recipeTags = tagsByRecipe.get(recipe.id) ?? [];
+                          if (recipeTags.length === 0) return null;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {recipeTags.map(tagId => {
+                                const mc = mealComponents.find((m: any) => m.id === tagId);
+                                return mc ? <Badge key={tagId} variant="outline" className="text-xs">{mc.name}</Badge> : null;
+                              })}
+                            </div>
+                          );
+                        })()}
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
                             <Eye className="mr-1 h-3 w-3" /> Ver detalle
@@ -894,6 +1000,8 @@ export default function Recipes() {
                   <Label>Descripción</Label>
                   <KioskTextInput value={editDescription} onChange={setEditDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción" />
                 </div>
+
+                {renderTagSelector(editTags, setEditTags)}
 
                 {editRecipeMode === "fixed"
                   ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost)

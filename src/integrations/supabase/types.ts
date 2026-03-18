@@ -2528,6 +2528,52 @@ export type Database = {
           },
         ]
       }
+      recipe_component_tags: {
+        Row: {
+          component_id: string
+          created_at: string
+          id: string
+          recipe_id: string
+          restaurant_id: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          id?: string
+          recipe_id: string
+          restaurant_id: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          id?: string
+          recipe_id?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_component_tags_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "meal_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_component_tags_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_component_tags_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipe_ingredients: {
         Row: {
           created_at: string

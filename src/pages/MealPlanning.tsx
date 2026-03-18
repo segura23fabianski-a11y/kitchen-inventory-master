@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -18,10 +18,12 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, ChevronLeft, ChevronRight, ArrowLeft, Settings2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, ChevronLeft, ChevronRight, ArrowLeft, Settings2, Wand2, FileSpreadsheet, FileText } from "lucide-react";
 import { format, addDays, parseISO, eachDayOfInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const SERVICE_TYPES = [
   { value: "desayuno", label: "Desayuno" },
@@ -408,6 +410,30 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
     },
   });
 
+  // Fetch recipe-component tags for auto-suggest
+  const { data: recipeTags = [] } = useQuery({
+    queryKey: ["recipe-component-tags", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_component_tags" as any)
+        .select("*")
+        .eq("restaurant_id", restaurantId);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Map: componentId → recipe ids tagged with that component
+  const recipesByComponent = useMemo(() => {
+    const map = new Map<string, string[]>();
+    recipeTags.forEach((t: any) => {
+      const arr = map.get(t.component_id) || [];
+      arr.push(t.recipe_id);
+      map.set(t.component_id, arr);
+    });
+    return map;
+  }, [recipeTags]);
+
   // Group templates by service type
   const templatesByService = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -431,6 +457,179 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["meal-plan", planId] }); toast.success("Estado actualizado"); },
   });
 
+  // ─── Auto-suggest logic ──────────────────────────────────────
+  const [suggesting, setSuggesting] = useState(false);
+
+  const autoSuggest = useCallback(async () => {
+    if (!plan || days.length === 0) return;
+    setSuggesting(true);
+    try {
+      // For each day × service × component slot, pick a random tagged recipe avoiding repeats
+      const usedByComponent = new Map<string, Set<string>>(); // componentId → set of recently used recipe ids
+
+      for (const day of days) {
+        const dateStr = format(day, "yyyy-MM-dd");
+
+        for (const st of SERVICE_TYPES) {
+          const templates = templatesByService.get(st.value) || [];
+          if (templates.length === 0) continue;
+
+          // Check if service already exists
+          const existingService = services.find(
+            (s: any) => s.service_date === dateStr && s.service_type === st.value
+          );
+          const existingItems: any[] = existingService?.meal_plan_service_items || [];
+          const filledComponents = new Set(existingItems.map((i: any) => i.component_id));
+
+          // Ensure service row exists
+          let serviceId = existingService?.id;
+          if (!serviceId) {
+            const { data, error } = await supabase
+              .from("meal_plan_services")
+              .insert({ meal_plan_id: planId, restaurant_id: restaurantId, service_date: dateStr, service_type: st.value, projected_servings: 1 })
+              .select("id")
+              .single();
+            if (error) continue;
+            serviceId = data.id;
+          }
+
+          for (const tc of templates) {
+            const componentId = tc.component_id;
+            // Skip if already filled
+            if (filledComponents.has(componentId)) continue;
+
+            const candidates = recipesByComponent.get(componentId) || [];
+            if (candidates.length === 0) continue;
+
+            // Filter out recently used
+            const used = usedByComponent.get(componentId) || new Set();
+            let available = candidates.filter(id => !used.has(id));
+            if (available.length === 0) {
+              // Reset if all used
+              usedByComponent.set(componentId, new Set());
+              available = candidates;
+            }
+
+            // Pick random
+            const picked = available[Math.floor(Math.random() * available.length)];
+
+            // Insert the item
+            await supabase.from("meal_plan_service_items").insert({
+              meal_plan_service_id: serviceId,
+              restaurant_id: restaurantId,
+              component_id: componentId,
+              recipe_id: picked,
+              sort_order: tc.sort_order,
+            });
+
+            // Track usage
+            const usedSet = usedByComponent.get(componentId) || new Set();
+            usedSet.add(picked);
+            usedByComponent.set(componentId, usedSet);
+          }
+        }
+      }
+
+      qc.invalidateQueries({ queryKey: ["meal-plan-services", planId] });
+      toast.success("Sugerido generado. Revisa y ajusta según necesidad.");
+    } catch (e: any) {
+      toast.error("Error generando sugerido: " + e.message);
+    } finally {
+      setSuggesting(false);
+    }
+  }, [plan, days, services, templatesByService, recipesByComponent, planId, restaurantId, qc]);
+
+  // ─── Export PDF ──────────────────────────────────────────────
+  const exportPdf = useCallback(() => {
+    if (!plan || days.length === 0) return;
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text(plan.name, 14, 15);
+    doc.setFontSize(10);
+    doc.text(
+      `${format(parseISO(plan.start_date), "dd/MM/yyyy")} — ${format(parseISO(plan.end_date), "dd/MM/yyyy")}`,
+      14, 22
+    );
+
+    // Build table: rows = days, columns = service types × component slots
+    const allTemplates: { serviceType: string; serviceLabel: string; componentId: string; componentName: string }[] = [];
+    SERVICE_TYPES.forEach(st => {
+      const templates = templatesByService.get(st.value) || [];
+      templates.forEach((tc: any) => {
+        const comp = components.find((c: any) => c.id === tc.component_id);
+        allTemplates.push({
+          serviceType: st.value,
+          serviceLabel: st.label,
+          componentId: tc.component_id,
+          componentName: comp?.name || "?",
+        });
+      });
+    });
+
+    const headers = ["Día", ...allTemplates.map(t => `${t.serviceLabel}\n${t.componentName}`)];
+    const body = days.map(day => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      const dayLabel = format(day, "EEE dd/MM", { locale: es });
+      const cells = allTemplates.map(t => {
+        const svc = services.find((s: any) => s.service_date === dateStr && s.service_type === t.serviceType);
+        const items: any[] = svc?.meal_plan_service_items || [];
+        const item = items.find((i: any) => i.component_id === t.componentId);
+        return item?.recipes?.name || "";
+      });
+      return [dayLabel, ...cells];
+    });
+
+    autoTable(doc, {
+      head: [headers],
+      body,
+      startY: 28,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], fontSize: 7 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 25 } },
+    });
+
+    doc.save(`${plan.name.replace(/\s+/g, "_")}.pdf`);
+    toast.success("PDF exportado");
+  }, [plan, days, services, templatesByService, components]);
+
+  // ─── Export Excel ────────────────────────────────────────────
+  const exportExcel = useCallback(() => {
+    if (!plan || days.length === 0) return;
+
+    const allTemplates: { serviceType: string; serviceLabel: string; componentId: string; componentName: string }[] = [];
+    SERVICE_TYPES.forEach(st => {
+      const templates = templatesByService.get(st.value) || [];
+      templates.forEach((tc: any) => {
+        const comp = components.find((c: any) => c.id === tc.component_id);
+        allTemplates.push({
+          serviceType: st.value,
+          serviceLabel: st.label,
+          componentId: tc.component_id,
+          componentName: comp?.name || "?",
+        });
+      });
+    });
+
+    const rows = days.map(day => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      const row: Record<string, string> = { Día: format(day, "EEE dd/MM", { locale: es }) };
+      allTemplates.forEach(t => {
+        const key = `${t.serviceLabel} - ${t.componentName}`;
+        const svc = services.find((s: any) => s.service_date === dateStr && s.service_type === t.serviceType);
+        const items: any[] = svc?.meal_plan_service_items || [];
+        const item = items.find((i: any) => i.component_id === t.componentId);
+        row[key] = item?.recipes?.name || "";
+      });
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Minuta");
+    XLSX.writeFile(wb, `${plan.name.replace(/\s+/g, "_")}.xlsx`);
+    toast.success("Excel exportado");
+  }, [plan, days, services, templatesByService, components]);
+
   if (!plan) return <p className="text-muted-foreground">Cargando...</p>;
 
   return (
@@ -451,6 +650,16 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
             <SelectItem value="archived">Archivado</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={autoSuggest} disabled={suggesting}>
+          <Wand2 className="h-4 w-4 mr-1" />
+          {suggesting ? "Generando..." : "Sugerido"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileText className="h-4 w-4 mr-1" />PDF
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportExcel}>
+          <FileSpreadsheet className="h-4 w-4 mr-1" />Excel
+        </Button>
       </div>
 
       {/* Day navigation */}
