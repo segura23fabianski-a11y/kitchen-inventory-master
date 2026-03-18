@@ -988,6 +988,8 @@ export default function Recipes() {
                   <KioskTextInput value={editDescription} onChange={setEditDescription} placeholder="Instrucciones o notas..." keyboardLabel="Descripción" />
                 </div>
 
+                {renderTagSelector(editTags, setEditTags)}
+
                 {editRecipeMode === "fixed"
                   ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost)
                   : renderComponentEditor(editComponents, addEditComponent, removeEditComponent, updateEditComponent)
