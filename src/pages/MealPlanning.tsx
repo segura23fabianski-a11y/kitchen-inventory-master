@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -18,10 +18,12 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, ChevronLeft, ChevronRight, ArrowLeft, Settings2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, ChevronLeft, ChevronRight, ArrowLeft, Settings2, Wand2, FileSpreadsheet, FileText } from "lucide-react";
 import { format, addDays, parseISO, eachDayOfInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const SERVICE_TYPES = [
   { value: "desayuno", label: "Desayuno" },
