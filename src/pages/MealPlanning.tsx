@@ -650,6 +650,16 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
             <SelectItem value="archived">Archivado</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={autoSuggest} disabled={suggesting}>
+          <Wand2 className="h-4 w-4 mr-1" />
+          {suggesting ? "Generando..." : "Sugerido"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportPdf}>
+          <FileText className="h-4 w-4 mr-1" />PDF
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportExcel}>
+          <FileSpreadsheet className="h-4 w-4 mr-1" />Excel
+        </Button>
       </div>
 
       {/* Day navigation */}
