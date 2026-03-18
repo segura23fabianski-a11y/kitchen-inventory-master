@@ -481,6 +481,9 @@ export default function Recipes() {
         }
       }
 
+      // Save component tags
+      await saveTagsForRecipe(recipeId, editTags);
+
       await logAudit({
         entityType: "recipe",
         entityId: recipeId,
@@ -493,6 +496,7 @@ export default function Recipes() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
       qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
+      qc.invalidateQueries({ queryKey: ["recipe-component-tags"] });
       setEditMode(false);
       toast({ title: "Receta actualizada" });
     },
