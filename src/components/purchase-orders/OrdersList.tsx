@@ -160,7 +160,7 @@ export default function OrdersList() {
     }
   };
 
-  const updateInvoiceItem = (index: number, field: string, value: number) => {
+  const updateInvoiceItem = (index: number, field: string, value: any) => {
     setInvoiceItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
@@ -169,11 +169,39 @@ export default function OrdersList() {
     if (field === "quantity_received") setAllComplete(false);
   };
 
-  const invoiceTotal = invoiceItems.reduce(
-    (sum, it) => sum + Number(it.quantity_received || 0) * Number(it.unit_cost || 0),
-    0
-  );
-  const hasValidItems = invoiceItems.some((it) => Number(it.quantity_received) > 0);
+  const changeInvoiceProduct = (index: number, productId: string) => {
+    const prod = allProducts?.find((p: any) => p.id === productId);
+    if (!prod) return;
+    setInvoiceItems((prev) => {
+      const copy = [...prev];
+      copy[index] = {
+        ...copy[index],
+        product_id: prod.id,
+        product_name: prod.name,
+        product_unit: prod.unit,
+        unit_cost: prod.last_unit_cost ?? copy[index].unit_cost,
+      };
+      return copy;
+    });
+  };
+
+  const removeInvoiceItem = (index: number) => {
+    setInvoiceItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addInvoiceItem = () => {
+    setInvoiceItems((prev) => [
+      ...prev,
+      {
+        product_id: "",
+        product_name: "",
+        product_unit: "",
+        quantity_ordered: 0,
+        quantity_received: 0,
+        unit_cost: 0,
+      },
+    ]);
+  };
 
   const convertToInvoice = useMutation({
     mutationFn: async () => {
