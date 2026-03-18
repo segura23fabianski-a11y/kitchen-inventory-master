@@ -91,6 +91,50 @@ export default function Recipes() {
     },
   });
 
+  // Fetch meal components for tagging
+  const { data: mealComponents = [] } = useQuery({
+    queryKey: ["meal-components-for-tags", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meal_components")
+        .select("id, name")
+        .eq("restaurant_id", restaurantId!)
+        .eq("active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch all recipe component tags
+  const { data: allRecipeTags = [] } = useQuery({
+    queryKey: ["recipe-component-tags", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_component_tags" as any)
+        .select("*")
+        .eq("restaurant_id", restaurantId!);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  const tagsByRecipe = useMemo(() => {
+    const map = new Map<string, string[]>();
+    allRecipeTags.forEach((t: any) => {
+      const arr = map.get(t.recipe_id) || [];
+      arr.push(t.component_id);
+      map.set(t.recipe_id, arr);
+    });
+    return map;
+  }, [allRecipeTags]);
+
+  // State for tags in create/edit
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [editTags, setEditTags] = useState<string[]>([]);
+
   const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
 
   const { data: recipes, isLoading } = useQuery({
