@@ -203,6 +203,12 @@ export default function OrdersList() {
     ]);
   };
 
+  const invoiceTotal = invoiceItems.reduce(
+    (sum, it) => sum + Number(it.quantity_received || 0) * Number(it.unit_cost || 0),
+    0
+  );
+  const hasValidItems = invoiceItems.some((it) => Number(it.quantity_received) > 0 && !!it.product_id);
+
   const convertToInvoice = useMutation({
     mutationFn: async () => {
       if (!convertOrder || !user) throw new Error("Datos incompletos");
