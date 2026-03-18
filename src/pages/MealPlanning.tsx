@@ -543,49 +543,106 @@ function PlanEditor({ planId, restaurantId, onBack }: { planId: string; restaura
   const exportPdf = useCallback(() => {
     if (!plan || days.length === 0) return;
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(14);
-    doc.text(plan.name, 14, 15);
-    doc.setFontSize(10);
-    doc.text(
-      `${format(parseISO(plan.start_date), "dd/MM/yyyy")} — ${format(parseISO(plan.end_date), "dd/MM/yyyy")}`,
-      14, 22
-    );
 
-    // Build table: rows = days, columns = service types × component slots
-    const allTemplates: { serviceType: string; serviceLabel: string; componentId: string; componentName: string }[] = [];
-    SERVICE_TYPES.forEach(st => {
-      const templates = templatesByService.get(st.value) || [];
-      templates.forEach((tc: any) => {
-        const comp = components.find((c: any) => c.id === tc.component_id);
-        allTemplates.push({
-          serviceType: st.value,
-          serviceLabel: st.label,
-          componentId: tc.component_id,
-          componentName: comp?.name || "?",
+    // Helper to get recipe name for a given date + service + component
+    const getRecipeName = (dateStr: string, serviceType: string, componentId: string) => {
+      const svc = services.find((s: any) => s.service_date === dateStr && s.service_type === serviceType);
+      const items: any[] = svc?.meal_plan_service_items || [];
+      const item = items.find((i: any) => i.component_id === componentId);
+      return item?.recipes?.name || "";
+    };
+
+    // Split days into weekly chunks of 7
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
+    const dayNames = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
+
+    weeks.forEach((weekDays, weekIdx) => {
+      if (weekIdx > 0) doc.addPage();
+
+      // Title
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(plan.name, 14, 12);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Semana ${weekIdx + 1} — ${format(weekDays[0], "dd/MM/yyyy")} al ${format(weekDays[weekDays.length - 1], "dd/MM/yyyy")}`,
+        14, 18
+      );
+
+      // Build headers: first column blank (component name), then day columns
+      const headers = ["", ...weekDays.map((d, i) => dayNames[i] || format(d, "EEE", { locale: es }).toUpperCase())];
+
+      // Build body rows grouped by service type
+      const body: any[][] = [];
+
+      SERVICE_TYPES.forEach(st => {
+        const templates = templatesByService.get(st.value) || [];
+        if (templates.length === 0) return;
+
+        // Service type header row (merged visually via styling)
+        const headerRow = new Array(headers.length).fill("");
+        headerRow[0] = "";
+        // We use a center cell approach: put label in middle
+        const midIdx = Math.floor(headers.length / 2);
+        headerRow[midIdx] = st.label.toUpperCase();
+        body.push(headerRow);
+
+        // Component rows
+        templates.forEach((tc: any) => {
+          const comp = components.find((c: any) => c.id === tc.component_id);
+          const row = [comp?.name?.toUpperCase() || "?"];
+          weekDays.forEach(day => {
+            const dateStr = format(day, "yyyy-MM-dd");
+            row.push(getRecipeName(dateStr, st.value, tc.component_id));
+          });
+          body.push(row);
         });
       });
-    });
 
-    const headers = ["Día", ...allTemplates.map(t => `${t.serviceLabel}\n${t.componentName}`)];
-    const body = days.map(day => {
-      const dateStr = format(day, "yyyy-MM-dd");
-      const dayLabel = format(day, "EEE dd/MM", { locale: es });
-      const cells = allTemplates.map(t => {
-        const svc = services.find((s: any) => s.service_date === dateStr && s.service_type === t.serviceType);
-        const items: any[] = svc?.meal_plan_service_items || [];
-        const item = items.find((i: any) => i.component_id === t.componentId);
-        return item?.recipes?.name || "";
+      // Track which rows are service-type headers for styling
+      let rowIndex = 0;
+      const serviceHeaderRows = new Set<number>();
+      SERVICE_TYPES.forEach(st => {
+        const templates = templatesByService.get(st.value) || [];
+        if (templates.length === 0) return;
+        serviceHeaderRows.add(rowIndex);
+        rowIndex += 1 + templates.length;
       });
-      return [dayLabel, ...cells];
-    });
 
-    autoTable(doc, {
-      head: [headers],
-      body,
-      startY: 28,
-      styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [59, 130, 246], fontSize: 7 },
-      columnStyles: { 0: { fontStyle: "bold", cellWidth: 25 } },
+      autoTable(doc, {
+        head: [headers],
+        body,
+        startY: 23,
+        styles: { fontSize: 7, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.2 },
+        headStyles: {
+          fillColor: [41, 98, 180],
+          textColor: [255, 255, 255],
+          fontSize: 7,
+          fontStyle: "bold",
+          halign: "center",
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 28, fontSize: 6.5 },
+        },
+        didParseCell: (data: any) => {
+          if (data.section === "body") {
+            if (serviceHeaderRows.has(data.row.index)) {
+              // Service type header row — blue background
+              data.cell.styles.fillColor = [180, 198, 231];
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.halign = "center";
+              data.cell.styles.fontSize = 8;
+            }
+          }
+        },
+        margin: { left: 10, right: 10 },
+        tableWidth: "auto",
+      });
     });
 
     doc.save(`${plan.name.replace(/\s+/g, "_")}.pdf`);
