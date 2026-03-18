@@ -274,7 +274,7 @@ export default function Recipes() {
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
-  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); };
+  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); };
 
   const createRecipe = useMutation({
     mutationFn: async () => {
