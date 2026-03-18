@@ -276,6 +276,44 @@ export default function Recipes() {
 
   const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); };
 
+  const toggleTag = (tagList: string[], setTagList: (v: string[]) => void, componentId: string) => {
+    setTagList(tagList.includes(componentId) ? tagList.filter(id => id !== componentId) : [...tagList, componentId]);
+  };
+
+  const saveTagsForRecipe = async (recipeId: string, tags: string[]) => {
+    // Delete existing tags
+    await supabase.from("recipe_component_tags" as any).delete().eq("recipe_id", recipeId);
+    // Insert new tags
+    if (tags.length > 0) {
+      await supabase.from("recipe_component_tags" as any).insert(
+        tags.map(componentId => ({ recipe_id: recipeId, component_id: componentId, restaurant_id: restaurantId! }))
+      );
+    }
+  };
+
+  const renderTagSelector = (tags: string[], setTags: (v: string[]) => void) => (
+    mealComponents.length > 0 ? (
+      <div className="space-y-2">
+        <Label className="text-sm">Etiquetas de Componente (para planeación de minutas)</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {mealComponents.map((mc: any) => (
+            <Badge
+              key={mc.id}
+              variant={tags.includes(mc.id) ? "default" : "outline"}
+              className="cursor-pointer select-none"
+              onClick={() => toggleTag(tags, setTags, mc.id)}
+            >
+              {mc.name}
+            </Badge>
+          ))}
+        </div>
+        {tags.length > 0 && (
+          <p className="text-xs text-muted-foreground">{tags.length} etiqueta(s) seleccionada(s)</p>
+        )}
+      </div>
+    ) : null
+  );
+
   const createRecipe = useMutation({
     mutationFn: async () => {
       const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, recipe_mode: recipeMode, restaurant_id: restaurantId! } as any).select("id").single();
@@ -299,11 +337,15 @@ export default function Recipes() {
         }
       }
 
+      // Save component tags
+      await saveTagsForRecipe(recipe.id, selectedTags);
+
       await logAudit({ entityType: "recipe", entityId: recipe.id, action: "CREATE", after: { name, description, recipe_type: recipeType, recipe_mode: recipeMode }, canRollback: false });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recipes"] });
       qc.invalidateQueries({ queryKey: ["recipe-variable-components"] });
+      qc.invalidateQueries({ queryKey: ["recipe-component-tags"] });
       setOpen(false);
       resetForm();
       toast({ title: "Receta creada" });
