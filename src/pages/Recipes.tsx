@@ -895,6 +895,19 @@ export default function Recipes() {
                             </div>
                           </div>
                         )}
+                        {/* Component tags */}
+                        {(() => {
+                          const recipeTags = tagsByRecipe.get(recipe.id) ?? [];
+                          if (recipeTags.length === 0) return null;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {recipeTags.map(tagId => {
+                                const mc = mealComponents.find((m: any) => m.id === tagId);
+                                return mc ? <Badge key={tagId} variant="outline" className="text-xs">{mc.name}</Badge> : null;
+                              })}
+                            </div>
+                          );
+                        })()}
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => { setViewRecipeId(recipe.id); setEditMode(false); }}>
                             <Eye className="mr-1 h-3 w-3" /> Ver detalle
