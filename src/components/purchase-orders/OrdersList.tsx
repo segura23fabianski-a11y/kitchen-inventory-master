@@ -38,6 +38,19 @@ export default function OrdersList() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [allComplete, setAllComplete] = useState(false);
 
+  // Products for the convert dialog product selector
+  const { data: allProducts } = useQuery({
+    queryKey: ["products-for-invoice"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, unit, last_unit_cost")
+        .order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const { data: orders, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
     queryFn: async () => {
