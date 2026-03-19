@@ -694,13 +694,19 @@ export default function Transformations() {
           {/* ── HISTORY ── */}
           <TabsContent value="history">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Historial de Transformaciones</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Historial de Transformaciones</CardTitle>
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} placeholder="Buscar por producto..." className="pl-8 h-9" />
+                </div>
+              </CardHeader>
               <CardContent>
                 {runs.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No hay transformaciones registradas</p>
                 ) : (
                   <div className="space-y-4">
-                    {runs.map((run: any) => {
+                    {runs.filter((run: any) => !historySearch.trim() || fuzzyMatch(pMap[run.input_product_id]?.name ?? "", historySearch)).map((run: any) => {
                       const outs = run.transformation_run_outputs || [];
                       return (
                         <Card key={run.id} className="border">
