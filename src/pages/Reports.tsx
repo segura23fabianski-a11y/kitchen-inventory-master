@@ -428,6 +428,7 @@ export default function Reports() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="general" className="gap-1"><TrendingDown className="h-4 w-4" /> General</TabsTrigger>
+            <TabsTrigger value="daily" className="gap-1"><CalendarIcon className="h-4 w-4" /> Consumo Diario</TabsTrigger>
             <TabsTrigger value="category" className="gap-1"><Package className="h-4 w-4" /> Por Categoría</TabsTrigger>
             <TabsTrigger value="waste" className="gap-1"><AlertTriangle className="h-4 w-4" /> Desperdicios</TabsTrigger>
             <TabsTrigger value="recipes" className="gap-1"><ChefHat className="h-4 w-4" /> Costo por Receta</TabsTrigger>
