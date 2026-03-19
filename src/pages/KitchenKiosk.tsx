@@ -879,6 +879,7 @@ export default function KitchenKiosk() {
                         onValueChange={(v) => updateComboRecipeComponent(comp.componentId, v)}
                         placeholder="Buscar y seleccionar receta..."
                         searchPlaceholder="Buscar receta..."
+                        forceKeyboard
                       />
 
                       {/* Production run info */}
