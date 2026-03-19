@@ -37,6 +37,7 @@ export default function PhysicalInventory() {
   const [formWarehouse, setFormWarehouse] = useState("");
   const [formCategory, setFormCategory] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [countSearch, setCountSearch] = useState("");
 
   // Queries
   const { data: counts, isLoading } = useQuery({
