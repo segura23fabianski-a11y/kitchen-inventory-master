@@ -711,7 +711,32 @@ export default function Transformations() {
                                   Rend: {parseFloat(run.overall_yield).toFixed(1)}%
                                 </Badge>
                               </div>
-                              {run.notes && <span className="text-xs text-muted-foreground">{run.notes}</span>}
+                              <div className="flex items-center gap-2">
+                                {run.notes && <span className="text-xs text-muted-foreground">{run.notes}</span>}
+                                {canManage && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>¿Eliminar transformación?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Se revertirán los movimientos de inventario asociados. El stock del producto de entrada será restaurado y las salidas descontadas.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteRun.mutate(run)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                          Eliminar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">TRANSF.</Badge>
