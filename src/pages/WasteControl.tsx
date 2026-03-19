@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, ChevronsUpDown, CalendarIcon, Plus, AlertTriangle, TrendingDown, DollarSign, Package, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, CalendarIcon, Plus, AlertTriangle, TrendingDown, DollarSign, Package, Upload, Trash2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
