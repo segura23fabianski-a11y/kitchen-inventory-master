@@ -1232,57 +1232,85 @@ export default function Recipes() {
                 ...ri,
                 unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
               }));
+              const recipePortions = Number((viewedRecipe as any).portions ?? 1);
+              const perPortionCost = calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit })));
+              const batchTotalCost = perPortionCost * recipePortions;
               return (
                 <div className="space-y-4">
                   {viewedRecipe.description && (
                     <p className="text-sm text-muted-foreground">{viewedRecipe.description}</p>
                   )}
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{((viewedRecipe as any).recipe_type ?? "food") === "food" ? "Ingrediente" : "Insumo"}</TableHead>
-                        <TableHead className="text-right">Cantidad</TableHead>
-                        <TableHead className="text-right">Rinde (kg)</TableHead>
-                        <TableHead className="text-right">Costo Unit.</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {ings.map((ing) => {
-                        const prod = productMap.get(ing.product_id);
-                        const sub = calcLineCost({ product_id: ing.product_id, quantity: Number(ing.quantity), unit: ing.unit });
-                        return (
-                          <TableRow key={ing.id}>
-                            <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
-                            <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
-                            <TableCell className="text-right">
-                              {canManage ? (
-                                <NumericKeypadInput
-                                  mode="decimal"
-                                  className="w-20 h-8 text-right inline-block"
-                                  value={Number((ing as any).yield_per_portion) || ""}
-                                  onChange={(v) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(v) })}
-                                  min="0"
-                                  keypadLabel="Rendimiento (kg)"
-                                />
-                              ) : (
-                                <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
+
+                  {/* Portions badge */}
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-sm">
+                      {recipePortions} porción(es) por lote
+                    </Badge>
+                  </div>
+
+                  {/* Per-portion table */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Cantidades por porción</Label>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{((viewedRecipe as any).recipe_type ?? "food") === "food" ? "Ingrediente" : "Insumo"}</TableHead>
+                          <TableHead className="text-right">Cant/Porción</TableHead>
+                          {recipePortions > 1 && <TableHead className="text-right">Cant. Lote</TableHead>}
+                          <TableHead className="text-right">Rinde (kg)</TableHead>
+                          <TableHead className="text-right">Costo Unit.</TableHead>
+                          <TableHead className="text-right">Subtotal/Porción</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ings.map((ing) => {
+                          const prod = productMap.get(ing.product_id);
+                          const sub = calcLineCost({ product_id: ing.product_id, quantity: Number(ing.quantity), unit: ing.unit });
+                          const batchQty = Number(ing.quantity) * recipePortions;
+                          return (
+                            <TableRow key={ing.id}>
+                              <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
+                              <TableCell className="text-right">{Number(ing.quantity).toFixed(2)} {ing.unit}</TableCell>
+                              {recipePortions > 1 && (
+                                <TableCell className="text-right font-semibold text-primary">{batchQty.toFixed(2)} {ing.unit}</TableCell>
                               )}
-                            </TableCell>
-                            <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
-                              {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ing.product_id).toFixed(4)}/${prod?.unit}`}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Costo teórico total</span>
-                    <span className="font-heading text-xl font-bold">
-                      {formatCost(calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))))}
-                    </span>
+                              <TableCell className="text-right">
+                                {canManage ? (
+                                  <NumericKeypadInput
+                                    mode="decimal"
+                                    className="w-20 h-8 text-right inline-block"
+                                    value={Number((ing as any).yield_per_portion) || ""}
+                                    onChange={(v) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(v) })}
+                                    min="0"
+                                    keypadLabel="Rendimiento (kg)"
+                                  />
+                                ) : (
+                                  <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
+                                )}
+                              </TableCell>
+                              <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
+                                {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ing.product_id).toFixed(4)}/${prod?.unit}`}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Cost summary */}
+                  <div className="rounded-md bg-muted p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Costo por porción</span>
+                      <span className="font-heading text-xl font-bold">{formatCost(perPortionCost)}</span>
+                    </div>
+                    {recipePortions > 1 && (
+                      <div className="flex items-center justify-between border-t pt-2">
+                        <span className="text-sm text-muted-foreground">Costo total del lote ({recipePortions} porciones)</span>
+                        <span className="font-heading text-lg font-bold text-primary">{formatCost(batchTotalCost)}</span>
+                      </div>
+                    )}
                   </div>
                   {canUpdate && (
                     <Button className="w-full" variant="outline" onClick={() => startEdit(viewedRecipe)}>
