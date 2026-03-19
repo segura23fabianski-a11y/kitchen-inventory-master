@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
