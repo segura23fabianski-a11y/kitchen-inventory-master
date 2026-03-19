@@ -57,13 +57,26 @@ export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSe
   const useKb = forceKeyboard || kioskMode;
   const [kbOpen, setKbOpen] = React.useState(false);
   const [kioskSearch, setKioskSearch] = React.useState("");
+  // Track if keyboard is active to prevent popover from closing
+  const kbOpenRef = React.useRef(false);
 
   const selectedOption = options.find((o) => o.value === value);
+
+  // Keep ref in sync
+  React.useEffect(() => {
+    kbOpenRef.current = kbOpen;
+  }, [kbOpen]);
 
   // Reset kiosk search when popover closes
   React.useEffect(() => {
     if (!open) setKioskSearch("");
   }, [open]);
+
+  // Prevent popover from closing while keyboard is open
+  const handlePopoverOpenChange = React.useCallback((newOpen: boolean) => {
+    if (!newOpen && kbOpenRef.current) return; // Block close while keyboard is active
+    setOpen(newOpen);
+  }, []);
 
   // In kiosk mode, filter options client-side using kioskSearch
   const filteredOptions = React.useMemo(() => {
@@ -77,7 +90,7 @@ export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSe
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handlePopoverOpenChange}>
         <PopoverTrigger asChild>
           <Button
             ref={ref}
@@ -108,7 +121,17 @@ export const SearchableSelect = React.forwardRef<HTMLButtonElement, SearchableSe
             </div>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", className)} align="start">
+        <PopoverContent
+          className={cn("w-[--radix-popover-trigger-width] p-0", className)}
+          align="start"
+          onInteractOutside={(e) => {
+            // Prevent closing when interacting with the keyboard dialog
+            if (kbOpenRef.current) e.preventDefault();
+          }}
+          onPointerDownOutside={(e) => {
+            if (kbOpenRef.current) e.preventDefault();
+          }}
+        >
           <Command
             filter={useKb ? undefined : (value, search) => {
               const option = options.find((o) => o.value === value);
