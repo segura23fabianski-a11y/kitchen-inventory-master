@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -14,7 +15,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Eye, Trash2, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Plus, ClipboardCheck, Eye, Trash2, CheckCircle2, ArrowLeft, Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
@@ -36,6 +37,7 @@ export default function PhysicalInventory() {
   const [formWarehouse, setFormWarehouse] = useState("");
   const [formCategory, setFormCategory] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [countSearch, setCountSearch] = useState("");
 
   // Queries
   const { data: counts, isLoading } = useQuery({
@@ -357,6 +359,12 @@ export default function PhysicalInventory() {
 
         <Card>
           <CardContent className="p-0">
+            <div className="p-4 pb-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={countSearch} onChange={(e) => setCountSearch(e.target.value)} placeholder="Buscar conteo..." className="pl-10 h-9" />
+              </div>
+            </div>
             {isLoading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">Cargando...</div>
             ) : !counts?.length ? (
@@ -378,7 +386,7 @@ export default function PhysicalInventory() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {counts.map((c) => (
+                  {counts.filter((c) => fuzzyMatch(buildHaystack(c.name, (c as any).warehouses?.name, (c as any).categories?.name), countSearch)).map((c) => (
                     <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelectedCountId(c.id)}>
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell>{format(new Date(c.count_date), "dd/MM/yyyy")}</TableCell>

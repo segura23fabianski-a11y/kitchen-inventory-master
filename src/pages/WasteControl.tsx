@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { fuzzyMatch } from "@/lib/search-utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, ChevronsUpDown, CalendarIcon, Plus, AlertTriangle, TrendingDown, DollarSign, Package, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, CalendarIcon, Plus, AlertTriangle, TrendingDown, DollarSign, Package, Upload, Trash2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -75,6 +76,7 @@ export default function WasteControl() {
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(undefined);
   const [filterDateFromOpen, setFilterDateFromOpen] = useState(false);
   const [filterDateToOpen, setFilterDateToOpen] = useState(false);
+  const [wasteSearch, setWasteSearch] = useState("");
 
   const { data: products } = useQuery({
     queryKey: ["products-waste"],
@@ -257,8 +259,14 @@ export default function WasteControl() {
       const to = format(filterDateTo, "yyyy-MM-dd") + "T23:59:59";
       result = result.filter((m) => m.movement_date <= to);
     }
+    if (wasteSearch.trim()) {
+      result = result.filter((m) => {
+        const prod = productMap.get(m.product_id);
+        return fuzzyMatch(prod?.name ?? "", wasteSearch);
+      });
+    }
     return result;
-  }, [wasteMovements, filterType, filterDateFrom, filterDateTo]);
+  }, [wasteMovements, filterType, filterDateFrom, filterDateTo, wasteSearch, productMap]);
 
   // KPIs
   const totalLoss = filteredMovements.reduce((s, m) => s + (m.loss_value ?? 0), 0);
@@ -591,6 +599,13 @@ export default function WasteControl() {
           <TabsContent value="history" className="space-y-4">
             {/* Filters */}
             <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[180px]">
+                <Label className="text-xs">Buscar producto</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input value={wasteSearch} onChange={(e) => setWasteSearch(e.target.value)} placeholder="Nombre del producto..." className="pl-8 h-9" />
+                </div>
+              </div>
               <div>
                 <Label className="text-xs">Tipo</Label>
                 <Select value={filterType} onValueChange={setFilterType}>
@@ -631,8 +646,8 @@ export default function WasteControl() {
                   </PopoverContent>
                 </Popover>
               </div>
-              {(filterDateFrom || filterDateTo || filterType !== "all") && (
-                <Button variant="ghost" size="sm" onClick={() => { setFilterType("all"); setFilterDateFrom(undefined); setFilterDateTo(undefined); }}>
+              {(filterDateFrom || filterDateTo || filterType !== "all" || wasteSearch) && (
+                <Button variant="ghost" size="sm" onClick={() => { setFilterType("all"); setFilterDateFrom(undefined); setFilterDateTo(undefined); setWasteSearch(""); }}>
                   Limpiar
                 </Button>
               )}

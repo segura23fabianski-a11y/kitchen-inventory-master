@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
@@ -10,13 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Trash2, Warehouse } from "lucide-react";
+import { Plus, Trash2, Warehouse as WarehouseIcon, Search } from "lucide-react";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 export default function Warehouses() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
   const restaurantId = useRestaurantId();
@@ -92,6 +94,12 @@ export default function Warehouses() {
 
         <Card>
           <CardContent className="p-0">
+            <div className="p-4 pb-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <KioskTextInput className="pl-10" placeholder="Buscar almacén..." value={search} onChange={setSearch} keyboardLabel="Buscar almacén" inputType="search" />
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -106,10 +114,10 @@ export default function Warehouses() {
                 ) : !warehouses?.length ? (
                   <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">Sin almacenes</TableCell></TableRow>
                 ) : (
-                  warehouses.map((w) => (
+                  warehouses.filter((w) => fuzzyMatch(buildHaystack(w.name, w.description), search)).map((w) => (
                     <TableRow key={w.id}>
                       <TableCell className="font-medium flex items-center gap-2">
-                        <Warehouse className="h-4 w-4 text-muted-foreground" />
+                        <WarehouseIcon className="h-4 w-4 text-muted-foreground" />
                         {w.name}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{w.description || "—"}</TableCell>

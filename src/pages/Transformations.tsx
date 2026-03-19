@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { fuzzyMatch } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FlaskConical, History, Percent, ArrowRight, Trash2, PackagePlus, Pencil } from "lucide-react";
+import { Plus, FlaskConical, History, Percent, ArrowRight, Trash2, PackagePlus, Pencil, Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -59,6 +60,8 @@ export default function Transformations() {
   const canManage = hasPermission("transformations_manage");
 
   const [tab, setTab] = useState("register");
+  const [historySearch, setHistorySearch] = useState("");
+  const [processSearch, setProcessSearch] = useState("");
 
   /* ── Queries ── */
   const { data: products = [] } = useQuery({
@@ -691,13 +694,19 @@ export default function Transformations() {
           {/* ── HISTORY ── */}
           <TabsContent value="history">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Historial de Transformaciones</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Historial de Transformaciones</CardTitle>
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} placeholder="Buscar por producto..." className="pl-8 h-9" />
+                </div>
+              </CardHeader>
               <CardContent>
                 {runs.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No hay transformaciones registradas</p>
                 ) : (
                   <div className="space-y-4">
-                    {runs.map((run: any) => {
+                    {runs.filter((run: any) => !historySearch.trim() || fuzzyMatch(pMap[run.input_product_id]?.name ?? "", historySearch)).map((run: any) => {
                       const outs = run.transformation_run_outputs || [];
                       return (
                         <Card key={run.id} className="border">
@@ -778,13 +787,19 @@ export default function Transformations() {
           {/* ── PROCESSES ── */}
           <TabsContent value="processes">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Procesos Definidos</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Procesos Definidos</CardTitle>
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input value={processSearch} onChange={(e) => setProcessSearch(e.target.value)} placeholder="Buscar proceso..." className="pl-8 h-9" />
+                </div>
+              </CardHeader>
               <CardContent>
                 {definitions.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No hay procesos definidos. Crea uno con "Nuevo Proceso".</p>
                 ) : (
                   <div className="space-y-4">
-                    {definitions.map((def: any) => {
+                    {definitions.filter((def: any) => !processSearch.trim() || fuzzyMatch(def.name, processSearch)).map((def: any) => {
                       const outs = def.transformation_definition_outputs || [];
                       return (
                         <Card key={def.id} className="border">

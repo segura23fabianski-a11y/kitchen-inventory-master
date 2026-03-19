@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
@@ -17,7 +18,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useRoles } from "@/hooks/use-roles";
-import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound, CalendarClock } from "lucide-react";
+import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound, CalendarClock, Search } from "lucide-react";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 type EditingUser = { user_id: string; full_name: string };
 
@@ -46,6 +48,7 @@ export default function Users() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const restaurantId = useRestaurantId();
+  const [userSearch, setUserSearch] = useState("");
 
   const { data: profiles, isLoading } = useQuery({
     queryKey: ["profiles"],
@@ -65,7 +68,11 @@ export default function Users() {
     },
   });
 
-  const activeProfiles = profiles?.filter((p) => p.status === "active") ?? [];
+  const activeProfiles = useMemo(() => {
+    const active = profiles?.filter((p) => p.status === "active") ?? [];
+    if (!userSearch.trim()) return active;
+    return active.filter((p) => fuzzyMatch(buildHaystack(p.full_name), userSearch));
+  }, [profiles, userSearch]);
   const pendingProfiles = profiles?.filter((p) => p.status === "pending") ?? [];
   const blockedProfiles = profiles?.filter((p) => p.status === "blocked") ?? [];
 
@@ -336,6 +343,13 @@ export default function Users() {
   const currentMaxDays = typeof maxDaysSetting?.value === "number" ? maxDaysSetting.value : 45;
 
   const renderActiveTable = () => (
+    <>
+      <div className="p-4 pb-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <KioskTextInput className="pl-10" placeholder="Buscar usuario..." value={userSearch} onChange={setUserSearch} keyboardLabel="Buscar usuario" inputType="search" />
+        </div>
+      </div>
     <Table>
       <TableHeader>
         <TableRow>
@@ -454,6 +468,7 @@ export default function Users() {
         )}
       </TableBody>
     </Table>
+    </>
   );
 
   const renderPendingTable = () => (
