@@ -18,7 +18,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useRoles } from "@/hooks/use-roles";
-import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound, CalendarClock } from "lucide-react";
+import { Plus, Trash2, ShieldPlus, UserCheck, Ban, Clock, Pencil, KeyRound, CalendarClock, Search } from "lucide-react";
+import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 
 type EditingUser = { user_id: string; full_name: string };
 
