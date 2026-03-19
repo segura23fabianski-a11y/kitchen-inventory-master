@@ -131,16 +131,21 @@ export function ProductionRunDialog({
       const { error: itemsError } = await supabase
         .from("recipe_production_run_items" as any)
         .insert(
-          ingredients.map((ing) => ({
-            run_id: (run as any).id,
-            product_id: ing.productId,
-            theoretical_quantity: ing.theoreticalQty,
-            actual_quantity: ing.actualQty,
-            unit: ing.productUnit,
-            unit_cost: ing.unitCost,
-            theoretical_line_cost: ing.theoreticalQty * ing.unitCost,
-            actual_line_cost: ing.actualQty * ing.unitCost,
-          })) as any
+          ingredients.map((ing) => {
+            const prod = products.find((p) => p.id === ing.productId);
+            const baseTheoQty = convertToProductUnit(ing.theoreticalQty, ing.productUnit, prod?.unit ?? ing.productUnit);
+            const baseActualQty = convertToProductUnit(ing.actualQty, ing.productUnit, prod?.unit ?? ing.productUnit);
+            return {
+              run_id: (run as any).id,
+              product_id: ing.productId,
+              theoretical_quantity: ing.theoreticalQty,
+              actual_quantity: ing.actualQty,
+              unit: ing.productUnit,
+              unit_cost: ing.unitCost,
+              theoretical_line_cost: baseTheoQty * ing.unitCost,
+              actual_line_cost: baseActualQty * ing.unitCost,
+            };
+          }) as any
         );
       if (itemsError) throw itemsError;
 
