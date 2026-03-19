@@ -473,7 +473,74 @@ export default function Reports() {
             </Card>
           </TabsContent>
 
-          {/* TAB 2: By category */}
+          {/* TAB: Daily product consumption */}
+          <TabsContent value="daily">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 max-w-sm">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar producto o fecha..." value={dailySearch} onChange={(e) => setDailySearch(e.target.value)} />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Consumo por Producto y Día</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Unidad</TableHead>
+                        <TableHead className="text-right">Valor Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!filteredDailyData.length ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin datos de consumo</TableCell></TableRow>
+                      ) : (() => {
+                        let lastDate = "";
+                        const rows: React.ReactNode[] = [];
+                        for (const r of filteredDailyData) {
+                          if (r.date !== lastDate) {
+                            if (lastDate && dailyTotals.has(lastDate)) {
+                              rows.push(
+                                <TableRow key={`total-${lastDate}`} className="bg-muted/50 font-semibold">
+                                  <TableCell colSpan={4} className="text-right">Subtotal del día</TableCell>
+                                  <TableCell className="text-right">${(dailyTotals.get(lastDate) ?? 0).toLocaleString()}</TableCell>
+                                </TableRow>
+                              );
+                            }
+                            lastDate = r.date;
+                          }
+                          rows.push(
+                            <TableRow key={`${r.date}-${r.productId}`}>
+                              <TableCell className="text-muted-foreground">{r.dateLabel}</TableCell>
+                              <TableCell className="font-medium">{r.productName}</TableCell>
+                              <TableCell className="text-right">{r.qty}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{r.unit}</TableCell>
+                              <TableCell className="text-right font-semibold">${r.cost.toLocaleString()}</TableCell>
+                            </TableRow>
+                          );
+                        }
+                        // Last day subtotal
+                        if (lastDate && dailyTotals.has(lastDate)) {
+                          rows.push(
+                            <TableRow key={`total-${lastDate}`} className="bg-muted/50 font-semibold">
+                              <TableCell colSpan={4} className="text-right">Subtotal del día</TableCell>
+                              <TableCell className="text-right">${(dailyTotals.get(lastDate) ?? 0).toLocaleString()}</TableCell>
+                            </TableRow>
+                          );
+                        }
+                        return rows;
+                      })()}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="category">
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
