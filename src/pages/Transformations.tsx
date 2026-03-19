@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
+import { usePermissions } from "@/hooks/use-permissions";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,10 +17,11 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FlaskConical, History, Percent, ArrowRight, Trash2, PackagePlus } from "lucide-react";
+import { Plus, FlaskConical, History, Percent, ArrowRight, Trash2, PackagePlus, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -52,7 +54,9 @@ export default function Transformations() {
   const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const { logAudit } = useAudit();
+  const { hasPermission } = usePermissions();
   const qc = useQueryClient();
+  const canManage = hasPermission("transformations_manage");
 
   const [tab, setTab] = useState("register");
 
@@ -106,11 +110,13 @@ export default function Transformations() {
   const [defName, setDefName] = useState("");
   const [defInputId, setDefInputId] = useState("");
   const [defOutputs, setDefOutputs] = useState<OutputLine[]>([newLine()]);
+  const [editingDefId, setEditingDefId] = useState<string | null>(null);
 
   const resetDefForm = () => {
     setDefName("");
     setDefInputId("");
     setDefOutputs([newLine()]);
+    setEditingDefId(null);
   };
 
   const addDefOutput = () => setDefOutputs((prev) => [...prev, newLine()]);
@@ -118,34 +124,137 @@ export default function Transformations() {
   const updateDefOutput = (id: string, field: keyof OutputLine, value: string) =>
     setDefOutputs((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
 
-  const createDef = useMutation({
+  const openEditDef = (def: any) => {
+    setEditingDefId(def.id);
+    setDefName(def.name);
+    setDefInputId(def.input_product_id);
+    const outs = (def.transformation_definition_outputs || []).map((o: any) => ({
+      id: `line-${++lineIdCounter}`,
+      productId: o.output_product_id,
+      outputType: o.output_type as "output" | "byproduct" | "waste",
+      quantity: "",
+      expectedYield: o.expected_yield_percent?.toString() || "",
+    }));
+    setDefOutputs(outs.length ? outs : [newLine()]);
+    setDefOpen(true);
+  };
+
+  const saveDef = useMutation({
     mutationFn: async () => {
       const validOutputs = defOutputs.filter((o) => o.productId);
       if (!validOutputs.length) throw new Error("Agrega al menos un producto de salida");
 
-      const { data: def, error: e1 } = await supabase
-        .from("transformation_definitions" as any)
-        .insert({ restaurant_id: restaurantId, name: defName.trim(), input_product_id: defInputId } as any)
-        .select("id")
-        .single();
-      if (e1) throw e1;
+      if (editingDefId) {
+        // UPDATE existing definition
+        const { error: e1 } = await supabase
+          .from("transformation_definitions" as any)
+          .update({ name: defName.trim(), input_product_id: defInputId } as any)
+          .eq("id", editingDefId);
+        if (e1) throw e1;
 
-      const outputs = validOutputs.map((o) => ({
-        transformation_definition_id: (def as any).id,
-        output_product_id: o.productId,
-        output_type: o.outputType,
-        expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
-      }));
-      const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
-      if (e2) throw e2;
+        // Delete old outputs and re-insert
+        await supabase.from("transformation_definition_outputs" as any).delete().eq("transformation_definition_id", editingDefId);
+        const outputs = validOutputs.map((o) => ({
+          transformation_definition_id: editingDefId,
+          output_product_id: o.productId,
+          output_type: o.outputType,
+          expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
+        }));
+        const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
+        if (e2) throw e2;
+      } else {
+        // CREATE new definition
+        const { data: def, error: e1 } = await supabase
+          .from("transformation_definitions" as any)
+          .insert({ restaurant_id: restaurantId, name: defName.trim(), input_product_id: defInputId } as any)
+          .select("id")
+          .single();
+        if (e1) throw e1;
+
+        const outputs = validOutputs.map((o) => ({
+          transformation_definition_id: (def as any).id,
+          output_product_id: o.productId,
+          output_type: o.outputType,
+          expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
+        }));
+        const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
+        if (e2) throw e2;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
-      qc.invalidateQueries({ queryKey: ["transformation_runs"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
       setDefOpen(false);
       resetDefForm();
-      toast({ title: "Proceso creado correctamente" });
+      toast({ title: editingDefId ? "Proceso actualizado" : "Proceso creado correctamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteDef = useMutation({
+    mutationFn: async (defId: string) => {
+      await supabase.from("transformation_definition_outputs" as any).delete().eq("transformation_definition_id", defId);
+      const { error } = await supabase.from("transformation_definitions" as any).delete().eq("id", defId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
+      toast({ title: "Proceso eliminado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteRun = useMutation({
+    mutationFn: async (run: any) => {
+      if (!user || !restaurantId) throw new Error("Sin sesión");
+
+      // Reverse inventory movements: delete movements created by this transformation
+      // 1. Re-add stock to input product (reverse the 'transformacion' movement)
+      const { error: e1 } = await supabase.from("inventory_movements").insert({
+        restaurant_id: restaurantId,
+        product_id: run.input_product_id,
+        user_id: user.id,
+        type: "entrada",
+        quantity: Math.abs(run.input_quantity),
+        unit_cost: run.input_unit_cost || 0,
+        total_cost: Math.abs(run.input_quantity) * (run.input_unit_cost || 0),
+        notes: `Reversión de transformación eliminada`,
+      });
+      if (e1) throw e1;
+
+      // 2. Reverse each output (subtract from output products)
+      const outs = run.transformation_run_outputs || [];
+      for (const o of outs) {
+        const movType = o.output_type === "waste" ? "ajuste" : "salida";
+        if (o.output_type === "waste") continue; // waste had no stock entry
+        const { error } = await supabase.from("inventory_movements").insert({
+          restaurant_id: restaurantId,
+          product_id: o.output_product_id,
+          user_id: user.id,
+          type: "salida",
+          quantity: Math.abs(o.quantity),
+          unit_cost: o.calculated_unit_cost || 0,
+          total_cost: Math.abs(o.quantity) * (o.calculated_unit_cost || 0),
+          notes: `Reversión de transformación eliminada`,
+        });
+        if (error) throw error;
+      }
+
+      // 3. Delete run outputs and run
+      await supabase.from("transformation_run_outputs" as any).delete().eq("transformation_run_id", run.id);
+      const { error: e3 } = await supabase.from("transformation_runs" as any).delete().eq("id", run.id);
+      if (e3) throw e3;
+
+      await logAudit({
+        entityType: "transformation",
+        entityId: run.id,
+        action: "DELETE",
+        before: { input: run.input_product_id, qty: run.input_quantity },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transformation_runs"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Transformación eliminada", description: "El inventario ha sido revertido" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -393,7 +502,7 @@ export default function Transformations() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Definir Proceso de Transformación</DialogTitle>
+                <DialogTitle>{editingDefId ? "Editar Proceso" : "Definir Proceso de Transformación"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
@@ -415,11 +524,11 @@ export default function Transformations() {
                   {renderOutputLines(defOutputs, updateDefOutput, removeDefOutput, addDefOutput, false, true)}
                 </div>
                 <Button
-                  onClick={() => createDef.mutate()}
-                  disabled={!defName.trim() || !defInputId || !defOutputs.some((o) => o.productId) || createDef.isPending}
+                  onClick={() => saveDef.mutate()}
+                  disabled={!defName.trim() || !defInputId || !defOutputs.some((o) => o.productId) || saveDef.isPending}
                   className="w-full"
                 >
-                  {createDef.isPending ? "Creando..." : "Crear Proceso"}
+                  {saveDef.isPending ? "Guardando..." : editingDefId ? "Guardar Cambios" : "Crear Proceso"}
                 </Button>
               </div>
             </DialogContent>
@@ -602,7 +711,32 @@ export default function Transformations() {
                                   Rend: {parseFloat(run.overall_yield).toFixed(1)}%
                                 </Badge>
                               </div>
-                              {run.notes && <span className="text-xs text-muted-foreground">{run.notes}</span>}
+                              <div className="flex items-center gap-2">
+                                {run.notes && <span className="text-xs text-muted-foreground">{run.notes}</span>}
+                                {canManage && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>¿Eliminar transformación?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Se revertirán los movimientos de inventario asociados. El stock del producto de entrada será restaurado y las salidas descontadas.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteRun.mutate(run)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                          Eliminar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">TRANSF.</Badge>
@@ -655,7 +789,37 @@ export default function Transformations() {
                       return (
                         <Card key={def.id} className="border">
                           <CardContent className="pt-4 space-y-2">
-                            <h3 className="font-semibold">{def.name}</h3>
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-semibold">{def.name}</h3>
+                              {canManage && (
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDef(def)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>¿Eliminar proceso "{def.name}"?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Esta acción eliminará la definición del proceso. Las ejecuciones previas no se verán afectadas.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteDef.mutate(def.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                          Eliminar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">ENTRADA</Badge>
                               <span>{pMap[def.input_product_id]?.name ?? "—"} ({pMap[def.input_product_id]?.unit})</span>
