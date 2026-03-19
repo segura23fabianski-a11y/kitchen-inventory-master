@@ -462,14 +462,17 @@ export default function Recipes() {
         const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
         if (validIngredients.length > 0) {
           const { error: insErr } = await supabase.from("recipe_ingredients").insert(
-            validIngredients.map((i) => ({
-              recipe_id: recipeId,
-              product_id: i.product_id,
-              quantity: i.quantity,
-              unit: i.unit,
-              yield_per_portion: i.yield_per_portion,
-              restaurant_id: restaurantId!,
-            }))
+            validIngredients.map((i) => {
+              const perPortionQty = editInputMode === "batch" && editPortions > 0 ? i.quantity / editPortions : i.quantity;
+              return {
+                recipe_id: recipeId,
+                product_id: i.product_id,
+                quantity: perPortionQty,
+                unit: i.unit,
+                yield_per_portion: i.yield_per_portion,
+                restaurant_id: restaurantId!,
+              };
+            })
           );
           if (insErr) throw insErr;
         }
