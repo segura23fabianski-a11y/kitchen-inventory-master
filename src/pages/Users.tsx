@@ -468,6 +468,7 @@ export default function Users() {
         )}
       </TableBody>
     </Table>
+    </>
   );
 
   const renderPendingTable = () => (
