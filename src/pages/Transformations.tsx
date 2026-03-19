@@ -789,7 +789,37 @@ export default function Transformations() {
                       return (
                         <Card key={def.id} className="border">
                           <CardContent className="pt-4 space-y-2">
-                            <h3 className="font-semibold">{def.name}</h3>
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-semibold">{def.name}</h3>
+                              {canManage && (
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDef(def)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>¿Eliminar proceso "{def.name}"?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Esta acción eliminará la definición del proceso. Las ejecuciones previas no se verán afectadas.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteDef.mutate(def.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                          Eliminar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">ENTRADA</Badge>
                               <span>{pMap[def.input_product_id]?.name ?? "—"} ({pMap[def.input_product_id]?.unit})</span>
