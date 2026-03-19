@@ -502,7 +502,7 @@ export default function Transformations() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Definir Proceso de Transformación</DialogTitle>
+                <DialogTitle>{editingDefId ? "Editar Proceso" : "Definir Proceso de Transformación"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
@@ -524,11 +524,11 @@ export default function Transformations() {
                   {renderOutputLines(defOutputs, updateDefOutput, removeDefOutput, addDefOutput, false, true)}
                 </div>
                 <Button
-                  onClick={() => createDef.mutate()}
-                  disabled={!defName.trim() || !defInputId || !defOutputs.some((o) => o.productId) || createDef.isPending}
+                  onClick={() => saveDef.mutate()}
+                  disabled={!defName.trim() || !defInputId || !defOutputs.some((o) => o.productId) || saveDef.isPending}
                   className="w-full"
                 >
-                  {createDef.isPending ? "Creando..." : "Crear Proceso"}
+                  {saveDef.isPending ? "Guardando..." : editingDefId ? "Guardar Cambios" : "Crear Proceso"}
                 </Button>
               </div>
             </DialogContent>
