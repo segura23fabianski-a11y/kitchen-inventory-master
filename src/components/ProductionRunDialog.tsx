@@ -101,7 +101,9 @@ export function ProductionRunDialog({
 
   const hasInsufficient = ingredients.some((ing) => {
     const prod = products.find((p) => p.id === ing.productId);
-    return prod && ing.actualQty > Number(prod.current_stock ?? 0);
+    if (!prod) return false;
+    const baseQty = convertToProductUnit(ing.actualQty, ing.productUnit, prod.unit ?? ing.productUnit);
+    return baseQty > Number(prod.current_stock ?? 0);
   });
 
   const confirmRun = useMutation({
