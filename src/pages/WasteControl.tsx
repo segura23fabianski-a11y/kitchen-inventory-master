@@ -599,6 +599,13 @@ export default function WasteControl() {
           <TabsContent value="history" className="space-y-4">
             {/* Filters */}
             <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[180px]">
+                <Label className="text-xs">Buscar producto</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input value={wasteSearch} onChange={(e) => setWasteSearch(e.target.value)} placeholder="Nombre del producto..." className="pl-8 h-9" />
+                </div>
+              </div>
               <div>
                 <Label className="text-xs">Tipo</Label>
                 <Select value={filterType} onValueChange={setFilterType}>
