@@ -499,16 +499,20 @@ export default function KitchenKiosk() {
   const comboIsValid = useMemo(() => {
     if (!comboExecution) return false;
     if (comboExecution.servings <= 0) return false;
+
+    let hasSelectedComponent = false;
+
     for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
-        if (!comp.selectedProductId) return false;
+        if (!comp.selectedProductId) continue;
+        hasSelectedComponent = true;
         const prod = products?.find((p) => p.id === comp.selectedProductId);
         if (!prod) return false;
         const needed = comboExecution.servings * comp.quantityPerService;
         if (needed > Number(prod.current_stock ?? 0)) return false;
       } else {
-        // recipe mode
-        if (!comp.selectedRecipeId) return false;
+        if (!comp.selectedRecipeId) continue;
+        hasSelectedComponent = true;
         // If using production run, no ingredient-level stock check needed (already produced)
         if (comp.costSource !== "production_run") {
           if (comp.recipeIngredients.length === 0) return false;
@@ -521,7 +525,8 @@ export default function KitchenKiosk() {
         }
       }
     }
-    return true;
+
+    return hasSelectedComponent;
   }, [comboExecution, products]);
 
   const comboCostBreakdown = useMemo(() => {
