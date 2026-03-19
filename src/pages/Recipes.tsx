@@ -447,7 +447,7 @@ export default function Recipes() {
       const { data: prev } = await supabase.from("recipes").select("*").eq("id", recipeId).single();
       const { error } = await supabase
         .from("recipes")
-        .update({ name: editName, description: editDescription, recipe_type: editRecipeType, recipe_mode: editRecipeMode } as any)
+        .update({ name: editName, description: editDescription, recipe_type: editRecipeType, recipe_mode: editRecipeMode, portions: editRecipeMode === "fixed" ? editPortions : 1 } as any)
         .eq("id", recipeId);
       if (error) throw error;
 
