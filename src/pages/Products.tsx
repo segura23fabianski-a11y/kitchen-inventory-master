@@ -331,15 +331,11 @@ export default function Products() {
     codesByProduct.set(c.product_id, arr);
   });
 
-  const filtered = products?.filter((p) => {
-    const q = search.toLowerCase();
-    if (!q) return true;
-    if (p.name.toLowerCase().includes(q)) return true;
-    if (p.barcode && p.barcode.toLowerCase().includes(q)) return true;
-    const pCodes = codesByProduct.get(p.id);
-    if (pCodes?.some((c) => c.includes(q))) return true;
-    return false;
-  });
+  const filtered = useMemo(() => products?.filter((p) => {
+    if (!search.trim()) return true;
+    const pCodes = codesByProduct.get(p.id) ?? [];
+    return fuzzyMatch(buildHaystack(p.name, p.barcode, ...pCodes), search);
+  }), [products, search, codesByProduct]);
 
   const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0;
 

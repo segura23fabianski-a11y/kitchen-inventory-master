@@ -68,7 +68,11 @@ export default function Users() {
     },
   });
 
-  const activeProfiles = profiles?.filter((p) => p.status === "active") ?? [];
+  const activeProfiles = useMemo(() => {
+    const active = profiles?.filter((p) => p.status === "active") ?? [];
+    if (!userSearch.trim()) return active;
+    return active.filter((p) => fuzzyMatch(buildHaystack(p.full_name), userSearch));
+  }, [profiles, userSearch]);
   const pendingProfiles = profiles?.filter((p) => p.status === "pending") ?? [];
   const blockedProfiles = profiles?.filter((p) => p.status === "blocked") ?? [];
 
