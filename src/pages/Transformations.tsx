@@ -110,11 +110,13 @@ export default function Transformations() {
   const [defName, setDefName] = useState("");
   const [defInputId, setDefInputId] = useState("");
   const [defOutputs, setDefOutputs] = useState<OutputLine[]>([newLine()]);
+  const [editingDefId, setEditingDefId] = useState<string | null>(null);
 
   const resetDefForm = () => {
     setDefName("");
     setDefInputId("");
     setDefOutputs([newLine()]);
+    setEditingDefId(null);
   };
 
   const addDefOutput = () => setDefOutputs((prev) => [...prev, newLine()]);
@@ -122,34 +124,137 @@ export default function Transformations() {
   const updateDefOutput = (id: string, field: keyof OutputLine, value: string) =>
     setDefOutputs((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)));
 
-  const createDef = useMutation({
+  const openEditDef = (def: any) => {
+    setEditingDefId(def.id);
+    setDefName(def.name);
+    setDefInputId(def.input_product_id);
+    const outs = (def.transformation_definition_outputs || []).map((o: any) => ({
+      id: `line-${++lineIdCounter}`,
+      productId: o.output_product_id,
+      outputType: o.output_type as "output" | "byproduct" | "waste",
+      quantity: "",
+      expectedYield: o.expected_yield_percent?.toString() || "",
+    }));
+    setDefOutputs(outs.length ? outs : [newLine()]);
+    setDefOpen(true);
+  };
+
+  const saveDef = useMutation({
     mutationFn: async () => {
       const validOutputs = defOutputs.filter((o) => o.productId);
       if (!validOutputs.length) throw new Error("Agrega al menos un producto de salida");
 
-      const { data: def, error: e1 } = await supabase
-        .from("transformation_definitions" as any)
-        .insert({ restaurant_id: restaurantId, name: defName.trim(), input_product_id: defInputId } as any)
-        .select("id")
-        .single();
-      if (e1) throw e1;
+      if (editingDefId) {
+        // UPDATE existing definition
+        const { error: e1 } = await supabase
+          .from("transformation_definitions" as any)
+          .update({ name: defName.trim(), input_product_id: defInputId } as any)
+          .eq("id", editingDefId);
+        if (e1) throw e1;
 
-      const outputs = validOutputs.map((o) => ({
-        transformation_definition_id: (def as any).id,
-        output_product_id: o.productId,
-        output_type: o.outputType,
-        expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
-      }));
-      const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
-      if (e2) throw e2;
+        // Delete old outputs and re-insert
+        await supabase.from("transformation_definition_outputs" as any).delete().eq("transformation_definition_id", editingDefId);
+        const outputs = validOutputs.map((o) => ({
+          transformation_definition_id: editingDefId,
+          output_product_id: o.productId,
+          output_type: o.outputType,
+          expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
+        }));
+        const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
+        if (e2) throw e2;
+      } else {
+        // CREATE new definition
+        const { data: def, error: e1 } = await supabase
+          .from("transformation_definitions" as any)
+          .insert({ restaurant_id: restaurantId, name: defName.trim(), input_product_id: defInputId } as any)
+          .select("id")
+          .single();
+        if (e1) throw e1;
+
+        const outputs = validOutputs.map((o) => ({
+          transformation_definition_id: (def as any).id,
+          output_product_id: o.productId,
+          output_type: o.outputType,
+          expected_yield_percent: o.expectedYield ? parseFloat(o.expectedYield) : null,
+        }));
+        const { error: e2 } = await supabase.from("transformation_definition_outputs" as any).insert(outputs as any);
+        if (e2) throw e2;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
-      qc.invalidateQueries({ queryKey: ["transformation_runs"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
       setDefOpen(false);
       resetDefForm();
-      toast({ title: "Proceso creado correctamente" });
+      toast({ title: editingDefId ? "Proceso actualizado" : "Proceso creado correctamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteDef = useMutation({
+    mutationFn: async (defId: string) => {
+      await supabase.from("transformation_definition_outputs" as any).delete().eq("transformation_definition_id", defId);
+      const { error } = await supabase.from("transformation_definitions" as any).delete().eq("id", defId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transformation_definitions"] });
+      toast({ title: "Proceso eliminado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteRun = useMutation({
+    mutationFn: async (run: any) => {
+      if (!user || !restaurantId) throw new Error("Sin sesión");
+
+      // Reverse inventory movements: delete movements created by this transformation
+      // 1. Re-add stock to input product (reverse the 'transformacion' movement)
+      const { error: e1 } = await supabase.from("inventory_movements").insert({
+        restaurant_id: restaurantId,
+        product_id: run.input_product_id,
+        user_id: user.id,
+        type: "entrada",
+        quantity: Math.abs(run.input_quantity),
+        unit_cost: run.input_unit_cost || 0,
+        total_cost: Math.abs(run.input_quantity) * (run.input_unit_cost || 0),
+        notes: `Reversión de transformación eliminada`,
+      });
+      if (e1) throw e1;
+
+      // 2. Reverse each output (subtract from output products)
+      const outs = run.transformation_run_outputs || [];
+      for (const o of outs) {
+        const movType = o.output_type === "waste" ? "ajuste" : "salida";
+        if (o.output_type === "waste") continue; // waste had no stock entry
+        const { error } = await supabase.from("inventory_movements").insert({
+          restaurant_id: restaurantId,
+          product_id: o.output_product_id,
+          user_id: user.id,
+          type: "salida",
+          quantity: Math.abs(o.quantity),
+          unit_cost: o.calculated_unit_cost || 0,
+          total_cost: Math.abs(o.quantity) * (o.calculated_unit_cost || 0),
+          notes: `Reversión de transformación eliminada`,
+        });
+        if (error) throw error;
+      }
+
+      // 3. Delete run outputs and run
+      await supabase.from("transformation_run_outputs" as any).delete().eq("transformation_run_id", run.id);
+      const { error: e3 } = await supabase.from("transformation_runs" as any).delete().eq("id", run.id);
+      if (e3) throw e3;
+
+      await logAudit({
+        entityType: "transformation",
+        entityId: run.id,
+        action: "DELETE",
+        before: { input: run.input_product_id, qty: run.input_quantity },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transformation_runs"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Transformación eliminada", description: "El inventario ha sido revertido" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
