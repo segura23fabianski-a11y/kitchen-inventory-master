@@ -320,14 +320,18 @@ export default function Recipes() {
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, recipe_mode: recipeMode, restaurant_id: restaurantId! } as any).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, recipe_mode: recipeMode, portions: recipeMode === "fixed" ? portions : 1, restaurant_id: restaurantId! } as any).select("id").single();
       if (error) throw error;
 
       if (recipeMode === "fixed") {
         const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
         if (validIngredients.length > 0) {
           const { error: ingError } = await supabase.from("recipe_ingredients").insert(
-            validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! }))
+            validIngredients.map((i) => {
+              // In batch mode, divide total quantity by portions to get per-portion
+              const perPortionQty = inputMode === "batch" && portions > 0 ? i.quantity / portions : i.quantity;
+              return { recipe_id: recipe.id, product_id: i.product_id, quantity: perPortionQty, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! };
+            })
           );
           if (ingError) throw ingError;
         }
