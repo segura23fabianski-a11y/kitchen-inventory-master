@@ -343,6 +343,13 @@ export default function Users() {
   const currentMaxDays = typeof maxDaysSetting?.value === "number" ? maxDaysSetting.value : 45;
 
   const renderActiveTable = () => (
+    <>
+      <div className="p-4 pb-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <KioskTextInput className="pl-10" placeholder="Buscar usuario..." value={userSearch} onChange={setUserSearch} keyboardLabel="Buscar usuario" inputType="search" />
+        </div>
+      </div>
     <Table>
       <TableHeader>
         <TableRow>
