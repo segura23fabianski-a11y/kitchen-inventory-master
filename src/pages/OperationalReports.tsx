@@ -80,8 +80,10 @@ export default function OperationalReports() {
   const { data: movements, isLoading } = useQuery({
     queryKey: ["op-report-movements", dateFrom, dateTo],
     queryFn: async () => {
-      const from = format(dateFrom, "yyyy-MM-dd");
-      const to = format(dateTo, "yyyy-MM-dd") + "T23:59:59";
+      const fromD = new Date(dateFrom); fromD.setHours(0, 0, 0, 0);
+      const toD = new Date(dateTo); toD.setHours(23, 59, 59, 999);
+      const from = fromD.toISOString();
+      const to = toD.toISOString();
       let allData: any[] = [];
       let offset = 0;
       const pageSize = 1000;
