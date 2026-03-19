@@ -787,13 +787,19 @@ export default function Transformations() {
           {/* ── PROCESSES ── */}
           <TabsContent value="processes">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Procesos Definidos</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Procesos Definidos</CardTitle>
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input value={processSearch} onChange={(e) => setProcessSearch(e.target.value)} placeholder="Buscar proceso..." className="pl-8 h-9" />
+                </div>
+              </CardHeader>
               <CardContent>
                 {definitions.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No hay procesos definidos. Crea uno con "Nuevo Proceso".</p>
                 ) : (
                   <div className="space-y-4">
-                    {definitions.map((def: any) => {
+                    {definitions.filter((def: any) => !processSearch.trim() || fuzzyMatch(def.name, processSearch)).map((def: any) => {
                       const outs = def.transformation_definition_outputs || [];
                       return (
                         <Card key={def.id} className="border">
