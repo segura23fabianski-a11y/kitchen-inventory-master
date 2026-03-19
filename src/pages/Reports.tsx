@@ -487,9 +487,25 @@ export default function Reports() {
           {/* TAB: Daily product consumption */}
           <TabsContent value="daily">
             <div className="space-y-4">
-              <div className="flex items-center gap-2 max-w-sm">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar producto o fecha..." value={dailySearch} onChange={(e) => setDailySearch(e.target.value)} />
+              <div className="flex flex-wrap items-center gap-3">
+                <Popover open={dailyDateOpen} onOpenChange={setDailyDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 w-[180px] justify-start">
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                      {dailyDateFilter ? format(dailyDateFilter, "dd/MM/yyyy") : "Todas las fechas"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={dailyDateFilter} onSelect={(d) => { setDailyDateFilter(d!); setDailyDateOpen(false); }} className="p-3 pointer-events-auto" locale={es} />
+                  </PopoverContent>
+                </Popover>
+                {dailyDateFilter && (
+                  <Button variant="ghost" size="sm" onClick={() => setDailyDateFilter(new Date())}>Hoy</Button>
+                )}
+                <div className="flex items-center gap-2 max-w-xs flex-1">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Buscar producto..." value={dailySearch} onChange={(e) => setDailySearch(e.target.value)} />
+                </div>
               </div>
               <Card>
                 <CardHeader>
