@@ -75,6 +75,7 @@ export default function WasteControl() {
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(undefined);
   const [filterDateFromOpen, setFilterDateFromOpen] = useState(false);
   const [filterDateToOpen, setFilterDateToOpen] = useState(false);
+  const [wasteSearch, setWasteSearch] = useState("");
 
   const { data: products } = useQuery({
     queryKey: ["products-waste"],
