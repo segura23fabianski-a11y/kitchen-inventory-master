@@ -81,19 +81,29 @@ export function ProductionRunDialog({
   };
 
   const theoreticalTotalCost = useMemo(
-    () => ingredients.reduce((s, i) => s + i.theoreticalQty * i.unitCost, 0),
-    [ingredients]
+    () => ingredients.reduce((s, i) => {
+      const prod = products.find((p) => p.id === i.productId);
+      const baseQty = convertToProductUnit(i.theoreticalQty, i.productUnit, prod?.unit ?? i.productUnit);
+      return s + baseQty * i.unitCost;
+    }, 0),
+    [ingredients, products]
   );
   const actualTotalCost = useMemo(
-    () => ingredients.reduce((s, i) => s + i.actualQty * i.unitCost, 0),
-    [ingredients]
+    () => ingredients.reduce((s, i) => {
+      const prod = products.find((p) => p.id === i.productId);
+      const baseQty = convertToProductUnit(i.actualQty, i.productUnit, prod?.unit ?? i.productUnit);
+      return s + baseQty * i.unitCost;
+    }, 0),
+    [ingredients, products]
   );
 
   const isValid = selectedRecipeId && quantity > 0 && ingredients.length > 0;
 
   const hasInsufficient = ingredients.some((ing) => {
     const prod = products.find((p) => p.id === ing.productId);
-    return prod && ing.actualQty > Number(prod.current_stock ?? 0);
+    if (!prod) return false;
+    const baseQty = convertToProductUnit(ing.actualQty, ing.productUnit, prod.unit ?? ing.productUnit);
+    return baseQty > Number(prod.current_stock ?? 0);
   });
 
   const confirmRun = useMutation({
@@ -123,30 +133,37 @@ export function ProductionRunDialog({
       const { error: itemsError } = await supabase
         .from("recipe_production_run_items" as any)
         .insert(
-          ingredients.map((ing) => ({
-            run_id: (run as any).id,
-            product_id: ing.productId,
-            theoretical_quantity: ing.theoreticalQty,
-            actual_quantity: ing.actualQty,
-            unit: ing.productUnit,
-            unit_cost: ing.unitCost,
-            theoretical_line_cost: ing.theoreticalQty * ing.unitCost,
-            actual_line_cost: ing.actualQty * ing.unitCost,
-          })) as any
+          ingredients.map((ing) => {
+            const prod = products.find((p) => p.id === ing.productId);
+            const baseTheoQty = convertToProductUnit(ing.theoreticalQty, ing.productUnit, prod?.unit ?? ing.productUnit);
+            const baseActualQty = convertToProductUnit(ing.actualQty, ing.productUnit, prod?.unit ?? ing.productUnit);
+            return {
+              run_id: (run as any).id,
+              product_id: ing.productId,
+              theoretical_quantity: ing.theoreticalQty,
+              actual_quantity: ing.actualQty,
+              unit: ing.productUnit,
+              unit_cost: ing.unitCost,
+              theoretical_line_cost: baseTheoQty * ing.unitCost,
+              actual_line_cost: baseActualQty * ing.unitCost,
+            };
+          }) as any
         );
       if (itemsError) throw itemsError;
 
       // Deduct inventory for each ingredient
       for (const ing of ingredients) {
         if (ing.actualQty <= 0) continue;
-        const lineCost = ing.actualQty * ing.unitCost;
+        const prod = products.find((p) => p.id === ing.productId);
+        const baseActualQty = convertToProductUnit(ing.actualQty, ing.productUnit, prod?.unit ?? ing.productUnit);
+        const lineCost = baseActualQty * ing.unitCost;
         const recipeName =
           fixedRecipes.find((r) => r.id === selectedRecipeId)?.name ?? "Receta";
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: ing.productId,
           user_id: user!.id,
           type: "salida",
-          quantity: ing.actualQty,
+          quantity: baseActualQty,
           unit_cost: ing.unitCost,
           total_cost: lineCost,
           notes: `Producción: ${recipeName} × ${quantity} — ${ing.productName}`,
