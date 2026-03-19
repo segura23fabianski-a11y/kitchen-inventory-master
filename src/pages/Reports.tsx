@@ -22,7 +22,7 @@ import { convertToProductUnit } from "@/lib/unit-conversion";
 
 type Period = "day" | "week" | "month";
 
-const CONSUMPTION_TYPES = ["salida", "transformacion", "merma", "pos_sale", "operational_consumption", "desperdicio"];
+const CONSUMPTION_TYPES = ["salida", "merma", "pos_sale", "operational_consumption", "desperdicio"];
 const WASTE_TYPES = ["merma", "desperdicio"];
 
 const COLORS = [

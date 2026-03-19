@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 type Period = "day" | "week" | "month";
 
-const CONSUMPTION_TYPES = ["salida", "transformacion", "pos_sale", "operational_consumption", "merma", "desperdicio"];
+const CONSUMPTION_TYPES = ["salida", "pos_sale", "operational_consumption", "merma", "desperdicio"];
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--warning))", "hsl(var(--success))",
