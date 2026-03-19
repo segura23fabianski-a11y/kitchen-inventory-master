@@ -62,12 +62,16 @@ export default function Recipes() {
   const [editRecipeMode, setEditRecipeMode] = useState<RecipeMode>("fixed");
   const [editIngredients, setEditIngredients] = useState<(IngredientLine & { id?: string })[]>([]);
   const [editComponents, setEditComponents] = useState<ComponentLine[]>([]);
+  const [editPortions, setEditPortions] = useState(1);
+  const [editInputMode, setEditInputMode] = useState<"portion" | "batch">("portion");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [recipeType, setRecipeType] = useState<RecipeType>("food");
   const [recipeMode, setRecipeMode] = useState<RecipeMode>("fixed");
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
   const [components, setComponents] = useState<ComponentLine[]>([]);
+  const [portions, setPortions] = useState(1);
+  const [inputMode, setInputMode] = useState<"portion" | "batch">("portion");
   const [filterType, setFilterType] = useState<RecipeType | "all">("all");
   const { hasRole } = useAuth();
   const { logAudit } = useAudit();
