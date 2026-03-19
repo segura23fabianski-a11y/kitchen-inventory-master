@@ -965,8 +965,13 @@ export default function Recipes() {
                         {rMode === "fixed" ? (
                           <>
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
-                              <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
+                              <span className="text-muted-foreground">
+                                {ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}
+                                {Number((recipe as any).portions ?? 1) > 1 && (
+                                  <> · <strong>{(recipe as any).portions} porciones</strong></>
+                                )}
+                              </span>
+                              <span className="font-heading font-bold text-lg">{formatCost(cost)}<span className="text-xs font-normal text-muted-foreground">/porción</span></span>
                             </div>
                             {rType === "food" && (
                               <p className="text-xs text-muted-foreground">
