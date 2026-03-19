@@ -635,8 +635,57 @@ export default function Recipes() {
     updateFn: (i: number, field: keyof IngredientLine, value: string) => void,
     rType: RecipeType,
     totalCost: number,
+    currentPortions: number,
+    setCurrentPortions: (v: number) => void,
+    currentInputMode: "portion" | "batch",
+    setCurrentInputMode: (v: "portion" | "batch") => void,
   ) => (
     <div className="space-y-3">
+      {/* Portions & input mode toggle */}
+      <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+        <div className="flex items-center gap-4">
+          <div className="space-y-1 flex-1">
+            <Label className="text-xs text-muted-foreground">No. Porciones</Label>
+            <NumericKeypadInput
+              mode="integer"
+              value={currentPortions || ""}
+              onChange={(v) => setCurrentPortions(Math.max(1, Number(v) || 1))}
+              min="1"
+              className="w-24 text-center font-bold text-lg"
+              keypadLabel="Número de porciones"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Modo de entrada</Label>
+            <div className="flex rounded-md border">
+              <Button
+                type="button"
+                variant={currentInputMode === "portion" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-r-none text-xs"
+                onClick={() => setCurrentInputMode("portion")}
+              >
+                Por porción
+              </Button>
+              <Button
+                type="button"
+                variant={currentInputMode === "batch" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-l-none text-xs"
+                onClick={() => setCurrentInputMode("batch")}
+              >
+                Por lote (macro)
+              </Button>
+            </div>
+          </div>
+        </div>
+        {currentInputMode === "batch" && (
+          <p className="text-xs text-muted-foreground">
+            📦 Ingresa las cantidades <strong>totales del lote</strong> para {currentPortions} porción(es). El sistema calculará automáticamente la cantidad por porción.
+          </p>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <Label className="text-base font-semibold">
           {rType === "food" ? "Ingredientes" : "Insumos"}
@@ -655,7 +704,10 @@ export default function Recipes() {
       {ings.map((ing, i) => {
         const prod = productMap.get(ing.product_id);
         const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
-        const lineCost = calcLineCost(ing);
+        // In batch mode, the line cost is for the total batch; per-portion cost = lineCost / portions
+        const perPortionQty = currentInputMode === "batch" && currentPortions > 0 ? ing.quantity / currentPortions : ing.quantity;
+        const lineCost = calcLineCost({ product_id: ing.product_id, quantity: perPortionQty, unit: ing.unit });
+        const batchCost = lineCost * currentPortions;
         const noCost = ing.product_id && !productHasCost(ing.product_id);
         return (
           <div key={i} className="space-y-1">
@@ -671,8 +723,8 @@ export default function Recipes() {
                 />
               </div>
               <div className="w-24 space-y-1">
-                {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateFn(i, "quantity", v)} min="0.001" keypadLabel="Cantidad ingrediente" />
+                {i === 0 && <Label className="text-xs text-muted-foreground">{currentInputMode === "batch" ? "Cant. Total" : "Cantidad"}</Label>}
+                <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateFn(i, "quantity", v)} min="0.001" keypadLabel={currentInputMode === "batch" ? "Cantidad total del lote" : "Cantidad por porción"} />
               </div>
               <div className="w-20 space-y-1">
                 {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
@@ -694,9 +746,9 @@ export default function Recipes() {
                 <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateFn(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
               </div>
               <div className="w-24 text-right space-y-1">
-                {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
+                {i === 0 && <Label className="text-xs text-muted-foreground">{currentInputMode === "batch" ? "Costo Total" : "Costo"}</Label>}
                 <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
-                  {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
+                  {noCost ? "⚠️ Sin costo" : formatCost(currentInputMode === "batch" ? batchCost : lineCost)}
                 </p>
               </div>
               <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeFn(i)}>
@@ -706,7 +758,12 @@ export default function Recipes() {
             {prod && (
               <p className="text-xs text-muted-foreground ml-1">
                 Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
-                {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
+                {currentInputMode === "batch" && ing.quantity > 0 && currentPortions > 0 && (
+                  <> · Por porción: {perPortionQty.toFixed(4)} {ing.unit}</>
+                )}
+                {currentInputMode === "portion" && ing.quantity > 0 && (
+                  <> · {convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} {prod.unit}</>
+                )}
               </p>
             )}
           </div>
@@ -714,11 +771,31 @@ export default function Recipes() {
       })}
 
       {ings.length > 0 && (
-        <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground flex items-center gap-1">
-            <DollarSign className="h-4 w-4" /> Costo teórico total
-          </span>
-          <span className="font-heading text-lg font-bold">{formatCost(totalCost)}</span>
+        <div className="rounded-md bg-muted p-3 space-y-2">
+          {currentInputMode === "batch" && currentPortions > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <DollarSign className="h-4 w-4" /> Costo total del lote ({currentPortions} porciones)
+              </span>
+              <span className="font-heading text-lg font-bold">
+                {formatCost(ings.reduce((s, ing) => {
+                  const ppQty = currentPortions > 0 ? ing.quantity / currentPortions : ing.quantity;
+                  return s + calcLineCost({ product_id: ing.product_id, quantity: ppQty, unit: ing.unit });
+                }, 0) * currentPortions)}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <DollarSign className="h-4 w-4" /> Costo por porción
+            </span>
+            <span className="font-heading text-lg font-bold">
+              {formatCost(ings.reduce((s, ing) => {
+                const ppQty = currentInputMode === "batch" && currentPortions > 0 ? ing.quantity / currentPortions : ing.quantity;
+                return s + calcLineCost({ product_id: ing.product_id, quantity: ppQty, unit: ing.unit });
+              }, 0))}
+            </span>
+          </div>
         </div>
       )}
     </div>
