@@ -161,7 +161,7 @@ export function ProductionRunDialog({
           product_id: ing.productId,
           user_id: user!.id,
           type: "salida",
-          quantity: ing.actualQty,
+          quantity: baseActualQty,
           unit_cost: ing.unitCost,
           total_cost: lineCost,
           notes: `Producción: ${recipeName} × ${quantity} — ${ing.productName}`,
