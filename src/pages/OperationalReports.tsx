@@ -82,15 +82,24 @@ export default function OperationalReports() {
     queryFn: async () => {
       const from = format(dateFrom, "yyyy-MM-dd");
       const to = format(dateTo, "yyyy-MM-dd") + "T23:59:59";
-      const { data, error } = await supabase
-        .from("inventory_movements")
-        .select("id, product_id, movement_date, type, quantity, unit_cost, total_cost, notes, user_id, recipe_id, service_id, loss_value" as any)
-        .in("type", CONSUMPTION_TYPES)
-        .gte("movement_date", from)
-        .lte("movement_date", to)
-        .order("movement_date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as MovementRow[];
+      let allData: any[] = [];
+      let offset = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory_movements")
+          .select("id, product_id, movement_date, type, quantity, unit_cost, total_cost, notes, user_id, recipe_id, service_id, loss_value" as any)
+          .in("type", CONSUMPTION_TYPES)
+          .gte("movement_date", from)
+          .lte("movement_date", to)
+          .order("movement_date", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        offset += pageSize;
+      }
+      return allData as unknown as MovementRow[];
     },
   });
 

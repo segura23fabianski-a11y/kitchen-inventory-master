@@ -96,15 +96,25 @@ export default function Reports() {
   const { data: movements, isLoading } = useQuery({
     queryKey: ["report-consumption", fromISO, toISO],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_movements")
-        .select("product_id, recipe_id, quantity, total_cost, unit_cost, movement_date, type, waste_reason")
-        .in("type", CONSUMPTION_TYPES)
-        .gte("movement_date", fromISO)
-        .lte("movement_date", toISO)
-        .order("movement_date", { ascending: true });
-      if (error) throw error;
-      return data;
+      // Fetch all movements in range (default limit is 1000, we need more)
+      let allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory_movements")
+          .select("product_id, recipe_id, quantity, total_cost, unit_cost, movement_date, type, waste_reason")
+          .in("type", CONSUMPTION_TYPES)
+          .gte("movement_date", fromISO)
+          .lte("movement_date", toISO)
+          .order("movement_date", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
     },
   });
 
