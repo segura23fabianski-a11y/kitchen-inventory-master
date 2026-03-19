@@ -359,6 +359,12 @@ export default function PhysicalInventory() {
 
         <Card>
           <CardContent className="p-0">
+            <div className="p-4 pb-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={countSearch} onChange={(e) => setCountSearch(e.target.value)} placeholder="Buscar conteo..." className="pl-10 h-9" />
+              </div>
+            </div>
             {isLoading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">Cargando...</div>
             ) : !counts?.length ? (
@@ -380,7 +386,7 @@ export default function PhysicalInventory() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {counts.map((c) => (
+                  {counts.filter((c) => fuzzyMatch(buildHaystack(c.name, (c as any).warehouses?.name, (c as any).categories?.name), countSearch)).map((c) => (
                     <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelectedCountId(c.id)}>
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell>{format(new Date(c.count_date), "dd/MM/yyyy")}</TableCell>
