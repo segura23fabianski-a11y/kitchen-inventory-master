@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
@@ -89,8 +89,8 @@ export default function Reports() {
 
   const setRange = (from: Date, to: Date) => { setDateFrom(from); setDateTo(to); };
 
-  const fromISO = format(dateFrom, "yyyy-MM-dd");
-  const toISO = format(dateTo, "yyyy-MM-dd'T'23:59:59");
+  const fromISO = (() => { const d = new Date(dateFrom); d.setHours(0, 0, 0, 0); return d.toISOString(); })();
+  const toISO = (() => { const d = new Date(dateTo); d.setHours(23, 59, 59, 999); return d.toISOString(); })();
 
   // All consumption movements in range
   const { data: movements, isLoading } = useQuery({
@@ -318,6 +318,53 @@ export default function Reports() {
     return recipeData.filter((r) => r.name.toLowerCase().includes(q));
   }, [recipeData, recipeSearch]);
 
+  // ─── TAB 5: Daily product consumption ───
+  const dailyProductData = useMemo(() => {
+    if (!movements?.length) return [];
+    // Group by date → product
+    const dayProdMap = new Map<string, Map<string, { qty: number; cost: number }>>();
+    for (const m of movements) {
+      const date = parseISO(m.movement_date);
+      const dayKey = format(date, "yyyy-MM-dd");
+      if (!dayProdMap.has(dayKey)) dayProdMap.set(dayKey, new Map());
+      const prodMap = dayProdMap.get(dayKey)!;
+      const prev = prodMap.get(m.product_id) ?? { qty: 0, cost: 0 };
+      prodMap.set(m.product_id, { qty: prev.qty + Number(m.quantity), cost: prev.cost + Number(m.total_cost) });
+    }
+    // Flatten
+    const rows: { date: string; dateLabel: string; productId: string; productName: string; unit: string; qty: number; cost: number }[] = [];
+    for (const [day, prodMap] of dayProdMap) {
+      for (const [prodId, { qty, cost }] of prodMap) {
+        const prod = productMap.get(prodId);
+        rows.push({
+          date: day,
+          dateLabel: format(parseISO(day), "dd MMM yyyy", { locale: es }),
+          productId: prodId,
+          productName: prod?.name ?? "Desconocido",
+          unit: prod?.unit ?? "",
+          qty: Math.round(qty * 100) / 100,
+          cost: Math.round(cost),
+        });
+      }
+    }
+    rows.sort((a, b) => b.date.localeCompare(a.date) || a.productName.localeCompare(b.productName));
+    return rows;
+  }, [movements, productMap]);
+
+  const [dailySearch, setDailySearch] = useState("");
+  const filteredDailyData = useMemo(() => {
+    if (!dailySearch) return dailyProductData;
+    const q = dailySearch.toLowerCase();
+    return dailyProductData.filter((r) => r.productName.toLowerCase().includes(q) || r.dateLabel.toLowerCase().includes(q));
+  }, [dailyProductData, dailySearch]);
+
+  // Group daily data by date for totals
+  const dailyTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of filteredDailyData) map.set(r.date, (map.get(r.date) ?? 0) + r.cost);
+    return map;
+  }, [filteredDailyData]);
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -381,6 +428,7 @@ export default function Reports() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="general" className="gap-1"><TrendingDown className="h-4 w-4" /> General</TabsTrigger>
+            <TabsTrigger value="daily" className="gap-1"><CalendarIcon className="h-4 w-4" /> Consumo Diario</TabsTrigger>
             <TabsTrigger value="category" className="gap-1"><Package className="h-4 w-4" /> Por Categoría</TabsTrigger>
             <TabsTrigger value="waste" className="gap-1"><AlertTriangle className="h-4 w-4" /> Desperdicios</TabsTrigger>
             <TabsTrigger value="recipes" className="gap-1"><ChefHat className="h-4 w-4" /> Costo por Receta</TabsTrigger>
@@ -425,7 +473,74 @@ export default function Reports() {
             </Card>
           </TabsContent>
 
-          {/* TAB 2: By category */}
+          {/* TAB: Daily product consumption */}
+          <TabsContent value="daily">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 max-w-sm">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar producto o fecha..." value={dailySearch} onChange={(e) => setDailySearch(e.target.value)} />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Consumo por Producto y Día</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Unidad</TableHead>
+                        <TableHead className="text-right">Valor Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!filteredDailyData.length ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin datos de consumo</TableCell></TableRow>
+                      ) : (() => {
+                        let lastDate = "";
+                        const rows: React.ReactNode[] = [];
+                        for (const r of filteredDailyData) {
+                          if (r.date !== lastDate) {
+                            if (lastDate && dailyTotals.has(lastDate)) {
+                              rows.push(
+                                <TableRow key={`total-${lastDate}`} className="bg-muted/50 font-semibold">
+                                  <TableCell colSpan={4} className="text-right">Subtotal del día</TableCell>
+                                  <TableCell className="text-right">${(dailyTotals.get(lastDate) ?? 0).toLocaleString()}</TableCell>
+                                </TableRow>
+                              );
+                            }
+                            lastDate = r.date;
+                          }
+                          rows.push(
+                            <TableRow key={`${r.date}-${r.productId}`}>
+                              <TableCell className="text-muted-foreground">{r.dateLabel}</TableCell>
+                              <TableCell className="font-medium">{r.productName}</TableCell>
+                              <TableCell className="text-right">{r.qty}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{r.unit}</TableCell>
+                              <TableCell className="text-right font-semibold">${r.cost.toLocaleString()}</TableCell>
+                            </TableRow>
+                          );
+                        }
+                        // Last day subtotal
+                        if (lastDate && dailyTotals.has(lastDate)) {
+                          rows.push(
+                            <TableRow key={`total-${lastDate}`} className="bg-muted/50 font-semibold">
+                              <TableCell colSpan={4} className="text-right">Subtotal del día</TableCell>
+                              <TableCell className="text-right">${(dailyTotals.get(lastDate) ?? 0).toLocaleString()}</TableCell>
+                            </TableRow>
+                          );
+                        }
+                        return rows;
+                      })()}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="category">
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>

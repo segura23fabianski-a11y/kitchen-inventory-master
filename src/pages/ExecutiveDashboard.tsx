@@ -81,22 +81,39 @@ export default function ExecutiveDashboard() {
   const [dateTo, setDateTo] = useState(() => new Date());
 
   const setRange = (from: Date, to: Date) => { setDateFrom(from); setDateTo(to); };
-  const fromISO = format(dateFrom, "yyyy-MM-dd");
-  const toISO = format(dateTo, "yyyy-MM-dd'T'23:59:59");
+  const fromISO = (() => {
+    const d = new Date(dateFrom);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  })();
+  const toISO = (() => {
+    const d = new Date(dateTo);
+    d.setHours(23, 59, 59, 999);
+    return d.toISOString();
+  })();
 
-  // All consumption movements in range
+  // All consumption movements in range (paginated to avoid 1000-row limit)
   const { data: movements } = useQuery({
     queryKey: ["exec-movements", fromISO, toISO],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_movements")
-        .select("product_id, recipe_id, quantity, total_cost, unit_cost, movement_date, type")
-        .in("type", CONSUMPTION_TYPES)
-        .gte("movement_date", fromISO)
-        .lte("movement_date", toISO)
-        .order("movement_date", { ascending: true });
-      if (error) throw error;
-      return data;
+      let allData: any[] = [];
+      let offset = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory_movements")
+          .select("product_id, recipe_id, quantity, total_cost, unit_cost, movement_date, type")
+          .in("type", CONSUMPTION_TYPES)
+          .gte("movement_date", fromISO)
+          .lte("movement_date", toISO)
+          .order("movement_date", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        offset += pageSize;
+      }
+      return allData;
     },
   });
 
