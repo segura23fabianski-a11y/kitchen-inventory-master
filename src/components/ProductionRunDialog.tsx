@@ -152,7 +152,9 @@ export function ProductionRunDialog({
       // Deduct inventory for each ingredient
       for (const ing of ingredients) {
         if (ing.actualQty <= 0) continue;
-        const lineCost = ing.actualQty * ing.unitCost;
+        const prod = products.find((p) => p.id === ing.productId);
+        const baseActualQty = convertToProductUnit(ing.actualQty, ing.productUnit, prod?.unit ?? ing.productUnit);
+        const lineCost = baseActualQty * ing.unitCost;
         const recipeName =
           fixedRecipes.find((r) => r.id === selectedRecipeId)?.name ?? "Receta";
         const { error } = await supabase.from("inventory_movements").insert({
