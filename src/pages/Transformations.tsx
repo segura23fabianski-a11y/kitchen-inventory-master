@@ -23,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Plus, FlaskConical, History, Percent, ArrowRight, Trash2, PackagePlus, Pencil, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
