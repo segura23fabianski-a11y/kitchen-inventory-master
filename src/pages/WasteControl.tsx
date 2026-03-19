@@ -646,8 +646,8 @@ export default function WasteControl() {
                   </PopoverContent>
                 </Popover>
               </div>
-              {(filterDateFrom || filterDateTo || filterType !== "all") && (
-                <Button variant="ghost" size="sm" onClick={() => { setFilterType("all"); setFilterDateFrom(undefined); setFilterDateTo(undefined); }}>
+              {(filterDateFrom || filterDateTo || filterType !== "all" || wasteSearch) && (
+                <Button variant="ghost" size="sm" onClick={() => { setFilterType("all"); setFilterDateFrom(undefined); setFilterDateTo(undefined); setWasteSearch(""); }}>
                   Limpiar
                 </Button>
               )}
