@@ -15,7 +15,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Eye, Trash2, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Plus, ClipboardCheck, Eye, Trash2, CheckCircle2, ArrowLeft, Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
