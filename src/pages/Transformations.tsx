@@ -54,7 +54,9 @@ export default function Transformations() {
   const restaurantId = useRestaurantId();
   const { user } = useAuth();
   const { logAudit } = useAudit();
+  const { hasPermission } = usePermissions();
   const qc = useQueryClient();
+  const canManage = hasPermission("transformations_manage");
 
   const [tab, setTab] = useState("register");
 
