@@ -1094,7 +1094,7 @@ export default function Recipes() {
                 {renderTagSelector(editTags, setEditTags)}
 
                 {editRecipeMode === "fixed"
-                  ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost)
+                  ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost, editPortions, setEditPortions, editInputMode, setEditInputMode)
                   : renderComponentEditor(editComponents, addEditComponent, removeEditComponent, updateEditComponent)
                 }
 
