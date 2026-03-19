@@ -34,13 +34,22 @@ export default function Dashboard() {
   const { data: allSalidas } = useQuery({
     queryKey: ["all-salidas-for-alerts"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_movements")
-        .select("product_id, recipe_id, quantity, total_cost, movement_date")
-        .eq("type", "salida")
-        .order("movement_date", { ascending: true });
-      if (error) throw error;
-      return data;
+      let allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("inventory_movements")
+          .select("product_id, recipe_id, quantity, total_cost, movement_date")
+          .eq("type", "salida")
+          .order("movement_date", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
     },
   });
 
