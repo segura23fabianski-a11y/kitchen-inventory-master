@@ -62,12 +62,16 @@ export default function Recipes() {
   const [editRecipeMode, setEditRecipeMode] = useState<RecipeMode>("fixed");
   const [editIngredients, setEditIngredients] = useState<(IngredientLine & { id?: string })[]>([]);
   const [editComponents, setEditComponents] = useState<ComponentLine[]>([]);
+  const [editPortions, setEditPortions] = useState(1);
+  const [editInputMode, setEditInputMode] = useState<"portion" | "batch">("portion");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [recipeType, setRecipeType] = useState<RecipeType>("food");
   const [recipeMode, setRecipeMode] = useState<RecipeMode>("fixed");
   const [ingredients, setIngredients] = useState<IngredientLine[]>([]);
   const [components, setComponents] = useState<ComponentLine[]>([]);
+  const [portions, setPortions] = useState(1);
+  const [inputMode, setInputMode] = useState<"portion" | "batch">("portion");
   const [filterType, setFilterType] = useState<RecipeType | "all">("all");
   const { hasRole } = useAuth();
   const { logAudit } = useAudit();
@@ -274,7 +278,7 @@ export default function Recipes() {
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
-  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); };
+  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); setPortions(1); setInputMode("portion"); };
 
   const toggleTag = (tagList: string[], setTagList: (v: string[]) => void, componentId: string) => {
     setTagList(tagList.includes(componentId) ? tagList.filter(id => id !== componentId) : [...tagList, componentId]);
@@ -316,14 +320,18 @@ export default function Recipes() {
 
   const createRecipe = useMutation({
     mutationFn: async () => {
-      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, recipe_mode: recipeMode, restaurant_id: restaurantId! } as any).select("id").single();
+      const { data: recipe, error } = await supabase.from("recipes").insert({ name, description, recipe_type: recipeType, recipe_mode: recipeMode, portions: recipeMode === "fixed" ? portions : 1, restaurant_id: restaurantId! } as any).select("id").single();
       if (error) throw error;
 
       if (recipeMode === "fixed") {
         const validIngredients = ingredients.filter((i) => i.product_id && i.quantity > 0);
         if (validIngredients.length > 0) {
           const { error: ingError } = await supabase.from("recipe_ingredients").insert(
-            validIngredients.map((i) => ({ recipe_id: recipe.id, product_id: i.product_id, quantity: i.quantity, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! }))
+            validIngredients.map((i) => {
+              // In batch mode, divide total quantity by portions to get per-portion
+              const perPortionQty = inputMode === "batch" && portions > 0 ? i.quantity / portions : i.quantity;
+              return { recipe_id: recipe.id, product_id: i.product_id, quantity: perPortionQty, unit: i.unit, yield_per_portion: i.yield_per_portion, restaurant_id: restaurantId! };
+            })
           );
           if (ingError) throw ingError;
         }
@@ -386,6 +394,8 @@ export default function Recipes() {
     setEditDescription(recipe.description || "");
     setEditRecipeType((recipe.recipe_type ?? "food") as RecipeType);
     setEditRecipeMode((recipe.recipe_mode ?? "fixed") as RecipeMode);
+    setEditPortions(Number(recipe.portions ?? 1));
+    setEditInputMode("portion"); // Always start edit in per-portion mode (data is already per-portion)
     setEditIngredients(
       (recipe.recipe_ingredients ?? []).map((ri: any) => ({
         id: ri.id,
@@ -437,7 +447,7 @@ export default function Recipes() {
       const { data: prev } = await supabase.from("recipes").select("*").eq("id", recipeId).single();
       const { error } = await supabase
         .from("recipes")
-        .update({ name: editName, description: editDescription, recipe_type: editRecipeType, recipe_mode: editRecipeMode } as any)
+        .update({ name: editName, description: editDescription, recipe_type: editRecipeType, recipe_mode: editRecipeMode, portions: editRecipeMode === "fixed" ? editPortions : 1 } as any)
         .eq("id", recipeId);
       if (error) throw error;
 
@@ -452,14 +462,17 @@ export default function Recipes() {
         const validIngredients = editIngredients.filter((i) => i.product_id && i.quantity > 0);
         if (validIngredients.length > 0) {
           const { error: insErr } = await supabase.from("recipe_ingredients").insert(
-            validIngredients.map((i) => ({
-              recipe_id: recipeId,
-              product_id: i.product_id,
-              quantity: i.quantity,
-              unit: i.unit,
-              yield_per_portion: i.yield_per_portion,
-              restaurant_id: restaurantId!,
-            }))
+            validIngredients.map((i) => {
+              const perPortionQty = editInputMode === "batch" && editPortions > 0 ? i.quantity / editPortions : i.quantity;
+              return {
+                recipe_id: recipeId,
+                product_id: i.product_id,
+                quantity: perPortionQty,
+                unit: i.unit,
+                yield_per_portion: i.yield_per_portion,
+                restaurant_id: restaurantId!,
+              };
+            })
           );
           if (insErr) throw insErr;
         }
@@ -622,8 +635,57 @@ export default function Recipes() {
     updateFn: (i: number, field: keyof IngredientLine, value: string) => void,
     rType: RecipeType,
     totalCost: number,
+    currentPortions: number,
+    setCurrentPortions: (v: number) => void,
+    currentInputMode: "portion" | "batch",
+    setCurrentInputMode: (v: "portion" | "batch") => void,
   ) => (
     <div className="space-y-3">
+      {/* Portions & input mode toggle */}
+      <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+        <div className="flex items-center gap-4">
+          <div className="space-y-1 flex-1">
+            <Label className="text-xs text-muted-foreground">No. Porciones</Label>
+            <NumericKeypadInput
+              mode="integer"
+              value={currentPortions || ""}
+              onChange={(v) => setCurrentPortions(Math.max(1, Number(v) || 1))}
+              min="1"
+              className="w-24 text-center font-bold text-lg"
+              keypadLabel="Número de porciones"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Modo de entrada</Label>
+            <div className="flex rounded-md border">
+              <Button
+                type="button"
+                variant={currentInputMode === "portion" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-r-none text-xs"
+                onClick={() => setCurrentInputMode("portion")}
+              >
+                Por porción
+              </Button>
+              <Button
+                type="button"
+                variant={currentInputMode === "batch" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-l-none text-xs"
+                onClick={() => setCurrentInputMode("batch")}
+              >
+                Por lote (macro)
+              </Button>
+            </div>
+          </div>
+        </div>
+        {currentInputMode === "batch" && (
+          <p className="text-xs text-muted-foreground">
+            📦 Ingresa las cantidades <strong>totales del lote</strong> para {currentPortions} porción(es). El sistema calculará automáticamente la cantidad por porción.
+          </p>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <Label className="text-base font-semibold">
           {rType === "food" ? "Ingredientes" : "Insumos"}
@@ -642,7 +704,10 @@ export default function Recipes() {
       {ings.map((ing, i) => {
         const prod = productMap.get(ing.product_id);
         const availableUnits = prod ? getRecipeUnits(prod.unit) : [];
-        const lineCost = calcLineCost(ing);
+        // In batch mode, the line cost is for the total batch; per-portion cost = lineCost / portions
+        const perPortionQty = currentInputMode === "batch" && currentPortions > 0 ? ing.quantity / currentPortions : ing.quantity;
+        const lineCost = calcLineCost({ product_id: ing.product_id, quantity: perPortionQty, unit: ing.unit });
+        const batchCost = lineCost * currentPortions;
         const noCost = ing.product_id && !productHasCost(ing.product_id);
         return (
           <div key={i} className="space-y-1">
@@ -658,8 +723,8 @@ export default function Recipes() {
                 />
               </div>
               <div className="w-24 space-y-1">
-                {i === 0 && <Label className="text-xs text-muted-foreground">Cantidad</Label>}
-                <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateFn(i, "quantity", v)} min="0.001" keypadLabel="Cantidad ingrediente" />
+                {i === 0 && <Label className="text-xs text-muted-foreground">{currentInputMode === "batch" ? "Cant. Total" : "Cantidad"}</Label>}
+                <NumericKeypadInput mode="decimal" value={ing.quantity || ""} onChange={(v) => updateFn(i, "quantity", v)} min="0.001" keypadLabel={currentInputMode === "batch" ? "Cantidad total del lote" : "Cantidad por porción"} />
               </div>
               <div className="w-20 space-y-1">
                 {i === 0 && <Label className="text-xs text-muted-foreground">Unidad</Label>}
@@ -681,9 +746,9 @@ export default function Recipes() {
                 <NumericKeypadInput mode="decimal" value={ing.yield_per_portion || ""} onChange={(v) => updateFn(i, "yield_per_portion", v)} min="0" placeholder="0.000" keypadLabel="Rendimiento (kg)" />
               </div>
               <div className="w-24 text-right space-y-1">
-                {i === 0 && <Label className="text-xs text-muted-foreground">Costo</Label>}
+                {i === 0 && <Label className="text-xs text-muted-foreground">{currentInputMode === "batch" ? "Costo Total" : "Costo"}</Label>}
                 <p className={`h-10 flex items-center justify-end text-sm font-medium ${noCost ? "text-amber-600" : ""}`}>
-                  {noCost ? "⚠️ Sin costo" : formatCost(lineCost)}
+                  {noCost ? "⚠️ Sin costo" : formatCost(currentInputMode === "batch" ? batchCost : lineCost)}
                 </p>
               </div>
               <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeFn(i)}>
@@ -693,7 +758,12 @@ export default function Recipes() {
             {prod && (
               <p className="text-xs text-muted-foreground ml-1">
                 Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
-                {ing.quantity > 0 && ` · ${convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} ${prod.unit}`}
+                {currentInputMode === "batch" && ing.quantity > 0 && currentPortions > 0 && (
+                  <> · Por porción: {perPortionQty.toFixed(4)} {ing.unit}</>
+                )}
+                {currentInputMode === "portion" && ing.quantity > 0 && (
+                  <> · {convertToProductUnit(ing.quantity, ing.unit, prod.unit).toFixed(4)} {prod.unit}</>
+                )}
               </p>
             )}
           </div>
@@ -701,11 +771,31 @@ export default function Recipes() {
       })}
 
       {ings.length > 0 && (
-        <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground flex items-center gap-1">
-            <DollarSign className="h-4 w-4" /> Costo teórico total
-          </span>
-          <span className="font-heading text-lg font-bold">{formatCost(totalCost)}</span>
+        <div className="rounded-md bg-muted p-3 space-y-2">
+          {currentInputMode === "batch" && currentPortions > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <DollarSign className="h-4 w-4" /> Costo total del lote ({currentPortions} porciones)
+              </span>
+              <span className="font-heading text-lg font-bold">
+                {formatCost(ings.reduce((s, ing) => {
+                  const ppQty = currentPortions > 0 ? ing.quantity / currentPortions : ing.quantity;
+                  return s + calcLineCost({ product_id: ing.product_id, quantity: ppQty, unit: ing.unit });
+                }, 0) * currentPortions)}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <DollarSign className="h-4 w-4" /> Costo por porción
+            </span>
+            <span className="font-heading text-lg font-bold">
+              {formatCost(ings.reduce((s, ing) => {
+                const ppQty = currentInputMode === "batch" && currentPortions > 0 ? ing.quantity / currentPortions : ing.quantity;
+                return s + calcLineCost({ product_id: ing.product_id, quantity: ppQty, unit: ing.unit });
+              }, 0))}
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -797,7 +887,7 @@ export default function Recipes() {
                   {renderTagSelector(selectedTags, setSelectedTags)}
 
                   {recipeMode === "fixed"
-                    ? renderIngredientEditor(ingredients, addIngredientLine, removeIngredientLine, updateIngredient, recipeType, newCost)
+                    ? renderIngredientEditor(ingredients, addIngredientLine, removeIngredientLine, updateIngredient, recipeType, newCost, portions, setPortions, inputMode, setInputMode)
                     : renderComponentEditor(components, addComponent, removeComponent, updateComponent)
                   }
 
@@ -875,8 +965,13 @@ export default function Recipes() {
                         {rMode === "fixed" ? (
                           <>
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">{ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}</span>
-                              <span className="font-heading font-bold text-lg">{formatCost(cost)}</span>
+                              <span className="text-muted-foreground">
+                                {ingCount} {rType === "food" ? "ingrediente" : "insumo"}{ingCount !== 1 ? "s" : ""}
+                                {Number((recipe as any).portions ?? 1) > 1 && (
+                                  <> · <strong>{(recipe as any).portions} porciones</strong></>
+                                )}
+                              </span>
+                              <span className="font-heading font-bold text-lg">{formatCost(cost)}<span className="text-xs font-normal text-muted-foreground">/porción</span></span>
                             </div>
                             {rType === "food" && (
                               <p className="text-xs text-muted-foreground">
@@ -1004,7 +1099,7 @@ export default function Recipes() {
                 {renderTagSelector(editTags, setEditTags)}
 
                 {editRecipeMode === "fixed"
-                  ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost)
+                  ? renderIngredientEditor(editIngredients, addEditIngredient, removeEditIngredient, updateEditIngredient, editRecipeType, editCost, editPortions, setEditPortions, editInputMode, setEditInputMode)
                   : renderComponentEditor(editComponents, addEditComponent, removeEditComponent, updateEditComponent)
                 }
 
@@ -1142,57 +1237,85 @@ export default function Recipes() {
                 ...ri,
                 unit: (ri as any).unit ?? productMap.get(ri.product_id)?.unit ?? "unidad",
               }));
+              const recipePortions = Number((viewedRecipe as any).portions ?? 1);
+              const perPortionCost = calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit })));
+              const batchTotalCost = perPortionCost * recipePortions;
               return (
                 <div className="space-y-4">
                   {viewedRecipe.description && (
                     <p className="text-sm text-muted-foreground">{viewedRecipe.description}</p>
                   )}
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{((viewedRecipe as any).recipe_type ?? "food") === "food" ? "Ingrediente" : "Insumo"}</TableHead>
-                        <TableHead className="text-right">Cantidad</TableHead>
-                        <TableHead className="text-right">Rinde (kg)</TableHead>
-                        <TableHead className="text-right">Costo Unit.</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {ings.map((ing) => {
-                        const prod = productMap.get(ing.product_id);
-                        const sub = calcLineCost({ product_id: ing.product_id, quantity: Number(ing.quantity), unit: ing.unit });
-                        return (
-                          <TableRow key={ing.id}>
-                            <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
-                            <TableCell className="text-right">{Number(ing.quantity)} {ing.unit}</TableCell>
-                            <TableCell className="text-right">
-                              {canManage ? (
-                                <NumericKeypadInput
-                                  mode="decimal"
-                                  className="w-20 h-8 text-right inline-block"
-                                  value={Number((ing as any).yield_per_portion) || ""}
-                                  onChange={(v) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(v) })}
-                                  min="0"
-                                  keypadLabel="Rendimiento (kg)"
-                                />
-                              ) : (
-                                <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
+
+                  {/* Portions badge */}
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-sm">
+                      {recipePortions} porción(es) por lote
+                    </Badge>
+                  </div>
+
+                  {/* Per-portion table */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Cantidades por porción</Label>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{((viewedRecipe as any).recipe_type ?? "food") === "food" ? "Ingrediente" : "Insumo"}</TableHead>
+                          <TableHead className="text-right">Cant/Porción</TableHead>
+                          {recipePortions > 1 && <TableHead className="text-right">Cant. Lote</TableHead>}
+                          <TableHead className="text-right">Rinde (kg)</TableHead>
+                          <TableHead className="text-right">Costo Unit.</TableHead>
+                          <TableHead className="text-right">Subtotal/Porción</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ings.map((ing) => {
+                          const prod = productMap.get(ing.product_id);
+                          const sub = calcLineCost({ product_id: ing.product_id, quantity: Number(ing.quantity), unit: ing.unit });
+                          const batchQty = Number(ing.quantity) * recipePortions;
+                          return (
+                            <TableRow key={ing.id}>
+                              <TableCell className="font-medium">{prod?.name ?? "—"}</TableCell>
+                              <TableCell className="text-right">{Number(ing.quantity).toFixed(2)} {ing.unit}</TableCell>
+                              {recipePortions > 1 && (
+                                <TableCell className="text-right font-semibold text-primary">{batchQty.toFixed(2)} {ing.unit}</TableCell>
                               )}
-                            </TableCell>
-                            <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
-                              {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ing.product_id).toFixed(4)}/${prod?.unit}`}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  <div className="rounded-md bg-muted p-3 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Costo teórico total</span>
-                    <span className="font-heading text-xl font-bold">
-                      {formatCost(calcRecipeCost(ings.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity), unit: i.unit }))))}
-                    </span>
+                              <TableCell className="text-right">
+                                {canManage ? (
+                                  <NumericKeypadInput
+                                    mode="decimal"
+                                    className="w-20 h-8 text-right inline-block"
+                                    value={Number((ing as any).yield_per_portion) || ""}
+                                    onChange={(v) => updateIngredientYield.mutate({ id: ing.id, yield_per_portion: Number(v) })}
+                                    min="0"
+                                    keypadLabel="Rendimiento (kg)"
+                                  />
+                                ) : (
+                                  <span>{Number((ing as any).yield_per_portion ?? 0).toFixed(3)}</span>
+                                )}
+                              </TableCell>
+                              <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
+                                {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ing.product_id).toFixed(4)}/${prod?.unit}`}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Cost summary */}
+                  <div className="rounded-md bg-muted p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Costo por porción</span>
+                      <span className="font-heading text-xl font-bold">{formatCost(perPortionCost)}</span>
+                    </div>
+                    {recipePortions > 1 && (
+                      <div className="flex items-center justify-between border-t pt-2">
+                        <span className="text-sm text-muted-foreground">Costo total del lote ({recipePortions} porciones)</span>
+                        <span className="font-heading text-lg font-bold text-primary">{formatCost(batchTotalCost)}</span>
+                      </div>
+                    )}
                   </div>
                   {canUpdate && (
                     <Button className="w-full" variant="outline" onClick={() => startEdit(viewedRecipe)}>

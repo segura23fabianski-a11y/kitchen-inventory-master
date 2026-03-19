@@ -2803,6 +2803,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          portions: number
           recipe_mode: string
           recipe_type: string
           restaurant_id: string
@@ -2813,6 +2814,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          portions?: number
           recipe_mode?: string
           recipe_type?: string
           restaurant_id: string
@@ -2823,6 +2825,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          portions?: number
           recipe_mode?: string
           recipe_type?: string
           restaurant_id?: string
