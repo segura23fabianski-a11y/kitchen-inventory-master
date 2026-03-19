@@ -278,7 +278,7 @@ export default function Recipes() {
   const updateEditComponent = (i: number, field: keyof ComponentLine, value: any) =>
     setEditComponents((prev) => prev.map((item, idx) => idx !== i ? item : { ...item, [field]: value }));
 
-  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); };
+  const resetForm = () => { setName(""); setDescription(""); setRecipeType("food"); setRecipeMode("fixed"); setIngredients([]); setComponents([]); setSelectedTags([]); setPortions(1); setInputMode("portion"); };
 
   const toggleTag = (tagList: string[], setTagList: (v: string[]) => void, componentId: string) => {
     setTagList(tagList.includes(componentId) ? tagList.filter(id => id !== componentId) : [...tagList, componentId]);
