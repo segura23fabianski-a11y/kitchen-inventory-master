@@ -48,6 +48,7 @@ export default function Users() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const restaurantId = useRestaurantId();
+  const [userSearch, setUserSearch] = useState("");
 
   const { data: profiles, isLoading } = useQuery({
     queryKey: ["profiles"],
