@@ -826,6 +826,7 @@ export default function KitchenKiosk() {
                         onValueChange={(v) => updateComboComponent(comp.componentId, v)}
                         placeholder="Buscar y seleccionar producto..."
                         searchPlaceholder="Buscar producto..."
+                        forceKeyboard
                       />
                       {selectedProd && (
                         <div className="flex items-center justify-between text-xs">
