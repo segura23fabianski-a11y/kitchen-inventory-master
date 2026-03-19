@@ -81,12 +81,20 @@ export function ProductionRunDialog({
   };
 
   const theoreticalTotalCost = useMemo(
-    () => ingredients.reduce((s, i) => s + i.theoreticalQty * i.unitCost, 0),
-    [ingredients]
+    () => ingredients.reduce((s, i) => {
+      const prod = products.find((p) => p.id === i.productId);
+      const baseQty = convertToProductUnit(i.theoreticalQty, i.productUnit, prod?.unit ?? i.productUnit);
+      return s + baseQty * i.unitCost;
+    }, 0),
+    [ingredients, products]
   );
   const actualTotalCost = useMemo(
-    () => ingredients.reduce((s, i) => s + i.actualQty * i.unitCost, 0),
-    [ingredients]
+    () => ingredients.reduce((s, i) => {
+      const prod = products.find((p) => p.id === i.productId);
+      const baseQty = convertToProductUnit(i.actualQty, i.productUnit, prod?.unit ?? i.productUnit);
+      return s + baseQty * i.unitCost;
+    }, 0),
+    [ingredients, products]
   );
 
   const isValid = selectedRecipeId && quantity > 0 && ingredients.length > 0;
