@@ -60,6 +60,8 @@ export default function Transformations() {
   const canManage = hasPermission("transformations_manage");
 
   const [tab, setTab] = useState("register");
+  const [historySearch, setHistorySearch] = useState("");
+  const [processSearch, setProcessSearch] = useState("");
 
   /* ── Queries ── */
   const { data: products = [] } = useQuery({
