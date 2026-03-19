@@ -318,6 +318,53 @@ export default function Reports() {
     return recipeData.filter((r) => r.name.toLowerCase().includes(q));
   }, [recipeData, recipeSearch]);
 
+  // ─── TAB 5: Daily product consumption ───
+  const dailyProductData = useMemo(() => {
+    if (!movements?.length) return [];
+    // Group by date → product
+    const dayProdMap = new Map<string, Map<string, { qty: number; cost: number }>>();
+    for (const m of movements) {
+      const date = parseISO(m.movement_date);
+      const dayKey = format(date, "yyyy-MM-dd");
+      if (!dayProdMap.has(dayKey)) dayProdMap.set(dayKey, new Map());
+      const prodMap = dayProdMap.get(dayKey)!;
+      const prev = prodMap.get(m.product_id) ?? { qty: 0, cost: 0 };
+      prodMap.set(m.product_id, { qty: prev.qty + Number(m.quantity), cost: prev.cost + Number(m.total_cost) });
+    }
+    // Flatten
+    const rows: { date: string; dateLabel: string; productId: string; productName: string; unit: string; qty: number; cost: number }[] = [];
+    for (const [day, prodMap] of dayProdMap) {
+      for (const [prodId, { qty, cost }] of prodMap) {
+        const prod = productMap.get(prodId);
+        rows.push({
+          date: day,
+          dateLabel: format(parseISO(day), "dd MMM yyyy", { locale: es }),
+          productId: prodId,
+          productName: prod?.name ?? "Desconocido",
+          unit: prod?.unit ?? "",
+          qty: Math.round(qty * 100) / 100,
+          cost: Math.round(cost),
+        });
+      }
+    }
+    rows.sort((a, b) => b.date.localeCompare(a.date) || a.productName.localeCompare(b.productName));
+    return rows;
+  }, [movements, productMap]);
+
+  const [dailySearch, setDailySearch] = useState("");
+  const filteredDailyData = useMemo(() => {
+    if (!dailySearch) return dailyProductData;
+    const q = dailySearch.toLowerCase();
+    return dailyProductData.filter((r) => r.productName.toLowerCase().includes(q) || r.dateLabel.toLowerCase().includes(q));
+  }, [dailyProductData, dailySearch]);
+
+  // Group daily data by date for totals
+  const dailyTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of filteredDailyData) map.set(r.date, (map.get(r.date) ?? 0) + r.cost);
+    return map;
+  }, [filteredDailyData]);
+
   return (
     <AppLayout>
       <div className="space-y-6">
