@@ -18,6 +18,7 @@ export default function Warehouses() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
   const restaurantId = useRestaurantId();
