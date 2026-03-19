@@ -352,11 +352,22 @@ export default function Reports() {
   }, [movements, productMap]);
 
   const [dailySearch, setDailySearch] = useState("");
+  const [dailyDateFilter, setDailyDateFilter] = useState<Date>(() => new Date());
+  const [dailyDateOpen, setDailyDateOpen] = useState(false);
+
   const filteredDailyData = useMemo(() => {
-    if (!dailySearch) return dailyProductData;
-    const q = dailySearch.toLowerCase();
-    return dailyProductData.filter((r) => r.productName.toLowerCase().includes(q) || r.dateLabel.toLowerCase().includes(q));
-  }, [dailyProductData, dailySearch]);
+    let data = dailyProductData;
+    // Filter by selected date
+    if (dailyDateFilter) {
+      const filterKey = format(dailyDateFilter, "yyyy-MM-dd");
+      data = data.filter((r) => r.date === filterKey);
+    }
+    if (dailySearch) {
+      const q = dailySearch.toLowerCase();
+      data = data.filter((r) => r.productName.toLowerCase().includes(q));
+    }
+    return data;
+  }, [dailyProductData, dailySearch, dailyDateFilter]);
 
   // Group daily data by date for totals
   const dailyTotals = useMemo(() => {
