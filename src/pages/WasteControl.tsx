@@ -258,8 +258,14 @@ export default function WasteControl() {
       const to = format(filterDateTo, "yyyy-MM-dd") + "T23:59:59";
       result = result.filter((m) => m.movement_date <= to);
     }
+    if (wasteSearch.trim()) {
+      result = result.filter((m) => {
+        const prod = productMap.get(m.product_id);
+        return fuzzyMatch(prod?.name ?? "", wasteSearch);
+      });
+    }
     return result;
-  }, [wasteMovements, filterType, filterDateFrom, filterDateTo]);
+  }, [wasteMovements, filterType, filterDateFrom, filterDateTo, wasteSearch, productMap]);
 
   // KPIs
   const totalLoss = filteredMovements.reduce((s, m) => s + (m.loss_value ?? 0), 0);
