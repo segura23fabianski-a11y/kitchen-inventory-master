@@ -89,8 +89,8 @@ export default function Reports() {
 
   const setRange = (from: Date, to: Date) => { setDateFrom(from); setDateTo(to); };
 
-  const fromISO = format(dateFrom, "yyyy-MM-dd");
-  const toISO = format(dateTo, "yyyy-MM-dd'T'23:59:59");
+  const fromISO = (() => { const d = new Date(dateFrom); d.setHours(0, 0, 0, 0); return d.toISOString(); })();
+  const toISO = (() => { const d = new Date(dateTo); d.setHours(23, 59, 59, 999); return d.toISOString(); })();
 
   // All consumption movements in range
   const { data: movements, isLoading } = useQuery({
