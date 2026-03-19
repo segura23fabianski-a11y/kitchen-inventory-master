@@ -114,7 +114,7 @@ export default function Reports() {
         if (!data || data.length < pageSize) break;
         from += pageSize;
       }
-      return data;
+      return allData;
     },
   });
 
