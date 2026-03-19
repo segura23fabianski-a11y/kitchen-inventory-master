@@ -394,6 +394,8 @@ export default function Recipes() {
     setEditDescription(recipe.description || "");
     setEditRecipeType((recipe.recipe_type ?? "food") as RecipeType);
     setEditRecipeMode((recipe.recipe_mode ?? "fixed") as RecipeMode);
+    setEditPortions(Number(recipe.portions ?? 1));
+    setEditInputMode("portion"); // Always start edit in per-portion mode (data is already per-portion)
     setEditIngredients(
       (recipe.recipe_ingredients ?? []).map((ri: any) => ({
         id: ri.id,
