@@ -647,10 +647,58 @@ export default function Products() {
         </Dialog>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <KioskTextInput className="pl-10" placeholder="Buscar por nombre, código de barras o código adicional..." value={search} onChange={setSearch} keyboardLabel="Buscar producto" inputType="search" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Filter className="h-3.5 w-3.5" />
+                Filtros{activeFilterCount > 0 && <Badge variant="secondary" className="h-5 px-1.5 text-xs">{activeFilterCount}</Badge>}
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterWarehouse} onValueChange={setFilterWarehouse}>
+                <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+                  <SelectValue placeholder="Almacén" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los almacenes</SelectItem>
+                  {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterUnit} onValueChange={setFilterUnit}>
+                <SelectTrigger className="h-8 w-auto min-w-[100px] text-xs">
+                  <SelectValue placeholder="Unidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las unidades</SelectItem>
+                  {uniqueUnits.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-8 w-auto min-w-[100px] text-xs">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="ok">Stock OK</SelectItem>
+                  <SelectItem value="low">Stock Bajo</SelectItem>
+                </SelectContent>
+              </Select>
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterCategory("all"); setFilterWarehouse("all"); setFilterUnit("all"); setFilterStatus("all"); }}>
+                  <X className="mr-1 h-3 w-3" /> Limpiar
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
