@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building, Trash2, ArrowRightLeft, Pencil } from "lucide-react";
+import { Plus, LogIn, LogOut, Eye, X, Camera, Building2, AlertTriangle, UserPlus, Building, Trash2, ArrowRightLeft, Pencil, Clock } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -791,29 +791,81 @@ export default function StaysTab() {
 
               <p className="font-medium pt-2">Huéspedes ({detailStay.stay_guests?.length || 0}):</p>
               {detailStay.stay_guests?.map((sg: any) => (
-                <div key={sg.id} className="ml-2 flex items-center gap-2 flex-wrap">
-                  <span>• {sg.hotel_guests?.first_name} {sg.hotel_guests?.last_name} ({sg.hotel_guests?.document_number})</span>
-                  {sg.is_primary && <Badge variant="outline" className="text-xs">Titular</Badge>}
-                  {detailStay.status === "checked_in" && (
-                    <>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
-                        setSignatureStay({ stayId: detailStay.id, guestId: sg.guest_id, guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}` });
-                      }}>
-                        <Camera className="h-3 w-3 mr-1" />Firma
-                      </Button>
-                      {/* Partial checkout: any guest can leave if there are 2+ guests */}
-                      {detailStay.stay_guests.length > 1 && (
-                        <Button
-                          variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive"
-                          onClick={() => setPendingPartialCheckout({
-                            sgId: sg.id, guestId: sg.guest_id, isPrimary: sg.is_primary,
-                            guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}`,
-                          })}
-                        >
-                          <LogOut className="h-3 w-3 mr-1" />Salida parcial
+                <div key={sg.id} className="ml-2 space-y-1.5 border-b pb-2 last:border-b-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span>• {sg.hotel_guests?.first_name} {sg.hotel_guests?.last_name} ({sg.hotel_guests?.document_number})</span>
+                    {sg.is_primary && <Badge variant="outline" className="text-xs">Titular</Badge>}
+                    {detailStay.status === "checked_in" && (
+                      <>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+                          setSignatureStay({ stayId: detailStay.id, guestId: sg.guest_id, guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}` });
+                        }}>
+                          <Camera className="h-3 w-3 mr-1" />Firma
                         </Button>
-                      )}
-                    </>
+                        {detailStay.stay_guests.length > 1 && (
+                          <Button
+                            variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive"
+                            onClick={() => setPendingPartialCheckout({
+                              sgId: sg.id, guestId: sg.guest_id, isPrimary: sg.is_primary,
+                              guestName: `${sg.hotel_guests?.first_name} ${sg.hotel_guests?.last_name}`,
+                            })}
+                          >
+                            <LogOut className="h-3 w-3 mr-1" />Salida parcial
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {/* Shift / Turno info */}
+                  {detailStay.status === "checked_in" && (
+                    <div className="ml-4 flex items-center gap-2 flex-wrap">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        className="h-7 w-24 text-xs"
+                        placeholder="Ej: Turno A"
+                        value={sg.shift_label || ""}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          await supabase.from("stay_guests" as any).update({ shift_label: val || null } as any).eq("id", sg.id);
+                          setDetailStay((prev: any) => ({
+                            ...prev,
+                            stay_guests: prev.stay_guests.map((g: any) => g.id === sg.id ? { ...g, shift_label: val } : g),
+                          }));
+                        }}
+                      />
+                      <Input
+                        type="time" className="h-7 w-[100px] text-xs"
+                        value={sg.shift_start || ""}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          await supabase.from("stay_guests" as any).update({ shift_start: val || null } as any).eq("id", sg.id);
+                          setDetailStay((prev: any) => ({
+                            ...prev,
+                            stay_guests: prev.stay_guests.map((g: any) => g.id === sg.id ? { ...g, shift_start: val } : g),
+                          }));
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">a</span>
+                      <Input
+                        type="time" className="h-7 w-[100px] text-xs"
+                        value={sg.shift_end || ""}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          await supabase.from("stay_guests" as any).update({ shift_end: val || null } as any).eq("id", sg.id);
+                          setDetailStay((prev: any) => ({
+                            ...prev,
+                            stay_guests: prev.stay_guests.map((g: any) => g.id === sg.id ? { ...g, shift_end: val } : g),
+                          }));
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* Show shift read-only if checked out */}
+                  {detailStay.status !== "checked_in" && sg.shift_label && (
+                    <p className="ml-4 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      {sg.shift_label}{sg.shift_start ? ` (${sg.shift_start}` : ""}{sg.shift_end ? ` - ${sg.shift_end})` : sg.shift_start ? ")" : ""}
+                    </p>
                   )}
                 </div>
               ))}

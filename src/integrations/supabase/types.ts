@@ -3289,6 +3289,9 @@ export type Database = {
           guest_id: string
           id: string
           is_primary: boolean
+          shift_end: string | null
+          shift_label: string | null
+          shift_start: string | null
           stay_id: string
         }
         Insert: {
@@ -3296,6 +3299,9 @@ export type Database = {
           guest_id: string
           id?: string
           is_primary?: boolean
+          shift_end?: string | null
+          shift_label?: string | null
+          shift_start?: string | null
           stay_id: string
         }
         Update: {
@@ -3303,6 +3309,9 @@ export type Database = {
           guest_id?: string
           id?: string
           is_primary?: boolean
+          shift_end?: string | null
+          shift_label?: string | null
+          shift_start?: string | null
           stay_id?: string
         }
         Relationships: [
