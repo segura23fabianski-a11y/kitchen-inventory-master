@@ -238,11 +238,173 @@ export default function HousekeepingTab() {
   const allChecked = checklistItems?.length > 0 && checklistItems.every((i: any) => i.is_completed);
   const checkedCount = checklistItems?.filter((i: any) => i.is_completed).length || 0;
 
+  // ── Auto-generate daily tasks for occupied rooms ──
+  const autoGenerateMutation = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId) throw new Error("Sin restaurante");
+      // Get occupied rooms (status = 'occupied')
+      const { data: occupiedRooms, error: rErr } = await supabase
+        .from("rooms" as any)
+        .select("id, room_number, room_types(name)")
+        .eq("status", "occupied");
+      if (rErr) throw rErr;
+      if (!occupiedRooms || (occupiedRooms as any[]).length === 0) throw new Error("No hay habitaciones ocupadas actualmente");
+
+      // Check today's existing daily tasks to avoid duplicates
+      const today = format(new Date(), "yyyy-MM-dd");
+      const { data: existingToday } = await supabase
+        .from("housekeeping_tasks" as any)
+        .select("room_id")
+        .eq("task_type", "daily_clean")
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
+
+      const existingRoomIds = new Set((existingToday as any[] || []).map((t: any) => t.room_id));
+      const roomsToCreate = (occupiedRooms as any[]).filter((r: any) => !existingRoomIds.has(r.id));
+
+      if (roomsToCreate.length === 0) throw new Error("Ya se generaron las tareas diarias para todas las habitaciones ocupadas hoy");
+
+      // Get checklist templates
+      const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
+        .select("item_name, sort_order")
+        .eq("task_type", "daily_clean")
+        .eq("active", true)
+        .order("sort_order");
+
+      const defaultItems = ["Cama tendida", "Baño limpio", "Amenities repuestos", "Basura retirada", "Piso limpio", "Toallas verificadas"];
+
+      let created = 0;
+      for (const room of roomsToCreate) {
+        const { data: hTask, error: tErr } = await supabase.from("housekeeping_tasks" as any).insert({
+          restaurant_id: restaurantId,
+          room_id: room.id,
+          task_type: "daily_clean",
+          priority: "normal",
+          status: "pending",
+          notes: `Limpieza diaria generada automáticamente — ${format(new Date(), "dd/MM/yyyy")}`,
+        } as any).select("id").single();
+        if (tErr) continue;
+
+        const taskId = (hTask as any).id;
+        const items = (templates && (templates as any[]).length > 0)
+          ? (templates as any[]).map((t: any) => ({
+              housekeeping_task_id: taskId, restaurant_id: restaurantId,
+              item_name: t.item_name, sort_order: t.sort_order,
+            }))
+          : defaultItems.map((name, i) => ({
+              housekeeping_task_id: taskId, restaurant_id: restaurantId,
+              item_name: name, sort_order: i,
+            }));
+        await supabase.from("housekeeping_task_items" as any).insert(items as any);
+        created++;
+      }
+      return created;
+    },
+    onSuccess: (count) => {
+      qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+      toast({ title: `${count} tarea(s) de limpieza diaria creada(s)`, description: "Para todas las habitaciones ocupadas" });
+    },
+    onError: (e: any) => toast({ title: "Info", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Export PDF report ──
+  const exportPdf = () => {
+    const pendingTasks = tasks?.filter((t: any) => t.status === "pending" || t.status === "in_progress") || [];
+    if (pendingTasks.length === 0) {
+      toast({ title: "Sin tareas pendientes para exportar", variant: "destructive" });
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const today = format(new Date(), "EEEE dd 'de' MMMM 'de' yyyy", { locale: es });
+
+    // Header
+    doc.setFillColor(30, 64, 120);
+    doc.rect(0, 0, pageW, 22, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text("REPORTE DE HOUSEKEEPING", pageW / 2, 10, { align: "center" });
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(today, pageW / 2, 17, { align: "center" });
+
+    let y = 28;
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(9);
+    doc.text(`Total tareas: ${pendingTasks.length}`, margin, y);
+    y += 6;
+
+    const rows = pendingTasks.map((t: any) => [
+      `#${t.rooms?.room_number || "—"}`,
+      t.rooms?.room_types?.name || "—",
+      TASK_TYPE_LABELS[t.task_type] || t.task_type,
+      t.priority === "high" ? "ALTA" : "Normal",
+      getStaffName(t.assigned_to) || "Sin asignar",
+      STATUS_LABELS[t.status] || t.status,
+      "", // checkbox column for the maid
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Hab.", "Tipo Hab.", "Tipo Tarea", "Prioridad", "Responsable", "Estado", "✓ Hecho"]],
+      body: rows,
+      margin: { left: margin, right: margin },
+      theme: "grid",
+      headStyles: { fillColor: [30, 64, 120], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold", halign: "center" },
+      bodyStyles: { fontSize: 8, textColor: [30, 30, 30], cellPadding: 3 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 16, fontStyle: "bold" },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 32 },
+        3: { halign: "center", cellWidth: 20 },
+        4: { cellWidth: "auto" },
+        5: { halign: "center", cellWidth: 22 },
+        6: { halign: "center", cellWidth: 18 },
+      },
+      didParseCell: (data: any) => {
+        if (data.section === "body" && data.column.index === 3 && data.cell.raw === "ALTA") {
+          data.cell.styles.textColor = [200, 30, 30];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Signature area
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    const sigW = (pageW - margin * 2 - 10) / 2;
+    doc.line(margin, y + 15, margin + sigW, y + 15);
+    doc.line(margin + sigW + 10, y + 15, pageW - margin, y + 15);
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Firma Supervisora / Ama de llaves", margin + sigW / 2, y + 19, { align: "center" });
+    doc.text("Firma Recepción", margin + sigW + 10 + sigW / 2, y + 19, { align: "center" });
+
+    // Footer
+    doc.setFontSize(6.5);
+    doc.setTextColor(140, 140, 140);
+    doc.text(`Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, doc.internal.pageSize.getHeight() - 10);
+
+    doc.save(`Housekeeping_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center gap-4">
+      <div className="flex flex-wrap justify-between items-center gap-3">
         <h3 className="text-lg font-semibold text-foreground">Housekeeping</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => autoGenerateMutation.mutate()} disabled={autoGenerateMutation.isPending}>
+            <Wand2 className="h-4 w-4 mr-1" />{autoGenerateMutation.isPending ? "Generando..." : "Generar Tareas del Día"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <FileDown className="h-4 w-4 mr-1" />Exportar PDF
+          </Button>
           <Button size="sm" onClick={() => { setTaskForm(emptyTaskForm); setNewTaskOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" />Nueva Tarea
           </Button>
