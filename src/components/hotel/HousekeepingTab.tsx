@@ -13,7 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle } from "lucide-react";
+import { es } from "date-fns/locale";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const TASK_TYPE_LABELS: Record<string, string> = {
   checkout_clean: "Limpieza Check-out",
