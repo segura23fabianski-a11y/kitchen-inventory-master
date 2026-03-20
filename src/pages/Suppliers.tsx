@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAudit } from "@/hooks/use-audit";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
-import { Plus, Search, Pencil, Trash2, Truck } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Truck, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface SupplierForm {
