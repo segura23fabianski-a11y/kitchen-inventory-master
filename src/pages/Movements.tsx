@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon, PackageMinus } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon, PackageMinus, X } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { BulkExitDialog } from "@/components/BulkExitDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
@@ -42,6 +42,7 @@ export default function Movements() {
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
+  const [filterType2, setFilterType2] = useState("all");
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [movementDate, setMovementDate] = useState<Date | undefined>(undefined);
   const [movementTime, setMovementTime] = useState("12:00");
@@ -431,10 +432,28 @@ export default function Movements() {
 
         <Card>
           <CardContent className="p-0">
-            <div className="p-4 pb-0">
+             <div className="p-4 pb-0 space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <KioskTextInput className="pl-10" placeholder="Buscar por producto..." value={search} onChange={setSearch} keyboardLabel="Buscar movimiento" inputType="search" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={filterType2} onValueChange={setFilterType2}>
+                  <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los tipos</SelectItem>
+                    <SelectItem value="entrada">Entrada</SelectItem>
+                    <SelectItem value="salida">Salida</SelectItem>
+                    <SelectItem value="ajuste">Ajuste</SelectItem>
+                  </SelectContent>
+                </Select>
+                {filterType2 !== "all" && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setFilterType2("all")}>
+                    <X className="mr-1 h-3 w-3" /> Limpiar
+                  </Button>
+                )}
               </div>
             </div>
             <Table>
@@ -458,7 +477,11 @@ export default function Movements() {
                   <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Sin movimientos</TableCell></TableRow>
                 ) : (
                   movements
-                    .filter((m) => fuzzyMatch((m as any).products?.name || "", search))
+                    .filter((m) => {
+                      if (!fuzzyMatch((m as any).products?.name || "", search)) return false;
+                      if (filterType2 !== "all" && m.type !== filterType2) return false;
+                      return true;
+                    })
                     .map((m) => {
                       const mDate = (m as any).movement_date;
                       const isBackdated = mDate && Math.abs(new Date(mDate).getTime() - new Date(m.created_at).getTime()) > 60000;

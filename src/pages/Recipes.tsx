@@ -73,6 +73,7 @@ export default function Recipes() {
   const [portions, setPortions] = useState(1);
   const [inputMode, setInputMode] = useState<"portion" | "batch">("portion");
   const [filterType, setFilterType] = useState<RecipeType | "all">("all");
+  const [filterMode, setFilterMode] = useState<RecipeMode | "all">("all");
   const { hasRole } = useAuth();
   const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
@@ -535,6 +536,7 @@ export default function Recipes() {
 
   const filteredRecipes = recipes
     ?.filter((r) => filterType === "all" || (r as any).recipe_type === filterType)
+    .filter((r) => filterMode === "all" || (r as any).recipe_mode === filterMode)
     .filter((r) => fuzzyMatch(r.name, search));
 
   // Render component editor (shared between create and edit)
@@ -914,10 +916,22 @@ export default function Recipes() {
               </TabsList>
             </Tabs>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <KioskTextInput className="pl-10" placeholder="Buscar receta..." value={search} onChange={setSearch} keyboardLabel="Buscar receta" inputType="search" />
+            {/* Mode filter + Search */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <KioskTextInput className="pl-10" placeholder="Buscar receta..." value={search} onChange={setSearch} keyboardLabel="Buscar receta" inputType="search" />
+              </div>
+              <Select value={filterMode} onValueChange={(v) => setFilterMode(v as RecipeMode | "all")}>
+                <SelectTrigger className="h-10 w-auto min-w-[140px] text-xs">
+                  <SelectValue placeholder="Modo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los modos</SelectItem>
+                  <SelectItem value="fixed">Fija</SelectItem>
+                  <SelectItem value="variable_combo">Combo variable</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Recipe list */}

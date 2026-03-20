@@ -13,7 +13,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter } from "lucide-react";
 import CostRevaluationDialog from "@/components/CostRevaluationDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useAuth } from "@/lib/auth";
@@ -55,6 +55,10 @@ export default function Products() {
   const canManage = canCreate || canUpdate;
   const restaurantId = useRestaurantId();
   const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterWarehouse, setFilterWarehouse] = useState("all");
+  const [filterUnit, setFilterUnit] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -332,10 +336,20 @@ export default function Products() {
   });
 
   const filtered = useMemo(() => products?.filter((p) => {
-    if (!search.trim()) return true;
-    const pCodes = codesByProduct.get(p.id) ?? [];
-    return fuzzyMatch(buildHaystack(p.name, p.barcode, ...pCodes), search);
-  }), [products, search, codesByProduct]);
+    if (search.trim()) {
+      const pCodes = codesByProduct.get(p.id) ?? [];
+      if (!fuzzyMatch(buildHaystack(p.name, p.barcode, ...pCodes), search)) return false;
+    }
+    if (filterCategory !== "all" && (p.category_id ?? "") !== filterCategory) return false;
+    if (filterWarehouse !== "all" && (p.warehouse_id ?? "") !== filterWarehouse) return false;
+    if (filterUnit !== "all" && p.unit !== filterUnit) return false;
+    if (filterStatus === "low" && Number(p.current_stock) > Number(p.min_stock)) return false;
+    if (filterStatus === "ok" && Number(p.current_stock) <= Number(p.min_stock)) return false;
+    return true;
+  }), [products, search, codesByProduct, filterCategory, filterWarehouse, filterUnit, filterStatus]);
+
+  const activeFilterCount = [filterCategory, filterWarehouse, filterUnit, filterStatus].filter(f => f !== "all").length;
+  const uniqueUnits = useMemo(() => [...new Set(products?.map(p => p.unit) ?? [])].sort(), [products]);
 
   const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0;
 
@@ -633,10 +647,58 @@ export default function Products() {
         </Dialog>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <KioskTextInput className="pl-10" placeholder="Buscar por nombre, código de barras o código adicional..." value={search} onChange={setSearch} keyboardLabel="Buscar producto" inputType="search" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Filter className="h-3.5 w-3.5" />
+                Filtros{activeFilterCount > 0 && <Badge variant="secondary" className="h-5 px-1.5 text-xs">{activeFilterCount}</Badge>}
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterWarehouse} onValueChange={setFilterWarehouse}>
+                <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+                  <SelectValue placeholder="Almacén" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los almacenes</SelectItem>
+                  {warehouses?.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterUnit} onValueChange={setFilterUnit}>
+                <SelectTrigger className="h-8 w-auto min-w-[100px] text-xs">
+                  <SelectValue placeholder="Unidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las unidades</SelectItem>
+                  {uniqueUnits.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-8 w-auto min-w-[100px] text-xs">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="ok">Stock OK</SelectItem>
+                  <SelectItem value="low">Stock Bajo</SelectItem>
+                </SelectContent>
+              </Select>
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterCategory("all"); setFilterWarehouse("all"); setFilterUnit("all"); setFilterStatus("all"); }}>
+                  <X className="mr-1 h-3 w-3" /> Limpiar
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
