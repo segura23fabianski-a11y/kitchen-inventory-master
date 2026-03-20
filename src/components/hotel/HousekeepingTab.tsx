@@ -308,11 +308,33 @@ export default function HousekeepingTab() {
   });
 
   // ── Export PDF report ──
-  const exportPdf = () => {
+  const exportPdf = async () => {
     const pendingTasks = tasks?.filter((t: any) => t.status === "pending" || t.status === "in_progress") || [];
     if (pendingTasks.length === 0) {
       toast({ title: "Sin tareas pendientes para exportar", variant: "destructive" });
       return;
+    }
+
+    // Fetch active stays with guest shift info for all rooms that have tasks
+    const roomIds = [...new Set(pendingTasks.map((t: any) => t.room_id))];
+    const { data: activeStays } = await supabase.from("stays" as any)
+      .select("room_id, stay_guests(shift_label, shift_start, shift_end, hotel_guests(first_name, last_name))")
+      .eq("status", "checked_in")
+      .in("room_id", roomIds);
+
+    // Build a map: room_id -> guest shift info
+    const shiftMap: Record<string, string> = {};
+    if (activeStays) {
+      for (const stay of activeStays as any[]) {
+        const guestsWithShifts = stay.stay_guests?.filter((sg: any) => sg.shift_label || sg.shift_start) || [];
+        if (guestsWithShifts.length > 0) {
+          shiftMap[stay.room_id] = guestsWithShifts.map((sg: any) => {
+            const name = sg.hotel_guests ? `${sg.hotel_guests.first_name} ${sg.hotel_guests.last_name}` : "";
+            const time = sg.shift_start ? `${sg.shift_start}${sg.shift_end ? `-${sg.shift_end}` : ""}` : "";
+            return `${name}: ${sg.shift_label || ""}${time ? ` (${time})` : ""}`.trim();
+          }).join(" | ");
+        }
+      }
     }
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
@@ -343,37 +365,49 @@ export default function HousekeepingTab() {
       TASK_TYPE_LABELS[t.task_type] || t.task_type,
       t.priority === "high" ? "ALTA" : "Normal",
       getStaffName(t.assigned_to) || "Sin asignar",
+      shiftMap[t.room_id] || "Sin turno",
       STATUS_LABELS[t.status] || t.status,
-      "", // checkbox column for the maid
+      "", // checkbox column
     ]);
 
     autoTable(doc, {
       startY: y,
-      head: [["Hab.", "Tipo Hab.", "Tipo Tarea", "Prioridad", "Responsable", "Estado", "✓ Hecho"]],
+      head: [["Hab.", "Tipo Hab.", "Tipo Tarea", "Prioridad", "Responsable", "Turnos Huéspedes", "Estado", "✓"]],
       body: rows,
       margin: { left: margin, right: margin },
       theme: "grid",
-      headStyles: { fillColor: [30, 64, 120], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold", halign: "center" },
-      bodyStyles: { fontSize: 8, textColor: [30, 30, 30], cellPadding: 3 },
+      headStyles: { fillColor: [30, 64, 120], textColor: [255, 255, 255], fontSize: 7, fontStyle: "bold", halign: "center" },
+      bodyStyles: { fontSize: 7, textColor: [30, 30, 30], cellPadding: 2.5 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: {
-        0: { halign: "center", cellWidth: 16, fontStyle: "bold" },
-        1: { cellWidth: 28 },
-        2: { cellWidth: 32 },
-        3: { halign: "center", cellWidth: 20 },
-        4: { cellWidth: "auto" },
-        5: { halign: "center", cellWidth: 22 },
+        0: { halign: "center", cellWidth: 14, fontStyle: "bold" },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 26 },
+        3: { halign: "center", cellWidth: 16 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: "auto", fontStyle: "italic" },
         6: { halign: "center", cellWidth: 18 },
+        7: { halign: "center", cellWidth: 12 },
       },
       didParseCell: (data: any) => {
         if (data.section === "body" && data.column.index === 3 && data.cell.raw === "ALTA") {
           data.cell.styles.textColor = [200, 30, 30];
           data.cell.styles.fontStyle = "bold";
         }
+        // Highlight shift info
+        if (data.section === "body" && data.column.index === 5 && data.cell.raw !== "Sin turno") {
+          data.cell.styles.textColor = [20, 80, 160];
+        }
       },
     });
 
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    // Legend about shifts
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text("⚠ IMPORTANTE: Respetar los turnos de los huéspedes. No ingresar a la habitación mientras estén descansando.", margin, y);
+    y += 8;
 
     // Signature area
     doc.setDrawColor(150, 150, 150);
