@@ -73,6 +73,7 @@ export default function Recipes() {
   const [portions, setPortions] = useState(1);
   const [inputMode, setInputMode] = useState<"portion" | "batch">("portion");
   const [filterType, setFilterType] = useState<RecipeType | "all">("all");
+  const [filterMode, setFilterMode] = useState<RecipeMode | "all">("all");
   const { hasRole } = useAuth();
   const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
