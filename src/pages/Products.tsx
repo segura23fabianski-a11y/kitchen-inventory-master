@@ -55,6 +55,10 @@ export default function Products() {
   const canManage = canCreate || canUpdate;
   const restaurantId = useRestaurantId();
   const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterWarehouse, setFilterWarehouse] = useState("all");
+  const [filterUnit, setFilterUnit] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
