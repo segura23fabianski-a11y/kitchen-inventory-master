@@ -119,9 +119,12 @@ export default function Suppliers() {
     setOpen(true);
   };
 
-  const filtered = suppliers?.filter((s: any) =>
-    fuzzyMatch(buildHaystack(s.name, s.nit, s.contact_name), search)
-  );
+  const filtered = suppliers?.filter((s: any) => {
+    if (!fuzzyMatch(buildHaystack(s.name, s.nit, s.contact_name), search)) return false;
+    if (filterActive === "active" && !s.active) return false;
+    if (filterActive === "inactive" && s.active) return false;
+    return true;
+  });
 
   return (
     <AppLayout>
