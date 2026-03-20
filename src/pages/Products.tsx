@@ -336,10 +336,20 @@ export default function Products() {
   });
 
   const filtered = useMemo(() => products?.filter((p) => {
-    if (!search.trim()) return true;
-    const pCodes = codesByProduct.get(p.id) ?? [];
-    return fuzzyMatch(buildHaystack(p.name, p.barcode, ...pCodes), search);
-  }), [products, search, codesByProduct]);
+    if (search.trim()) {
+      const pCodes = codesByProduct.get(p.id) ?? [];
+      if (!fuzzyMatch(buildHaystack(p.name, p.barcode, ...pCodes), search)) return false;
+    }
+    if (filterCategory !== "all" && (p.category_id ?? "") !== filterCategory) return false;
+    if (filterWarehouse !== "all" && (p.warehouse_id ?? "") !== filterWarehouse) return false;
+    if (filterUnit !== "all" && p.unit !== filterUnit) return false;
+    if (filterStatus === "low" && Number(p.current_stock) > Number(p.min_stock)) return false;
+    if (filterStatus === "ok" && Number(p.current_stock) <= Number(p.min_stock)) return false;
+    return true;
+  }), [products, search, codesByProduct, filterCategory, filterWarehouse, filterUnit, filterStatus]);
+
+  const activeFilterCount = [filterCategory, filterWarehouse, filterUnit, filterStatus].filter(f => f !== "all").length;
+  const uniqueUnits = useMemo(() => [...new Set(products?.map(p => p.unit) ?? [])].sort(), [products]);
 
   const isValid = form.name.trim().length > 0 && Number(form.minStock) >= 0;
 
