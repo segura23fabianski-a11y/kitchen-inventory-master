@@ -42,6 +42,7 @@ export default function Movements() {
   const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
+  const [filterType2, setFilterType2] = useState("all");
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   const [movementDate, setMovementDate] = useState<Date | undefined>(undefined);
   const [movementTime, setMovementTime] = useState("12:00");

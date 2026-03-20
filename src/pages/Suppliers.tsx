@@ -40,6 +40,7 @@ export default function Suppliers() {
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
+  const [filterActive, setFilterActive] = useState("all");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SupplierForm>(emptyForm);
