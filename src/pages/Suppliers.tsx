@@ -144,9 +144,28 @@ export default function Suppliers() {
 
         <Card>
           <CardContent className="p-4">
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar proveedor..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+            <div className="space-y-3 mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar proveedor..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={filterActive} onValueChange={setFilterActive}>
+                  <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="active">Activos</SelectItem>
+                    <SelectItem value="inactive">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
+                {filterActive !== "all" && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setFilterActive("all")}>
+                    <X className="mr-1 h-3 w-3" /> Limpiar
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <Table>
