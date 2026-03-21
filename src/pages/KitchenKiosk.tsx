@@ -574,15 +574,8 @@ export default function KitchenKiosk() {
       } else {
         if (!comp.selectedRecipeId) continue;
         hasSelectedComponent = true;
-        if (comp.costSource !== "production_run") {
-          if (comp.recipeIngredients.length === 0) return false;
-          for (const ri of comp.recipeIngredients) {
-            const prod = products?.find((p) => p.id === ri.productId);
-            if (!prod) return false;
-            const qtyInBaseUnit = convertToProductUnit(ri.actualQty, ri.productUnit, prod.unit);
-            if (qtyInBaseUnit > Number(prod.current_stock ?? 0)) return false;
-          }
-        }
+        // Recipe components only assign theoretical cost — no stock validation needed
+        // If using production run cost, no ingredients to validate either
       }
     }
 
