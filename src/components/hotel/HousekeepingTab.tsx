@@ -52,7 +52,7 @@ export default function HousekeepingTab() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateType, setNewTemplateType] = useState("daily_clean");
-
+  const [laundryCollectionItems, setLaundryCollectionItems] = useState<Record<string, number>>({});
   // Fetch all rooms for task creation
   const { data: allRooms } = useQuery({
     queryKey: ["rooms-all-housekeeping"],
