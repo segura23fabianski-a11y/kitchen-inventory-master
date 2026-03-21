@@ -116,6 +116,50 @@ export default function HousekeepingTab() {
     },
   });
 
+  // ── Checklist Templates ──
+  const { data: checklistTemplates, refetch: refetchTemplates } = useQuery({
+    queryKey: ["housekeeping-checklist-templates", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      const { data, error } = await supabase.from("housekeeping_checklist_templates" as any)
+        .select("*").eq("restaurant_id", restaurantId).order("task_type").order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  const addTemplateMutation = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId || !newTemplateName.trim()) throw new Error("Nombre requerido");
+      const maxOrder = (checklistTemplates || []).filter((t: any) => t.task_type === newTemplateType).length;
+      const { error } = await supabase.from("housekeeping_checklist_templates" as any).insert({
+        restaurant_id: restaurantId, item_name: newTemplateName.trim(), task_type: newTemplateType, sort_order: maxOrder, active: true,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { refetchTemplates(); setNewTemplateName(""); toast({ title: "Ítem de plantilla agregado" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleTemplateMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("housekeeping_checklist_templates" as any).update({ active } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => refetchTemplates(),
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("housekeeping_checklist_templates" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { refetchTemplates(); toast({ title: "Ítem eliminado" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const getStaffName = (userId: string | null) => {
     if (!userId) return null;
     return staff?.find(s => s.user_id === userId)?.full_name || null;
