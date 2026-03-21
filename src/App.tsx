@@ -42,6 +42,7 @@ import POS from "./pages/POS";
 import CasinoDashboard from "./pages/CasinoDashboard";
 import PurchasesReport from "./pages/PurchasesReport";
 import CorporateMasters from "./pages/CorporateMasters";
+import InventoryValue from "./pages/InventoryValue";
 
 import NotFound from "./pages/NotFound";
 
