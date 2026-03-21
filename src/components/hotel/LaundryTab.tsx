@@ -261,7 +261,12 @@ export default function LaundryTab() {
                   )}
                 </TableCell>
                 <TableCell><Badge variant={STATUS_VARIANTS[o.status]}>{STATUS_LABELS[o.status] || o.status}</Badge></TableCell>
-                <TableCell>{format(new Date(o.created_at), "dd/MM/yy HH:mm")}</TableCell>
+                <TableCell>
+                  {format(new Date(o.created_at), "dd/MM/yy HH:mm")}
+                  {o.completed_at && (
+                    <p className="text-xs text-muted-foreground">Entregada: {format(new Date(o.completed_at), "dd/MM/yy HH:mm")}</p>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     {o.status === "pending" && (
