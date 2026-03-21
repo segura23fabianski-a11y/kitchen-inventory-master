@@ -502,6 +502,71 @@ export default function HousekeepingTab() {
         </div>
       </div>
 
+      {/* ── Checklist Templates Management ── */}
+      <Collapsible open={templatesOpen} onOpenChange={setTemplatesOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+            <Settings2 className="h-4 w-4" />Plantillas de Checklist
+            <Badge variant="secondary" className="ml-1">{checklistTemplates?.filter((t: any) => t.active).length || 0}</Badge>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Estos ítems se copian automáticamente al checklist de cada nueva tarea de limpieza según su tipo.
+            </p>
+            {/* Add new template */}
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs">Nombre del ítem</Label>
+                <Input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)} placeholder="Ej: Limpiar espejos" />
+              </div>
+              <div className="w-44">
+                <Label className="text-xs">Tipo de tarea</Label>
+                <Select value={newTemplateType} onValueChange={setNewTemplateType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily_clean">Limpieza Diaria</SelectItem>
+                    <SelectItem value="checkout_clean">Limpieza Check-out</SelectItem>
+                    <SelectItem value="maintenance">Mantenimiento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button size="sm" onClick={() => addTemplateMutation.mutate()} disabled={!newTemplateName.trim() || addTemplateMutation.isPending}>
+                <Plus className="h-4 w-4 mr-1" />Agregar
+              </Button>
+            </div>
+            {/* List templates grouped by type */}
+            {["daily_clean", "checkout_clean", "maintenance"].map(type => {
+              const items = (checklistTemplates || []).filter((t: any) => t.task_type === type);
+              if (items.length === 0) return null;
+              return (
+                <div key={type} className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{TASK_TYPE_LABELS[type]}</p>
+                  {items.map((tpl: any) => (
+                    <div key={tpl.id} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50">
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      <span className={`flex-1 text-sm ${!tpl.active ? "line-through text-muted-foreground" : "text-foreground"}`}>{tpl.item_name}</span>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                        onClick={() => toggleTemplateMutation.mutate({ id: tpl.id, active: !tpl.active })}>
+                        {tpl.active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-1 text-destructive hover:text-destructive"
+                        onClick={() => deleteTemplateMutation.mutate(tpl.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {(!checklistTemplates || checklistTemplates.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-2">No hay plantillas. Se usarán ítems por defecto al crear tareas.</p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
       <Table>
         <TableHeader>
           <TableRow>
