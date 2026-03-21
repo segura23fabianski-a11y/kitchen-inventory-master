@@ -903,11 +903,9 @@ export default function KitchenKiosk() {
                             />
                             <span className="text-xs text-muted-foreground w-8">{prod.unit}</span>
                             {insuf && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
-                            {idx > 0 && (
-                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeSecondaryProduct(comp.componentId, sp.productId)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeSecondaryProduct(comp.componentId, sp.productId)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
                         );
                       })}
