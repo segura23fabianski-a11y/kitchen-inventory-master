@@ -391,6 +391,7 @@ export default function KitchenKiosk() {
         componentMode: (c.component_mode ?? "product") as "product" | "recipe",
         quantityPerService: Number(c.quantity_per_service),
         selectedProductId: "",
+        selectedProducts: [],
         selectedRecipeId: "",
         productionRunId: null,
         costSource: "theoretical" as const,
