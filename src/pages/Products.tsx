@@ -707,6 +707,8 @@ export default function Products() {
                   <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="ok">Stock OK</SelectItem>
                   <SelectItem value="low">Stock Bajo</SelectItem>
+                  <SelectItem value="active">Activos</SelectItem>
+                  <SelectItem value="inactive">Inactivos</SelectItem>
                 </SelectContent>
               </Select>
               {activeFilterCount > 0 && (
