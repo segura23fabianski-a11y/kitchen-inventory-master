@@ -53,6 +53,19 @@ export default function HousekeepingTab() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateType, setNewTemplateType] = useState("daily_clean");
   const [laundryCollectionItems, setLaundryCollectionItems] = useState<Record<string, number>>({});
+  // Check if current user has 'camarera' role
+  const { data: currentUserRoles } = useQuery({
+    queryKey: ["my-user-roles", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      if (error) throw error;
+      return (data as any[]).map((r: any) => r.role);
+    },
+    enabled: !!user,
+  });
+  const isCamarera = currentUserRoles?.includes("camarera");
+
   // Fetch all rooms for task creation
   const { data: allRooms } = useQuery({
     queryKey: ["rooms-all-housekeeping"],
