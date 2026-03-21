@@ -138,14 +138,44 @@ export default function LaundryTab() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, newStatus }: { orderId: string; newStatus: string }) => {
+      // Fetch the order to get details for traceability
+      const { data: order } = await supabase.from("laundry_orders" as any)
+        .select("*, rooms(room_number)").eq("id", orderId).single();
+
       const updateData: any = { status: newStatus };
       if (newStatus === "delivered") updateData.completed_at = new Date().toISOString();
       const { error } = await supabase.from("laundry_orders" as any).update(updateData).eq("id", orderId);
       if (error) throw error;
+
+      // When delivered, log return movements for hotel linen traceability
+      if (newStatus === "delivered" && order && (order as any).laundry_type === "hotel_linen") {
+        const items = ((order as any).items as any[]) || [];
+        for (const item of items) {
+          if (!item.name || !item.quantity) continue;
+          const { data: linenItem } = await supabase.from("hotel_linen_inventory" as any)
+            .select("id").eq("restaurant_id", restaurantId)
+            .ilike("item_name", `%${item.name}%`).limit(1).single();
+          if (linenItem) {
+            await supabase.from("hotel_linen_movements" as any).insert({
+              restaurant_id: restaurantId,
+              linen_id: (linenItem as any).id,
+              room_id: (order as any).room_id,
+              stay_id: (order as any).stay_id,
+              from_location: "laundry",
+              to_location: "room",
+              quantity: item.quantity,
+              created_by: user?.id || null,
+              notes: `Entrega post-lavado a habitación #${(order as any).rooms?.room_number || ""}`,
+            } as any);
+          }
+        }
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["laundry-orders"] });
-      toast({ title: "Estado actualizado" });
+      qc.invalidateQueries({ queryKey: ["hotel-linen-movements"] });
+      qc.invalidateQueries({ queryKey: ["linen-movements"] });
+      toast({ title: variables.newStatus === "delivered" ? "Entregada — movimiento registrado" : "Estado actualizado" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });

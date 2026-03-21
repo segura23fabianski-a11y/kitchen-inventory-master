@@ -887,10 +887,10 @@ export default function HousekeepingTab() {
           {checklistTask?.status !== "done" && checklistTask?.task_type === "daily_clean" && (
             <div className="border-t pt-3 mt-3 space-y-3">
               <p className="text-sm font-medium flex items-center gap-2">
-                <Shirt className="h-4 w-4" />Recolección de Ropa de Habitación
+                <Shirt className="h-4 w-4" />Recolección de Ropa — Lencería Hotel
               </p>
               <p className="text-xs text-muted-foreground">
-                Registre la ropa retirada de la habitación. Se creará una orden de lavandería automáticamente.
+                Registre la ropa de cama/toallas retirada. Se creará una orden de lavandería automáticamente.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {["Sábanas", "Fundas de almohada", "Cobija", "Toallas de baño", "Toallas de mano", "Toallas de piso"].map(item => (
@@ -903,11 +903,37 @@ export default function HousekeepingTab() {
                 ))}
               </div>
               <Button size="sm" variant="secondary" className="w-full"
-                onClick={() => registerLaundryCollectionMutation.mutate({ taskId: checklistTask.id, roomId: checklistTask.room_id })}
+                onClick={() => registerLaundryCollectionMutation.mutate({ taskId: checklistTask.id, roomId: checklistTask.room_id, laundryType: "hotel_linen" })}
                 disabled={registerLaundryCollectionMutation.isPending || Object.values(laundryCollectionItems).every(v => !v)}>
                 <Shirt className="h-4 w-4 mr-1" />
-                {registerLaundryCollectionMutation.isPending ? "Registrando..." : "Registrar Recolección"}
+                {registerLaundryCollectionMutation.isPending ? "Registrando..." : "Registrar Lencería"}
               </Button>
+
+              {/* Personal Guest Clothing */}
+              <div className="border-t pt-3 mt-2">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Shirt className="h-4 w-4" />Recolección de Ropa Personal del Huésped
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Camisas, overoles, pantalones, etc. Se registra por separado con trazabilidad de entrega.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {["Camisas", "Pantalones", "Ropa interior", "Medias", "Overol", "Otro"].map(item => (
+                    <div key={item} className="flex items-center gap-2">
+                      <Label className="text-xs flex-1 min-w-0 truncate">{item}</Label>
+                      <Input type="number" min={0} className="w-16 h-7 text-xs"
+                        value={personalCollectionItems[item] || ""}
+                        onChange={e => setPersonalCollectionItems(prev => ({ ...prev, [item]: parseInt(e.target.value) || 0 }))} />
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="secondary" className="w-full mt-2"
+                  onClick={() => registerLaundryCollectionMutation.mutate({ taskId: checklistTask.id, roomId: checklistTask.room_id, laundryType: "guest_personal" })}
+                  disabled={registerLaundryCollectionMutation.isPending || Object.values(personalCollectionItems).every(v => !v)}>
+                  <Shirt className="h-4 w-4 mr-1" />
+                  {registerLaundryCollectionMutation.isPending ? "Registrando..." : "Registrar Ropa Personal"}
+                </Button>
+              </div>
             </div>
           )}
 
