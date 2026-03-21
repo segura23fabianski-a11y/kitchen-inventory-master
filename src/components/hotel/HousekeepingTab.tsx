@@ -49,6 +49,9 @@ export default function HousekeepingTab() {
   const [taskForm, setTaskForm] = useState<NewTaskForm>(emptyTaskForm);
   const [assignDialog, setAssignDialog] = useState<{ taskId: string; currentAssignee: string | null } | null>(null);
   const [assignValue, setAssignValue] = useState("");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState("daily_clean");
 
   // Fetch all rooms for task creation
   const { data: allRooms } = useQuery({
