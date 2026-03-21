@@ -13,7 +13,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter, Power } from "lucide-react";
 import CostRevaluationDialog from "@/components/CostRevaluationDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useAuth } from "@/lib/auth";
@@ -46,7 +46,7 @@ interface CodeEntry {
 const emptyForm: ProductForm = { name: "", unit: "unidad", minStock: "0", categoryId: "", warehouseId: "", barcode: "", dailyConsumption: "", targetDaysOfStock: "5", reorderMode: "min_stock" };
 
 export default function Products() {
-  const { hasRole } = useAuth();
+  useAuth();
   const { logAudit } = useAudit();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission("products_create");
@@ -335,6 +335,19 @@ export default function Products() {
     codesByProduct.set(c.product_id, arr);
   });
 
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("products").update({ active }).eq("id", id);
+      if (error) throw error;
+      await logAudit({ entityType: "product", entityId: id, action: "UPDATE", before: { active: !active }, after: { active }, canRollback: true });
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: vars.active ? "Producto activado" : "Producto desactivado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const filtered = useMemo(() => products?.filter((p) => {
     if (search.trim()) {
       const pCodes = codesByProduct.get(p.id) ?? [];
@@ -345,6 +358,8 @@ export default function Products() {
     if (filterUnit !== "all" && p.unit !== filterUnit) return false;
     if (filterStatus === "low" && Number(p.current_stock) > Number(p.min_stock)) return false;
     if (filterStatus === "ok" && Number(p.current_stock) <= Number(p.min_stock)) return false;
+    if (filterStatus === "active" && !(p as any).active) return false;
+    if (filterStatus === "inactive" && (p as any).active !== false) return false;
     return true;
   }), [products, search, codesByProduct, filterCategory, filterWarehouse, filterUnit, filterStatus]);
 
@@ -692,6 +707,8 @@ export default function Products() {
                   <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="ok">Stock OK</SelectItem>
                   <SelectItem value="low">Stock Bajo</SelectItem>
+                  <SelectItem value="active">Activos</SelectItem>
+                  <SelectItem value="inactive">Inactivos</SelectItem>
                 </SelectContent>
               </Select>
               {activeFilterCount > 0 && (
@@ -756,22 +773,37 @@ export default function Products() {
                         <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `$${Number((p as any).last_unit_cost).toFixed(2)}` : "—"}</TableCell>
                         <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
                         <TableCell>
-                          {Number(p.current_stock) <= Number(p.min_stock) ? (
-                            <Badge variant="destructive">Bajo</Badge>
-                          ) : (
-                            <Badge className="bg-success text-success-foreground">OK</Badge>
-                          )}
+                          <div className="flex gap-1">
+                            {Number(p.current_stock) <= Number(p.min_stock) ? (
+                              <Badge variant="destructive">Bajo</Badge>
+                            ) : (
+                              <Badge className="bg-success text-success-foreground">OK</Badge>
+                            )}
+                            {(p as any).active === false && (
+                              <Badge variant="secondary">Inactivo</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         {(canUpdate || canDelete) && (
                           <TableCell>
                             <div className="flex gap-1">
                               {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
+                              {canUpdate && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => toggleActive.mutate({ id: p.id, active: (p as any).active === false })}
+                                  title={(p as any).active === false ? "Activar producto" : "Desactivar producto"}
+                                >
+                                  <Power className={`h-4 w-4 ${(p as any).active === false ? "text-muted-foreground" : "text-primary"}`} />
+                                </Button>
+                              )}
                               {hasPermission("cost_revaluation") && (
                                 <Button variant="ghost" size="icon" onClick={() => setRevalProduct(p)} title="Corregir costo">
                                   <DollarSign className="h-4 w-4 text-amber-600" />
                                 </Button>
                               )}
-                               {hasRole("admin") && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                              {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                             </div>
                           </TableCell>
                         )}
