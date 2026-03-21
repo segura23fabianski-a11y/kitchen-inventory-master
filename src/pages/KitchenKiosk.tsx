@@ -711,29 +711,17 @@ export default function KitchenKiosk() {
                 productionRunId: comp.productionRunId, costSource: "production_run",
               });
             } else {
-              // Deduct each ingredient with actual quantities
+              // Recipe components: only log theoretical cost, do NOT deduct inventory
               for (const ri of comp.recipeIngredients) {
-                const prod = products?.find((p) => p.id === ri.productId);
-                if (!prod) continue;
-                // ri.unitCost is already converted to cost-per-ingredient-unit
                 const lineCost = ri.actualQty * ri.unitCost;
                 totalCost += lineCost;
-                // Convert actualQty from ingredient unit to product base unit for inventory
-                const qtyInBaseUnit = convertToProductUnit(ri.actualQty, ri.productUnit, prod.unit);
-                const costPerBaseUnit = Number(prod.average_cost ?? 0);
                 itemsForLog.push({
                   componentName: comp.componentName, productId: ri.productId, qty: ri.actualQty, unitCost: ri.unitCost, lineCost,
                   isRecipeComponent: true, selectedRecipeId: comp.selectedRecipeId,
                   theoreticalQty: ri.theoreticalQty, actualQty: ri.actualQty,
                   productionRunId: null, costSource: "theoretical",
                 });
-
-                const { error } = await supabase.from("inventory_movements").insert({
-                  product_id: ri.productId, user_id: user!.id, type: "salida", quantity: qtyInBaseUnit, unit_cost: costPerBaseUnit, total_cost: lineCost,
-                  notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} (${selectedRecipeName}) — ${ri.productName} — ${comboExecution.servings} servicios`,
-                  restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
-                });
-                if (error) throw error;
+                // NO inventory_movements insert — theoretical cost only
               }
             }
           }
