@@ -45,11 +45,12 @@ interface ComboExecution {
     componentName: string;
     componentMode: "product" | "recipe";
     quantityPerService: number;
-    selectedProductId: string; // for product mode
+    selectedProductId: string; // primary product for product mode
+    selectedProducts: { productId: string; quantity: number }[]; // multiple products to fill quantity
     selectedRecipeId: string; // for recipe mode
-    productionRunId: string | null; // if using today's production run
+    productionRunId: string | null;
     costSource: "theoretical" | "production_run";
-    productionRunUnitCost: number; // real unit cost from production run
+    productionRunUnitCost: number;
     recipeIngredients: {
       ingredientId: string;
       productId: string;
