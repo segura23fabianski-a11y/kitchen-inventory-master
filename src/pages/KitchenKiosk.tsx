@@ -597,12 +597,16 @@ export default function KitchenKiosk() {
 
     for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
-        const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) continue;
-        const cost = Number(prod.average_cost ?? 0);
-        const lineCost = cost * comp.quantityPerService * servings;
-        totalCost += lineCost;
-        components.push({ name: comp.componentName, totalCost: lineCost, unitCost: lineCost / servings, source: "CPP" });
+        if (comp.selectedProducts.length === 0) continue;
+        let compCost = 0;
+        for (const sp of comp.selectedProducts) {
+          const prod = products?.find((p) => p.id === sp.productId);
+          if (!prod) continue;
+          const cost = Number(prod.average_cost ?? 0);
+          compCost += cost * sp.quantity;
+        }
+        totalCost += compCost;
+        components.push({ name: comp.componentName, totalCost: compCost, unitCost: compCost / servings, source: "CPP" });
       } else {
         if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
           const qty = comp.quantityPerService * servings;
