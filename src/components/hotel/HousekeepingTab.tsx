@@ -14,7 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown } from "lucide-react";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -48,6 +49,9 @@ export default function HousekeepingTab() {
   const [taskForm, setTaskForm] = useState<NewTaskForm>(emptyTaskForm);
   const [assignDialog, setAssignDialog] = useState<{ taskId: string; currentAssignee: string | null } | null>(null);
   const [assignValue, setAssignValue] = useState("");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState("daily_clean");
 
   // Fetch all rooms for task creation
   const { data: allRooms } = useQuery({
@@ -110,6 +114,50 @@ export default function HousekeepingTab() {
       if (error) throw error;
       return data as any[];
     },
+  });
+
+  // ── Checklist Templates ──
+  const { data: checklistTemplates, refetch: refetchTemplates } = useQuery({
+    queryKey: ["housekeeping-checklist-templates", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      const { data, error } = await supabase.from("housekeeping_checklist_templates" as any)
+        .select("*").eq("restaurant_id", restaurantId).order("task_type").order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!restaurantId,
+  });
+
+  const addTemplateMutation = useMutation({
+    mutationFn: async () => {
+      if (!restaurantId || !newTemplateName.trim()) throw new Error("Nombre requerido");
+      const maxOrder = (checklistTemplates || []).filter((t: any) => t.task_type === newTemplateType).length;
+      const { error } = await supabase.from("housekeeping_checklist_templates" as any).insert({
+        restaurant_id: restaurantId, item_name: newTemplateName.trim(), task_type: newTemplateType, sort_order: maxOrder, active: true,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { refetchTemplates(); setNewTemplateName(""); toast({ title: "Ítem de plantilla agregado" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleTemplateMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("housekeeping_checklist_templates" as any).update({ active } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => refetchTemplates(),
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("housekeeping_checklist_templates" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { refetchTemplates(); toast({ title: "Ítem eliminado" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const getStaffName = (userId: string | null) => {
@@ -453,6 +501,71 @@ export default function HousekeepingTab() {
           </Select>
         </div>
       </div>
+
+      {/* ── Checklist Templates Management ── */}
+      <Collapsible open={templatesOpen} onOpenChange={setTemplatesOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+            <Settings2 className="h-4 w-4" />Plantillas de Checklist
+            <Badge variant="secondary" className="ml-1">{checklistTemplates?.filter((t: any) => t.active).length || 0}</Badge>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Estos ítems se copian automáticamente al checklist de cada nueva tarea de limpieza según su tipo.
+            </p>
+            {/* Add new template */}
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs">Nombre del ítem</Label>
+                <Input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)} placeholder="Ej: Limpiar espejos" />
+              </div>
+              <div className="w-44">
+                <Label className="text-xs">Tipo de tarea</Label>
+                <Select value={newTemplateType} onValueChange={setNewTemplateType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily_clean">Limpieza Diaria</SelectItem>
+                    <SelectItem value="checkout_clean">Limpieza Check-out</SelectItem>
+                    <SelectItem value="maintenance">Mantenimiento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button size="sm" onClick={() => addTemplateMutation.mutate()} disabled={!newTemplateName.trim() || addTemplateMutation.isPending}>
+                <Plus className="h-4 w-4 mr-1" />Agregar
+              </Button>
+            </div>
+            {/* List templates grouped by type */}
+            {["daily_clean", "checkout_clean", "maintenance"].map(type => {
+              const items = (checklistTemplates || []).filter((t: any) => t.task_type === type);
+              if (items.length === 0) return null;
+              return (
+                <div key={type} className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{TASK_TYPE_LABELS[type]}</p>
+                  {items.map((tpl: any) => (
+                    <div key={tpl.id} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50">
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      <span className={`flex-1 text-sm ${!tpl.active ? "line-through text-muted-foreground" : "text-foreground"}`}>{tpl.item_name}</span>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                        onClick={() => toggleTemplateMutation.mutate({ id: tpl.id, active: !tpl.active })}>
+                        {tpl.active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-1 text-destructive hover:text-destructive"
+                        onClick={() => deleteTemplateMutation.mutate(tpl.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {(!checklistTemplates || checklistTemplates.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-2">No hay plantillas. Se usarán ítems por defecto al crear tareas.</p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <Table>
         <TableHeader>
