@@ -252,7 +252,14 @@ export default function LaundryTab() {
                 <TableCell>#{o.rooms?.room_number || "—"}</TableCell>
                 <TableCell>{o.hotel_companies?.name || "—"}</TableCell>
                 <TableCell>{o.hotel_guests ? `${o.hotel_guests.first_name} ${o.hotel_guests.last_name}` : "—"}</TableCell>
-                <TableCell>{totalPieces} piezas</TableCell>
+                <TableCell>
+                  <span title={items.map(i => `${i.name}: ${i.quantity}`).join(", ")}>{totalPieces} piezas</span>
+                  {items.length > 0 && (
+                    <p className="text-xs text-muted-foreground truncate max-w-[160px]">
+                      {items.map(i => `${i.name}(${i.quantity})`).join(", ")}
+                    </p>
+                  )}
+                </TableCell>
                 <TableCell><Badge variant={STATUS_VARIANTS[o.status]}>{STATUS_LABELS[o.status] || o.status}</Badge></TableCell>
                 <TableCell>{format(new Date(o.created_at), "dd/MM/yy HH:mm")}</TableCell>
                 <TableCell>
