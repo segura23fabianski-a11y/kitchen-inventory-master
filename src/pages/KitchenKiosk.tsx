@@ -560,16 +560,20 @@ export default function KitchenKiosk() {
 
     for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
-        if (!comp.selectedProductId) continue;
+        if (comp.selectedProducts.length === 0) continue;
         hasSelectedComponent = true;
-        const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) return false;
         const needed = comboExecution.servings * comp.quantityPerService;
-        if (needed > Number(prod.current_stock ?? 0)) return false;
+        const totalAssigned = comp.selectedProducts.reduce((s, sp) => s + sp.quantity, 0);
+        if (totalAssigned < needed) return false;
+        // Check each product has enough stock
+        for (const sp of comp.selectedProducts) {
+          const prod = products?.find((p) => p.id === sp.productId);
+          if (!prod) return false;
+          if (sp.quantity > Number(prod.current_stock ?? 0)) return false;
+        }
       } else {
         if (!comp.selectedRecipeId) continue;
         hasSelectedComponent = true;
-        // If using production run, no ingredient-level stock check needed (already produced)
         if (comp.costSource !== "production_run") {
           if (comp.recipeIngredients.length === 0) return false;
           for (const ri of comp.recipeIngredients) {
