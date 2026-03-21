@@ -13,7 +13,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter, Power } from "lucide-react";
 import CostRevaluationDialog from "@/components/CostRevaluationDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useAuth } from "@/lib/auth";
