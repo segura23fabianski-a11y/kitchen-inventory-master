@@ -795,7 +795,7 @@ export default function Products() {
                                   onClick={() => toggleActive.mutate({ id: p.id, active: (p as any).active === false })}
                                   title={(p as any).active === false ? "Activar producto" : "Desactivar producto"}
                                 >
-                                  <Power className={`h-4 w-4 ${(p as any).active === false ? "text-muted-foreground" : "text-green-600"}`} />
+                                  <Power className={`h-4 w-4 ${(p as any).active === false ? "text-muted-foreground" : "text-primary"}`} />
                                 </Button>
                               )}
                               {hasPermission("cost_revaluation") && (
