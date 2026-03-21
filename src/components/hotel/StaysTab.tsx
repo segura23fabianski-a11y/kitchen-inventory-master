@@ -266,17 +266,18 @@ export default function StaysTab() {
   });
 
   const checkOutMutation = useMutation({
-    mutationFn: async ({ stayId, checkoutType }: { stayId: string; checkoutType: string }) => {
+    mutationFn: async ({ stayId, checkoutType, checkoutDate }: { stayId: string; checkoutType: string; checkoutDate?: string }) => {
       const stay = stays?.find((s: any) => s.id === stayId);
       if (!stay) throw new Error("Estancia no encontrada");
 
       const checkIn = new Date(stay.check_in_at);
-      const now = new Date();
-      const nights = Math.max(1, Math.ceil((now.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+      const effectiveOut = checkoutDate ? new Date(checkoutDate + "T12:00:00") : new Date();
+      if (effectiveOut < checkIn) throw new Error("La fecha de check-out no puede ser anterior al check-in");
+      const nights = Math.max(1, Math.ceil((effectiveOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
       const total = nights * (stay.rate_per_night || 0);
 
       const { error } = await supabase.from("stays" as any).update({
-        check_out_at: now.toISOString(), status: "checked_out",
+        check_out_at: effectiveOut.toISOString(), status: "checked_out",
         total_amount: total, checkout_type: checkoutType,
       } as any).eq("id", stayId);
       if (error) throw error;
