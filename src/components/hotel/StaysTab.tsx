@@ -46,7 +46,7 @@ export default function StaysTab() {
   const [signatureStay, setSignatureStay] = useState<{ stayId: string; guestId: string; guestName: string } | null>(null);
   const [docUploading, setDocUploading] = useState(false);
   const [rateInfo, setRateInfo] = useState("");
-  const [checkoutDialog, setCheckoutDialog] = useState<{ stayId: string; type: string } | null>(null);
+  const [checkoutDialog, setCheckoutDialog] = useState<{ stayId: string; type: string; checkoutDate?: string } | null>(null);
   const [quickGuestOpen, setQuickGuestOpen] = useState(false);
   const [quickGuestTarget, setQuickGuestTarget] = useState<"primary" | "companion">("primary");
   const [quickCompanyOpen, setQuickCompanyOpen] = useState(false);
