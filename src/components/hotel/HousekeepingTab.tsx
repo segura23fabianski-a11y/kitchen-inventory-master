@@ -311,11 +311,14 @@ export default function HousekeepingTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const [personalCollectionItems, setPersonalCollectionItems] = useState<Record<string, number>>({});
+
   // ── Register laundry collection from room ──
   const registerLaundryCollectionMutation = useMutation({
-    mutationFn: async ({ taskId, roomId }: { taskId: string; roomId: string }) => {
+    mutationFn: async ({ taskId, roomId, laundryType }: { taskId: string; roomId: string; laundryType: "hotel_linen" | "guest_personal" }) => {
       if (!restaurantId || !user) throw new Error("Sin sesión");
-      const items = Object.entries(laundryCollectionItems)
+      const itemsSource = laundryType === "hotel_linen" ? laundryCollectionItems : personalCollectionItems;
+      const items = Object.entries(itemsSource)
         .filter(([_, qty]) => qty > 0)
         .map(([name, quantity]) => ({ name, quantity }));
       if (items.length === 0) throw new Error("Agregue al menos un ítem de ropa");
@@ -323,44 +326,51 @@ export default function HousekeepingTab() {
 
       // Find the active stay for this room
       const { data: stay } = await supabase.from("stays" as any)
-        .select("id, company_id").eq("room_id", roomId).eq("status", "checked_in").limit(1).single();
+        .select("id, company_id, stay_guests(guest_id, is_primary)").eq("room_id", roomId).eq("status", "checked_in").limit(1).single();
+
+      const primaryGuestId = stay ? (stay as any).stay_guests?.find((sg: any) => sg.is_primary)?.guest_id : null;
 
       const { error } = await supabase.from("laundry_orders" as any).insert({
         restaurant_id: restaurantId,
         room_id: roomId,
         stay_id: stay ? (stay as any).id : null,
         company_id: stay ? (stay as any).company_id : null,
-        laundry_type: "hotel_linen",
+        guest_id: laundryType === "guest_personal" ? (primaryGuestId || null) : null,
+        laundry_type: laundryType,
         items: items,
         total_pieces: totalPieces,
         status: "pending",
         created_by: user.id,
-        notes: `Recolección housekeeping - Tarea limpieza`,
+        notes: laundryType === "guest_personal"
+          ? `Ropa personal recolectada durante limpieza — Tarea ${taskId}`
+          : `Recolección housekeeping — Tarea limpieza`,
       } as any);
       if (error) throw error;
 
-      // Register linen movements (from room to laundry)
-      for (const item of items) {
-        // Try to find matching linen item
-        const { data: linenItem } = await supabase.from("hotel_linen_inventory" as any)
-          .select("id").eq("restaurant_id", restaurantId)
-          .ilike("item_name", `%${item.name}%`).limit(1).single();
-        if (linenItem) {
-          await supabase.from("hotel_linen_movements" as any).insert({
-            restaurant_id: restaurantId, linen_id: (linenItem as any).id,
-            room_id: roomId, stay_id: stay ? (stay as any).id : null,
-            from_location: "room", to_location: "laundry",
-            quantity: item.quantity, created_by: user.id,
-            notes: `Recolección durante limpieza diaria`,
-          } as any);
+      // Register linen movements only for hotel linen (from room to laundry)
+      if (laundryType === "hotel_linen") {
+        for (const item of items) {
+          const { data: linenItem } = await supabase.from("hotel_linen_inventory" as any)
+            .select("id").eq("restaurant_id", restaurantId)
+            .ilike("item_name", `%${item.name}%`).limit(1).single();
+          if (linenItem) {
+            await supabase.from("hotel_linen_movements" as any).insert({
+              restaurant_id: restaurantId, linen_id: (linenItem as any).id,
+              room_id: roomId, stay_id: stay ? (stay as any).id : null,
+              from_location: "room", to_location: "laundry",
+              quantity: item.quantity, created_by: user.id,
+              notes: `Recolección durante limpieza diaria`,
+            } as any);
+          }
         }
       }
     },
-    onSuccess: () => {
-      setLaundryCollectionItems({});
+    onSuccess: (_, variables) => {
+      if (variables.laundryType === "hotel_linen") setLaundryCollectionItems({});
+      else setPersonalCollectionItems({});
       qc.invalidateQueries({ queryKey: ["laundry-orders"] });
       qc.invalidateQueries({ queryKey: ["hotel-linen-movements"] });
-      toast({ title: "Recolección de ropa registrada" });
+      toast({ title: variables.laundryType === "guest_personal" ? "Ropa personal registrada" : "Recolección de ropa registrada" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
