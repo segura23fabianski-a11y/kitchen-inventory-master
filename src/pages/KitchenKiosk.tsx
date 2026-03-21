@@ -865,14 +865,13 @@ export default function KitchenKiosk() {
             {comboExecution.components.map((comp) => {
               if (comp.componentMode === "product") {
                 // ── Product component ──
-                const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
                 const needed = comp.quantityPerService * comboExecution.servings;
-                const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
-                const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
-                const lineCost = unitCost * needed;
+                const totalAssigned = comp.selectedProducts.reduce((s, sp) => s + sp.quantity, 0);
+                const shortfall = needed - totalAssigned;
+                const hasShortfall = shortfall > 0 && comp.selectedProducts.length > 0;
 
                 return (
-                  <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
+                  <Card key={comp.componentId} className={hasShortfall ? "border-warning/50" : ""}>
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="font-semibold capitalize flex items-center gap-1.5">
@@ -881,8 +880,10 @@ export default function KitchenKiosk() {
                         </Label>
                         <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
                       </div>
+
+                      {/* Primary product selector */}
                       <SearchableSelect
-                        options={products?.map((p) => ({
+                        options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
                           value: p.id,
                           label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
                           searchTerms: p.name + " " + (p.barcode || ""),
@@ -893,18 +894,77 @@ export default function KitchenKiosk() {
                         searchPlaceholder="Buscar producto..."
                         forceKeyboard
                       />
-                      {selectedProd && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
-                          </span>
-                          <span className="font-medium">${lineCost.toFixed(2)}</span>
+
+                      {/* List of selected products with quantities */}
+                      {comp.selectedProducts.map((sp, idx) => {
+                        const prod = products?.find((p) => p.id === sp.productId);
+                        if (!prod) return null;
+                        const stock = Number(prod.current_stock ?? 0);
+                        const insuf = sp.quantity > stock;
+                        const unitCost = Number(prod.average_cost ?? 0);
+                        return (
+                          <div key={sp.productId} className="flex items-center gap-2 rounded-md border p-2 bg-muted/30">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{prod.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Stock: {stock} {prod.unit} · CPP: ${unitCost.toFixed(2)}
+                              </p>
+                            </div>
+                            <NumericKeypadInput
+                              mode="integer"
+                              value={sp.quantity || ""}
+                              onChange={(v) => updateProductQuantity(comp.componentId, sp.productId, Math.max(0, Number(v) || 0))}
+                              min="0"
+                              max={String(stock)}
+                              className="w-20 text-right text-sm h-8"
+                              keypadLabel={prod.name}
+                              forceKeypad
+                            />
+                            <span className="text-xs text-muted-foreground w-8">{prod.unit}</span>
+                            {insuf && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                            {idx > 0 && (
+                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeSecondaryProduct(comp.componentId, sp.productId)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Shortfall indicator + add secondary product */}
+                      {hasShortfall && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-warning flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Faltan {shortfall} unidades. Agrega otro producto para completar.
+                          </p>
+                          <SearchableSelect
+                            options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
+                              value: p.id,
+                              label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+                              searchTerms: p.name + " " + (p.barcode || ""),
+                            })) ?? []}
+                            value=""
+                            onValueChange={(v) => addSecondaryProduct(comp.componentId, v)}
+                            placeholder="Agregar producto adicional..."
+                            searchPlaceholder="Buscar producto..."
+                            forceKeyboard
+                          />
                         </div>
                       )}
-                      {insufficient && (
-                        <p className="text-xs text-destructive flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
-                        </p>
+
+                      {/* Total cost for this component */}
+                      {comp.selectedProducts.length > 0 && (
+                        <div className="flex items-center justify-between text-xs border-t pt-1">
+                          <span className="text-muted-foreground">
+                            Asignado: {totalAssigned}/{needed} · Costo total
+                          </span>
+                          <span className="font-medium">
+                            ${comp.selectedProducts.reduce((s, sp) => {
+                              const p = products?.find(x => x.id === sp.productId);
+                              return s + sp.quantity * Number(p?.average_cost ?? 0);
+                            }, 0).toFixed(2)}
+                          </span>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
