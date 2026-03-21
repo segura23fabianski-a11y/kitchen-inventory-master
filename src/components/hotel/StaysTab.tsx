@@ -483,15 +483,28 @@ export default function StaysTab() {
                 El huésped se fue sin avisar. Se registrará como salida no notificada.
               </p>
             )}
+            <div>
+              <Label className="text-sm font-medium">Fecha de Check-out</Label>
+              <Input
+                type="date"
+                value={checkoutDialog?.checkoutDate || format(new Date(), "yyyy-MM-dd")}
+                max={format(new Date(), "yyyy-MM-dd")}
+                onChange={(e) => setCheckoutDialog(prev => prev ? { ...prev, checkoutDate: e.target.value } : null)}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Puedes seleccionar una fecha pasada si el check-out no se registró a tiempo.</p>
+            </div>
             {(() => {
               const stay = stays?.find((s: any) => s.id === checkoutDialog?.stayId);
               if (!stay) return null;
               const checkIn = new Date(stay.check_in_at);
-              const now = new Date();
-              const nights = Math.max(1, Math.ceil((now.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+              const effectiveOut = checkoutDialog?.checkoutDate ? new Date(checkoutDialog.checkoutDate + "T12:00:00") : new Date();
+              const nights = Math.max(1, Math.ceil((effectiveOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
               const total = nights * (stay.rate_per_night || 0);
               return (
                 <div className="text-sm space-y-1 rounded-md border p-3 bg-muted/50">
+                  <p><span className="font-medium">Check-in:</span> {format(checkIn, "dd/MM/yyyy")}</p>
+                  <p><span className="font-medium">Check-out:</span> {checkoutDialog?.checkoutDate || format(new Date(), "yyyy-MM-dd")}</p>
                   <p><span className="font-medium">Noches:</span> {nights}</p>
                   <p><span className="font-medium">Tarifa:</span> ${stay.rate_per_night?.toLocaleString()}/noche</p>
                   <p><span className="font-medium">Total:</span> ${total.toLocaleString()}</p>
@@ -505,7 +518,11 @@ export default function StaysTab() {
                 variant={checkoutDialog?.type === "unnotified" ? "destructive" : "default"}
                 disabled={checkOutMutation.isPending}
                 onClick={() => {
-                  if (checkoutDialog) checkOutMutation.mutate({ stayId: checkoutDialog.stayId, checkoutType: checkoutDialog.type });
+                  if (checkoutDialog) checkOutMutation.mutate({
+                    stayId: checkoutDialog.stayId,
+                    checkoutType: checkoutDialog.type,
+                    checkoutDate: checkoutDialog.checkoutDate,
+                  });
                 }}
               >
                 {checkOutMutation.isPending ? "Procesando..." : "Confirmar"}
