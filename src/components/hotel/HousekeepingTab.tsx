@@ -441,6 +441,7 @@ export default function HousekeepingTab() {
           task_type: "daily_clean",
           priority: "normal",
           status: "pending",
+          assigned_to: isCamarera ? user.id : null,
           notes: `Limpieza diaria generada automáticamente — ${format(new Date(), "dd/MM/yyyy")}`,
         } as any).select("id").single();
         if (tErr) continue;
