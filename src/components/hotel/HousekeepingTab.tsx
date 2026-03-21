@@ -826,8 +826,8 @@ export default function HousekeepingTab() {
       </Dialog>
 
       {/* ── Checklist Dialog ── */}
-      <Dialog open={!!checklistTask} onOpenChange={() => setChecklistTask(null)}>
-        <DialogContent className="max-w-md">
+      <Dialog open={!!checklistTask} onOpenChange={(open) => { if (!open) { setChecklistTask(null); setLaundryCollectionItems({}); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Checklist — Hab #{checklistTask?.rooms?.room_number || "—"}</DialogTitle>
           </DialogHeader>
@@ -839,25 +839,68 @@ export default function HousekeepingTab() {
               )}
             </p>
             {checklistItems?.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Sin ítems de checklist</p>
+              <div className="text-center py-4 space-y-2">
+                <p className="text-sm text-muted-foreground">Sin ítems de checklist</p>
+                <Button variant="outline" size="sm" onClick={() => repopulateChecklistMutation.mutate({ taskId: checklistTask.id, taskType: checklistTask.task_type })}
+                  disabled={repopulateChecklistMutation.isPending}>
+                  <RefreshCw className="h-4 w-4 mr-1" />Cargar desde plantillas
+                </Button>
+              </div>
             ) : (
-              checklistItems?.map((item: any) => (
-                <div key={item.id} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/50">
-                  <Checkbox
-                    checked={item.is_completed}
-                    onCheckedChange={(checked) => toggleItemMutation.mutate({ itemId: item.id, completed: !!checked })}
-                    disabled={checklistTask?.status === "done"}
-                  />
-                  <span className={`flex-1 text-sm ${item.is_completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                    {item.item_name}
-                  </span>
-                  {item.completed_at && (
-                    <span className="text-xs text-muted-foreground">{format(new Date(item.completed_at), "HH:mm")}</span>
-                  )}
-                </div>
-              ))
+              <>
+                {checklistItems?.map((item: any) => (
+                  <div key={item.id} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/50">
+                    <Checkbox
+                      checked={item.is_completed}
+                      onCheckedChange={(checked) => toggleItemMutation.mutate({ itemId: item.id, completed: !!checked })}
+                      disabled={checklistTask?.status === "done"}
+                    />
+                    <span className={`flex-1 text-sm ${item.is_completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {item.item_name}
+                    </span>
+                    {item.completed_at && (
+                      <span className="text-xs text-muted-foreground">{format(new Date(item.completed_at), "HH:mm")}</span>
+                    )}
+                  </div>
+                ))}
+                {checklistTask?.status !== "done" && (
+                  <Button variant="ghost" size="sm" className="text-xs mt-1" onClick={() => repopulateChecklistMutation.mutate({ taskId: checklistTask.id, taskType: checklistTask.task_type })}
+                    disabled={repopulateChecklistMutation.isPending}>
+                    <RefreshCw className="h-3 w-3 mr-1" />Recargar desde plantillas
+                  </Button>
+                )}
+              </>
             )}
           </div>
+
+          {/* ── Laundry Collection Section ── */}
+          {checklistTask?.status !== "done" && checklistTask?.task_type === "daily_clean" && (
+            <div className="border-t pt-3 mt-3 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Shirt className="h-4 w-4" />Recolección de Ropa de Habitación
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Registre la ropa retirada de la habitación. Se creará una orden de lavandería automáticamente.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {["Sábanas", "Fundas de almohada", "Cobija", "Toallas de baño", "Toallas de mano", "Toallas de piso"].map(item => (
+                  <div key={item} className="flex items-center gap-2">
+                    <Label className="text-xs flex-1 min-w-0 truncate">{item}</Label>
+                    <Input type="number" min={0} className="w-16 h-7 text-xs"
+                      value={laundryCollectionItems[item] || ""}
+                      onChange={e => setLaundryCollectionItems(prev => ({ ...prev, [item]: parseInt(e.target.value) || 0 }))} />
+                  </div>
+                ))}
+              </div>
+              <Button size="sm" variant="secondary" className="w-full"
+                onClick={() => registerLaundryCollectionMutation.mutate({ taskId: checklistTask.id, roomId: checklistTask.room_id })}
+                disabled={registerLaundryCollectionMutation.isPending || Object.values(laundryCollectionItems).every(v => !v)}>
+                <Shirt className="h-4 w-4 mr-1" />
+                {registerLaundryCollectionMutation.isPending ? "Registrando..." : "Registrar Recolección"}
+              </Button>
+            </div>
+          )}
+
           {checklistTask?.status === "in_progress" && allChecked && (
             <Button className="w-full mt-2" onClick={() => {
               updateStatusMutation.mutate({ taskId: checklistTask.id, newStatus: "done", roomId: checklistTask.room_id });
