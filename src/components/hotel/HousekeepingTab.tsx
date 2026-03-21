@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical } from "lucide-react";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -52,7 +52,7 @@ export default function HousekeepingTab() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateType, setNewTemplateType] = useState("daily_clean");
-
+  const [laundryCollectionItems, setLaundryCollectionItems] = useState<Record<string, number>>({});
   // Fetch all rooms for task creation
   const { data: allRooms } = useQuery({
     queryKey: ["rooms-all-housekeeping"],
@@ -286,10 +286,89 @@ export default function HousekeepingTab() {
   const allChecked = checklistItems?.length > 0 && checklistItems.every((i: any) => i.is_completed);
   const checkedCount = checklistItems?.filter((i: any) => i.is_completed).length || 0;
 
+  // ── Re-populate checklist items from templates ──
+  const repopulateChecklistMutation = useMutation({
+    mutationFn: async ({ taskId, taskType }: { taskId: string; taskType: string }) => {
+      if (!restaurantId) throw new Error("Sin restaurante");
+      // Delete existing items
+      await supabase.from("housekeeping_task_items" as any).delete().eq("housekeeping_task_id", taskId);
+      // Get templates
+      const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
+        .select("item_name, sort_order")
+        .eq("restaurant_id", restaurantId)
+        .eq("task_type", taskType)
+        .eq("active", true)
+        .order("sort_order");
+      if (!templates || (templates as any[]).length === 0) throw new Error("No hay plantillas activas para este tipo de tarea");
+      const items = (templates as any[]).map((t: any) => ({
+        housekeeping_task_id: taskId, restaurant_id: restaurantId,
+        item_name: t.item_name, sort_order: t.sort_order,
+      }));
+      const { error } = await supabase.from("housekeeping_task_items" as any).insert(items as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { refetchChecklist(); toast({ title: "Checklist actualizado desde plantillas" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Register laundry collection from room ──
+  const registerLaundryCollectionMutation = useMutation({
+    mutationFn: async ({ taskId, roomId }: { taskId: string; roomId: string }) => {
+      if (!restaurantId || !user) throw new Error("Sin sesión");
+      const items = Object.entries(laundryCollectionItems)
+        .filter(([_, qty]) => qty > 0)
+        .map(([name, quantity]) => ({ name, quantity }));
+      if (items.length === 0) throw new Error("Agregue al menos un ítem de ropa");
+      const totalPieces = items.reduce((sum, i) => sum + i.quantity, 0);
+
+      // Find the active stay for this room
+      const { data: stay } = await supabase.from("stays" as any)
+        .select("id, company_id").eq("room_id", roomId).eq("status", "checked_in").limit(1).single();
+
+      const { error } = await supabase.from("laundry_orders" as any).insert({
+        restaurant_id: restaurantId,
+        room_id: roomId,
+        stay_id: stay ? (stay as any).id : null,
+        company_id: stay ? (stay as any).company_id : null,
+        laundry_type: "hotel_linen",
+        items: items,
+        total_pieces: totalPieces,
+        status: "pending",
+        created_by: user.id,
+        notes: `Recolección housekeeping - Tarea limpieza`,
+      } as any);
+      if (error) throw error;
+
+      // Register linen movements (from room to laundry)
+      for (const item of items) {
+        // Try to find matching linen item
+        const { data: linenItem } = await supabase.from("hotel_linen_inventory" as any)
+          .select("id").eq("restaurant_id", restaurantId)
+          .ilike("item_name", `%${item.name}%`).limit(1).single();
+        if (linenItem) {
+          await supabase.from("hotel_linen_movements" as any).insert({
+            restaurant_id: restaurantId, linen_id: (linenItem as any).id,
+            room_id: roomId, stay_id: stay ? (stay as any).id : null,
+            from_location: "room", to_location: "laundry",
+            quantity: item.quantity, created_by: user.id,
+            notes: `Recolección durante limpieza diaria`,
+          } as any);
+        }
+      }
+    },
+    onSuccess: () => {
+      setLaundryCollectionItems({});
+      qc.invalidateQueries({ queryKey: ["laundry-orders"] });
+      qc.invalidateQueries({ queryKey: ["hotel-linen-movements"] });
+      toast({ title: "Recolección de ropa registrada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   // ── Auto-generate daily tasks for occupied rooms ──
   const autoGenerateMutation = useMutation({
     mutationFn: async () => {
-      if (!restaurantId) throw new Error("Sin restaurante");
+      if (!restaurantId || !user) throw new Error("Sin restaurante");
       // Get occupied rooms (status = 'occupied')
       const { data: occupiedRooms, error: rErr } = await supabase
         .from("rooms" as any)
@@ -315,11 +394,21 @@ export default function HousekeepingTab() {
       // Get checklist templates
       const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
         .select("item_name, sort_order")
+        .eq("restaurant_id", restaurantId)
         .eq("task_type", "daily_clean")
         .eq("active", true)
         .order("sort_order");
 
       const defaultItems = ["Cama tendida", "Baño limpio", "Amenities repuestos", "Basura retirada", "Piso limpio", "Toallas verificadas"];
+
+      // Check existing laundry orders today to avoid duplicates
+      const { data: existingLaundry } = await supabase
+        .from("laundry_orders" as any)
+        .select("room_id")
+        .eq("laundry_type", "hotel_linen")
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
+      const existingLaundryRoomIds = new Set((existingLaundry as any[] || []).map((l: any) => l.room_id));
 
       let created = 0;
       for (const room of roomsToCreate) {
@@ -344,13 +433,33 @@ export default function HousekeepingTab() {
               item_name: name, sort_order: i,
             }));
         await supabase.from("housekeeping_task_items" as any).insert(items as any);
+
+        // Auto-generate laundry collection order for this room if not already created today
+        if (!existingLaundryRoomIds.has(room.id)) {
+          const { data: stay } = await supabase.from("stays" as any)
+            .select("id, company_id").eq("room_id", room.id).eq("status", "checked_in").limit(1).single();
+          await supabase.from("laundry_orders" as any).insert({
+            restaurant_id: restaurantId,
+            room_id: room.id,
+            stay_id: stay ? (stay as any).id : null,
+            company_id: stay ? (stay as any).company_id : null,
+            laundry_type: "hotel_linen",
+            items: [],
+            total_pieces: 0,
+            status: "pending",
+            created_by: user.id,
+            notes: `Recolección diaria generada automáticamente — ${format(new Date(), "dd/MM/yyyy")}`,
+          } as any);
+        }
+
         created++;
       }
       return created;
     },
     onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
-      toast({ title: `${count} tarea(s) de limpieza diaria creada(s)`, description: "Para todas las habitaciones ocupadas" });
+      qc.invalidateQueries({ queryKey: ["laundry-orders"] });
+      toast({ title: `${count} tarea(s) de limpieza + lavandería creada(s)`, description: "Para todas las habitaciones ocupadas" });
     },
     onError: (e: any) => toast({ title: "Info", description: e.message, variant: "destructive" }),
   });
@@ -717,8 +826,8 @@ export default function HousekeepingTab() {
       </Dialog>
 
       {/* ── Checklist Dialog ── */}
-      <Dialog open={!!checklistTask} onOpenChange={() => setChecklistTask(null)}>
-        <DialogContent className="max-w-md">
+      <Dialog open={!!checklistTask} onOpenChange={(open) => { if (!open) { setChecklistTask(null); setLaundryCollectionItems({}); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Checklist — Hab #{checklistTask?.rooms?.room_number || "—"}</DialogTitle>
           </DialogHeader>
@@ -730,25 +839,68 @@ export default function HousekeepingTab() {
               )}
             </p>
             {checklistItems?.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Sin ítems de checklist</p>
+              <div className="text-center py-4 space-y-2">
+                <p className="text-sm text-muted-foreground">Sin ítems de checklist</p>
+                <Button variant="outline" size="sm" onClick={() => repopulateChecklistMutation.mutate({ taskId: checklistTask.id, taskType: checklistTask.task_type })}
+                  disabled={repopulateChecklistMutation.isPending}>
+                  <RefreshCw className="h-4 w-4 mr-1" />Cargar desde plantillas
+                </Button>
+              </div>
             ) : (
-              checklistItems?.map((item: any) => (
-                <div key={item.id} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/50">
-                  <Checkbox
-                    checked={item.is_completed}
-                    onCheckedChange={(checked) => toggleItemMutation.mutate({ itemId: item.id, completed: !!checked })}
-                    disabled={checklistTask?.status === "done"}
-                  />
-                  <span className={`flex-1 text-sm ${item.is_completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                    {item.item_name}
-                  </span>
-                  {item.completed_at && (
-                    <span className="text-xs text-muted-foreground">{format(new Date(item.completed_at), "HH:mm")}</span>
-                  )}
-                </div>
-              ))
+              <>
+                {checklistItems?.map((item: any) => (
+                  <div key={item.id} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/50">
+                    <Checkbox
+                      checked={item.is_completed}
+                      onCheckedChange={(checked) => toggleItemMutation.mutate({ itemId: item.id, completed: !!checked })}
+                      disabled={checklistTask?.status === "done"}
+                    />
+                    <span className={`flex-1 text-sm ${item.is_completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {item.item_name}
+                    </span>
+                    {item.completed_at && (
+                      <span className="text-xs text-muted-foreground">{format(new Date(item.completed_at), "HH:mm")}</span>
+                    )}
+                  </div>
+                ))}
+                {checklistTask?.status !== "done" && (
+                  <Button variant="ghost" size="sm" className="text-xs mt-1" onClick={() => repopulateChecklistMutation.mutate({ taskId: checklistTask.id, taskType: checklistTask.task_type })}
+                    disabled={repopulateChecklistMutation.isPending}>
+                    <RefreshCw className="h-3 w-3 mr-1" />Recargar desde plantillas
+                  </Button>
+                )}
+              </>
             )}
           </div>
+
+          {/* ── Laundry Collection Section ── */}
+          {checklistTask?.status !== "done" && checklistTask?.task_type === "daily_clean" && (
+            <div className="border-t pt-3 mt-3 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Shirt className="h-4 w-4" />Recolección de Ropa de Habitación
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Registre la ropa retirada de la habitación. Se creará una orden de lavandería automáticamente.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {["Sábanas", "Fundas de almohada", "Cobija", "Toallas de baño", "Toallas de mano", "Toallas de piso"].map(item => (
+                  <div key={item} className="flex items-center gap-2">
+                    <Label className="text-xs flex-1 min-w-0 truncate">{item}</Label>
+                    <Input type="number" min={0} className="w-16 h-7 text-xs"
+                      value={laundryCollectionItems[item] || ""}
+                      onChange={e => setLaundryCollectionItems(prev => ({ ...prev, [item]: parseInt(e.target.value) || 0 }))} />
+                  </div>
+                ))}
+              </div>
+              <Button size="sm" variant="secondary" className="w-full"
+                onClick={() => registerLaundryCollectionMutation.mutate({ taskId: checklistTask.id, roomId: checklistTask.room_id })}
+                disabled={registerLaundryCollectionMutation.isPending || Object.values(laundryCollectionItems).every(v => !v)}>
+                <Shirt className="h-4 w-4 mr-1" />
+                {registerLaundryCollectionMutation.isPending ? "Registrando..." : "Registrar Recolección"}
+              </Button>
+            </div>
+          )}
+
           {checklistTask?.status === "in_progress" && allChecked && (
             <Button className="w-full mt-2" onClick={() => {
               updateStatusMutation.mutate({ taskId: checklistTask.id, newStatus: "done", roomId: checklistTask.room_id });
