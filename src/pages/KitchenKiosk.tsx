@@ -686,21 +686,22 @@ export default function KitchenKiosk() {
 
         for (const comp of comboExecution.components) {
           if (comp.componentMode === "product") {
-            if (!comp.selectedProductId) continue;
-            const prod = products?.find((p) => p.id === comp.selectedProductId);
-            if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
-            const qty = comp.quantityPerService * comboExecution.servings;
-            const cost = Number(prod.average_cost ?? 0);
-            const lineCost = qty * cost;
-            totalCost += lineCost;
-            itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null, productionRunId: null, costSource: "theoretical" });
+            if (comp.selectedProducts.length === 0) continue;
+            for (const sp of comp.selectedProducts) {
+              const prod = products?.find((p) => p.id === sp.productId);
+              if (!prod) throw new Error(`Producto no encontrado: ${sp.productId}`);
+              const cost = Number(prod.average_cost ?? 0);
+              const lineCost = sp.quantity * cost;
+              totalCost += lineCost;
+              itemsForLog.push({ componentName: comp.componentName, productId: sp.productId, qty: sp.quantity, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null, productionRunId: null, costSource: "theoretical" });
 
-            const { error } = await supabase.from("inventory_movements").insert({
-              product_id: comp.selectedProductId, user_id: user!.id, type: "salida", quantity: qty, unit_cost: cost, total_cost: lineCost,
-              notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
-              restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
-            });
-            if (error) throw error;
+              const { error } = await supabase.from("inventory_movements").insert({
+                product_id: sp.productId, user_id: user!.id, type: "salida", quantity: sp.quantity, unit_cost: cost, total_cost: lineCost,
+                notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${prod.name} — ${comboExecution.servings} servicios`,
+                restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
+              });
+              if (error) throw error;
+            }
           } else {
             if (!comp.selectedRecipeId) continue;
             const selectedRecipeName = recipeMap.get(comp.selectedRecipeId) ?? "Receta";
