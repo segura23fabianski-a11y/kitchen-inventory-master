@@ -404,10 +404,64 @@ export default function KitchenKiosk() {
   const updateComboComponent = (componentId: string, productId: string) => {
     setComboExecution((prev) => {
       if (!prev) return null;
+      const prod = products?.find((p) => p.id === productId);
+      const needed = prev.servings * (prev.components.find(c => c.componentId === componentId)?.quantityPerService ?? 0);
+      const stock = prod ? Number(prod.current_stock ?? 0) : 0;
+      const qty = Math.min(needed, stock);
       return {
         ...prev,
         components: prev.components.map((c) =>
-          c.componentId === componentId ? { ...c, selectedProductId: productId } : c
+          c.componentId === componentId
+            ? { ...c, selectedProductId: productId, selectedProducts: [{ productId, quantity: qty }] }
+            : c
+        ),
+      };
+    });
+  };
+
+  const addSecondaryProduct = (componentId: string, productId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.componentId !== componentId) return c;
+          if (c.selectedProducts.some(sp => sp.productId === productId)) return c;
+          const needed = prev.servings * c.quantityPerService;
+          const currentTotal = c.selectedProducts.reduce((s, sp) => s + sp.quantity, 0);
+          const remaining = Math.max(0, needed - currentTotal);
+          const prod = products?.find((p) => p.id === productId);
+          const stock = prod ? Number(prod.current_stock ?? 0) : 0;
+          const qty = Math.min(remaining, stock);
+          return { ...c, selectedProducts: [...c.selectedProducts, { productId, quantity: qty }] };
+        }),
+      };
+    });
+  };
+
+  const updateProductQuantity = (componentId: string, productId: string, quantity: number) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) =>
+          c.componentId === componentId
+            ? { ...c, selectedProducts: c.selectedProducts.map(sp => sp.productId === productId ? { ...sp, quantity } : sp) }
+            : c
+        ),
+      };
+    });
+  };
+
+  const removeSecondaryProduct = (componentId: string, productId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) =>
+          c.componentId === componentId
+            ? { ...c, selectedProducts: c.selectedProducts.filter(sp => sp.productId !== productId) }
+            : c
         ),
       };
     });
