@@ -1016,8 +1016,6 @@ export default function KitchenKiosk() {
                           <div className="space-y-1">
                             {comp.recipeIngredients.map((ri) => {
                               const prod = products?.find(p => p.id === ri.productId);
-                              const stock = prod ? Number(prod.current_stock ?? 0) : 0;
-                              const insuf = ri.actualQty > stock;
                               return (
                                 <div key={ri.productId} className="flex items-center gap-2 text-sm">
                                   <span className="flex-1 truncate">{ri.productName}</span>
@@ -1034,7 +1032,6 @@ export default function KitchenKiosk() {
                                     forceKeypad
                                   />
                                   <span className="text-xs text-muted-foreground shrink-0 w-10">{ri.productUnit}</span>
-                                  {insuf && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
                                 </div>
                               );
                             })}
