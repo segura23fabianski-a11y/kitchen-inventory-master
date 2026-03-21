@@ -335,6 +335,19 @@ export default function Products() {
     codesByProduct.set(c.product_id, arr);
   });
 
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("products").update({ active }).eq("id", id);
+      if (error) throw error;
+      await logAudit({ entityType: "product", entityId: id, action: "UPDATE", before: { active: !active }, after: { active }, canRollback: true });
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: vars.active ? "Producto activado" : "Producto desactivado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const filtered = useMemo(() => products?.filter((p) => {
     if (search.trim()) {
       const pCodes = codesByProduct.get(p.id) ?? [];
@@ -345,6 +358,8 @@ export default function Products() {
     if (filterUnit !== "all" && p.unit !== filterUnit) return false;
     if (filterStatus === "low" && Number(p.current_stock) > Number(p.min_stock)) return false;
     if (filterStatus === "ok" && Number(p.current_stock) <= Number(p.min_stock)) return false;
+    if (filterStatus === "active" && !(p as any).active) return false;
+    if (filterStatus === "inactive" && (p as any).active !== false) return false;
     return true;
   }), [products, search, codesByProduct, filterCategory, filterWarehouse, filterUnit, filterStatus]);
 
