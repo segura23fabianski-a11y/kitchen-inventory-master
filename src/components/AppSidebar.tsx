@@ -107,6 +107,7 @@ const navGroups: NavGroup[] = [
       { to: "/reports", icon: TrendingDown, label: "Consumo", permKey: "reports" },
       { to: "/purchases-report", icon: FileText, label: "Compras", permKey: "reports" },
       { to: "/operational-reports", icon: Layers, label: "Operativos", permKey: "operational_reports" },
+      { to: "/inventory-value", icon: DollarSign, label: "Valor Inventario", permKey: "reports" },
       { to: "/hotel", icon: BarChart3, label: "Hotel Corp.", permKey: "hotel_corporate_reports_view", tabParam: "reports" },
     ],
   },

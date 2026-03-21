@@ -45,11 +45,12 @@ interface ComboExecution {
     componentName: string;
     componentMode: "product" | "recipe";
     quantityPerService: number;
-    selectedProductId: string; // for product mode
+    selectedProductId: string; // primary product for product mode
+    selectedProducts: { productId: string; quantity: number }[]; // multiple products to fill quantity
     selectedRecipeId: string; // for recipe mode
-    productionRunId: string | null; // if using today's production run
+    productionRunId: string | null;
     costSource: "theoretical" | "production_run";
-    productionRunUnitCost: number; // real unit cost from production run
+    productionRunUnitCost: number;
     recipeIngredients: {
       ingredientId: string;
       productId: string;
@@ -390,6 +391,7 @@ export default function KitchenKiosk() {
         componentMode: (c.component_mode ?? "product") as "product" | "recipe",
         quantityPerService: Number(c.quantity_per_service),
         selectedProductId: "",
+        selectedProducts: [],
         selectedRecipeId: "",
         productionRunId: null,
         costSource: "theoretical" as const,
@@ -402,10 +404,64 @@ export default function KitchenKiosk() {
   const updateComboComponent = (componentId: string, productId: string) => {
     setComboExecution((prev) => {
       if (!prev) return null;
+      const prod = products?.find((p) => p.id === productId);
+      const needed = prev.servings * (prev.components.find(c => c.componentId === componentId)?.quantityPerService ?? 0);
+      const stock = prod ? Number(prod.current_stock ?? 0) : 0;
+      const qty = Math.min(needed, stock);
       return {
         ...prev,
         components: prev.components.map((c) =>
-          c.componentId === componentId ? { ...c, selectedProductId: productId } : c
+          c.componentId === componentId
+            ? { ...c, selectedProductId: productId, selectedProducts: [{ productId, quantity: qty }] }
+            : c
+        ),
+      };
+    });
+  };
+
+  const addSecondaryProduct = (componentId: string, productId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.componentId !== componentId) return c;
+          if (c.selectedProducts.some(sp => sp.productId === productId)) return c;
+          const needed = prev.servings * c.quantityPerService;
+          const currentTotal = c.selectedProducts.reduce((s, sp) => s + sp.quantity, 0);
+          const remaining = Math.max(0, needed - currentTotal);
+          const prod = products?.find((p) => p.id === productId);
+          const stock = prod ? Number(prod.current_stock ?? 0) : 0;
+          const qty = Math.min(remaining, stock);
+          return { ...c, selectedProducts: [...c.selectedProducts, { productId, quantity: qty }] };
+        }),
+      };
+    });
+  };
+
+  const updateProductQuantity = (componentId: string, productId: string, quantity: number) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) =>
+          c.componentId === componentId
+            ? { ...c, selectedProducts: c.selectedProducts.map(sp => sp.productId === productId ? { ...sp, quantity } : sp) }
+            : c
+        ),
+      };
+    });
+  };
+
+  const removeSecondaryProduct = (componentId: string, productId: string) => {
+    setComboExecution((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        components: prev.components.map((c) =>
+          c.componentId === componentId
+            ? { ...c, selectedProducts: c.selectedProducts.filter(sp => sp.productId !== productId) }
+            : c
         ),
       };
     });
@@ -504,16 +560,20 @@ export default function KitchenKiosk() {
 
     for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
-        if (!comp.selectedProductId) continue;
+        if (comp.selectedProducts.length === 0) continue;
         hasSelectedComponent = true;
-        const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) return false;
         const needed = comboExecution.servings * comp.quantityPerService;
-        if (needed > Number(prod.current_stock ?? 0)) return false;
+        const totalAssigned = comp.selectedProducts.reduce((s, sp) => s + sp.quantity, 0);
+        if (totalAssigned < needed) return false;
+        // Check each product has enough stock
+        for (const sp of comp.selectedProducts) {
+          const prod = products?.find((p) => p.id === sp.productId);
+          if (!prod) return false;
+          if (sp.quantity > Number(prod.current_stock ?? 0)) return false;
+        }
       } else {
         if (!comp.selectedRecipeId) continue;
         hasSelectedComponent = true;
-        // If using production run, no ingredient-level stock check needed (already produced)
         if (comp.costSource !== "production_run") {
           if (comp.recipeIngredients.length === 0) return false;
           for (const ri of comp.recipeIngredients) {
@@ -537,12 +597,16 @@ export default function KitchenKiosk() {
 
     for (const comp of comboExecution.components) {
       if (comp.componentMode === "product") {
-        const prod = products?.find((p) => p.id === comp.selectedProductId);
-        if (!prod) continue;
-        const cost = Number(prod.average_cost ?? 0);
-        const lineCost = cost * comp.quantityPerService * servings;
-        totalCost += lineCost;
-        components.push({ name: comp.componentName, totalCost: lineCost, unitCost: lineCost / servings, source: "CPP" });
+        if (comp.selectedProducts.length === 0) continue;
+        let compCost = 0;
+        for (const sp of comp.selectedProducts) {
+          const prod = products?.find((p) => p.id === sp.productId);
+          if (!prod) continue;
+          const cost = Number(prod.average_cost ?? 0);
+          compCost += cost * sp.quantity;
+        }
+        totalCost += compCost;
+        components.push({ name: comp.componentName, totalCost: compCost, unitCost: compCost / servings, source: "CPP" });
       } else {
         if (comp.costSource === "production_run" && comp.productionRunUnitCost > 0) {
           const qty = comp.quantityPerService * servings;
@@ -622,21 +686,22 @@ export default function KitchenKiosk() {
 
         for (const comp of comboExecution.components) {
           if (comp.componentMode === "product") {
-            if (!comp.selectedProductId) continue;
-            const prod = products?.find((p) => p.id === comp.selectedProductId);
-            if (!prod) throw new Error(`Producto no encontrado: ${comp.selectedProductId}`);
-            const qty = comp.quantityPerService * comboExecution.servings;
-            const cost = Number(prod.average_cost ?? 0);
-            const lineCost = qty * cost;
-            totalCost += lineCost;
-            itemsForLog.push({ componentName: comp.componentName, productId: comp.selectedProductId, qty, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null, productionRunId: null, costSource: "theoretical" });
+            if (comp.selectedProducts.length === 0) continue;
+            for (const sp of comp.selectedProducts) {
+              const prod = products?.find((p) => p.id === sp.productId);
+              if (!prod) throw new Error(`Producto no encontrado: ${sp.productId}`);
+              const cost = Number(prod.average_cost ?? 0);
+              const lineCost = sp.quantity * cost;
+              totalCost += lineCost;
+              itemsForLog.push({ componentName: comp.componentName, productId: sp.productId, qty: sp.quantity, unitCost: cost, lineCost, isRecipeComponent: false, selectedRecipeId: null, theoreticalQty: null, actualQty: null, productionRunId: null, costSource: "theoretical" });
 
-            const { error } = await supabase.from("inventory_movements").insert({
-              product_id: comp.selectedProductId, user_id: user!.id, type: "salida", quantity: qty, unit_cost: cost, total_cost: lineCost,
-              notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${comboExecution.servings} servicios`,
-              restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
-            });
-            if (error) throw error;
+              const { error } = await supabase.from("inventory_movements").insert({
+                product_id: sp.productId, user_id: user!.id, type: "salida", quantity: sp.quantity, unit_cost: cost, total_cost: lineCost,
+                notes: `Combo: ${comboExecution.recipeName} — ${comp.componentName} — ${prod.name} — ${comboExecution.servings} servicios`,
+                restaurant_id: restaurantId!, recipe_id: comboExecution.recipeId,
+              });
+              if (error) throw error;
+            }
           } else {
             if (!comp.selectedRecipeId) continue;
             const selectedRecipeName = recipeMap.get(comp.selectedRecipeId) ?? "Receta";
@@ -800,14 +865,13 @@ export default function KitchenKiosk() {
             {comboExecution.components.map((comp) => {
               if (comp.componentMode === "product") {
                 // ── Product component ──
-                const selectedProd = products?.find((p) => p.id === comp.selectedProductId);
                 const needed = comp.quantityPerService * comboExecution.servings;
-                const insufficient = selectedProd && needed > Number(selectedProd.current_stock ?? 0);
-                const unitCost = selectedProd ? Number(selectedProd.average_cost ?? 0) : 0;
-                const lineCost = unitCost * needed;
+                const totalAssigned = comp.selectedProducts.reduce((s, sp) => s + sp.quantity, 0);
+                const shortfall = needed - totalAssigned;
+                const hasShortfall = shortfall > 0 && comp.selectedProducts.length > 0;
 
                 return (
-                  <Card key={comp.componentId} className={insufficient ? "border-destructive/50" : ""}>
+                  <Card key={comp.componentId} className={hasShortfall ? "border-warning/50" : ""}>
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="font-semibold capitalize flex items-center gap-1.5">
@@ -816,8 +880,10 @@ export default function KitchenKiosk() {
                         </Label>
                         <span className="text-xs text-muted-foreground">{comp.quantityPerService} × {comboExecution.servings} = {needed} unidades</span>
                       </div>
+
+                      {/* Primary product selector */}
                       <SearchableSelect
-                        options={products?.map((p) => ({
+                        options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
                           value: p.id,
                           label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
                           searchTerms: p.name + " " + (p.barcode || ""),
@@ -828,18 +894,77 @@ export default function KitchenKiosk() {
                         searchPlaceholder="Buscar producto..."
                         forceKeyboard
                       />
-                      {selectedProd && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            Stock: {selectedProd.current_stock} {selectedProd.unit} · Costo: ${unitCost.toFixed(2)}/{selectedProd.unit}
-                          </span>
-                          <span className="font-medium">${lineCost.toFixed(2)}</span>
+
+                      {/* List of selected products with quantities */}
+                      {comp.selectedProducts.map((sp, idx) => {
+                        const prod = products?.find((p) => p.id === sp.productId);
+                        if (!prod) return null;
+                        const stock = Number(prod.current_stock ?? 0);
+                        const insuf = sp.quantity > stock;
+                        const unitCost = Number(prod.average_cost ?? 0);
+                        return (
+                          <div key={sp.productId} className="flex items-center gap-2 rounded-md border p-2 bg-muted/30">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{prod.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Stock: {stock} {prod.unit} · CPP: ${unitCost.toFixed(2)}
+                              </p>
+                            </div>
+                            <NumericKeypadInput
+                              mode="integer"
+                              value={sp.quantity || ""}
+                              onChange={(v) => updateProductQuantity(comp.componentId, sp.productId, Math.max(0, Number(v) || 0))}
+                              min="0"
+                              max={String(stock)}
+                              className="w-20 text-right text-sm h-8"
+                              keypadLabel={prod.name}
+                              forceKeypad
+                            />
+                            <span className="text-xs text-muted-foreground w-8">{prod.unit}</span>
+                            {insuf && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+                            {idx > 0 && (
+                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeSecondaryProduct(comp.componentId, sp.productId)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Shortfall indicator + add secondary product */}
+                      {hasShortfall && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-warning flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Faltan {shortfall} unidades. Agrega otro producto para completar.
+                          </p>
+                          <SearchableSelect
+                            options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
+                              value: p.id,
+                              label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+                              searchTerms: p.name + " " + (p.barcode || ""),
+                            })) ?? []}
+                            value=""
+                            onValueChange={(v) => addSecondaryProduct(comp.componentId, v)}
+                            placeholder="Agregar producto adicional..."
+                            searchPlaceholder="Buscar producto..."
+                            forceKeyboard
+                          />
                         </div>
                       )}
-                      {insufficient && (
-                        <p className="text-xs text-destructive flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" /> Stock insuficiente (necesita {needed}, disponible {selectedProd?.current_stock})
-                        </p>
+
+                      {/* Total cost for this component */}
+                      {comp.selectedProducts.length > 0 && (
+                        <div className="flex items-center justify-between text-xs border-t pt-1">
+                          <span className="text-muted-foreground">
+                            Asignado: {totalAssigned}/{needed} · Costo total
+                          </span>
+                          <span className="font-medium">
+                            ${comp.selectedProducts.reduce((s, sp) => {
+                              const p = products?.find(x => x.id === sp.productId);
+                              return s + sp.quantity * Number(p?.average_cost ?? 0);
+                            }, 0).toFixed(2)}
+                          </span>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
