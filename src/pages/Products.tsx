@@ -773,22 +773,37 @@ export default function Products() {
                         <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `$${Number((p as any).last_unit_cost).toFixed(2)}` : "—"}</TableCell>
                         <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
                         <TableCell>
-                          {Number(p.current_stock) <= Number(p.min_stock) ? (
-                            <Badge variant="destructive">Bajo</Badge>
-                          ) : (
-                            <Badge className="bg-success text-success-foreground">OK</Badge>
-                          )}
+                          <div className="flex gap-1">
+                            {Number(p.current_stock) <= Number(p.min_stock) ? (
+                              <Badge variant="destructive">Bajo</Badge>
+                            ) : (
+                              <Badge className="bg-success text-success-foreground">OK</Badge>
+                            )}
+                            {(p as any).active === false && (
+                              <Badge variant="secondary">Inactivo</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         {(canUpdate || canDelete) && (
                           <TableCell>
                             <div className="flex gap-1">
                               {canUpdate && <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>}
+                              {canUpdate && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => toggleActive.mutate({ id: p.id, active: (p as any).active === false })}
+                                  title={(p as any).active === false ? "Activar producto" : "Desactivar producto"}
+                                >
+                                  <Power className={`h-4 w-4 ${(p as any).active === false ? "text-muted-foreground" : "text-green-600"}`} />
+                                </Button>
+                              )}
                               {hasPermission("cost_revaluation") && (
                                 <Button variant="ghost" size="icon" onClick={() => setRevalProduct(p)} title="Corregir costo">
                                   <DollarSign className="h-4 w-4 text-amber-600" />
                                 </Button>
                               )}
-                               {hasRole("admin") && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                              {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                             </div>
                           </TableCell>
                         )}
