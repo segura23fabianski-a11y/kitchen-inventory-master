@@ -89,7 +89,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/suppliers", icon: Users, label: "Proveedores", permKey: "suppliers" },
       { to: "/purchase-orders", icon: FileText, label: "Órdenes Compra", permKey: "purchase_orders" },
-      { to: "/purchase-invoices", icon: Receipt, label: "Facturas", permKey: "purchase_invoices" },
+      { to: "/purchases", icon: Receipt, label: "Facturas", permKey: "purchases" },
       { to: "/purchases-report", icon: BarChart3, label: "Reporte Compras", permKey: "purchases_report" },
     ],
   },
