@@ -43,7 +43,7 @@ const navGroups: NavGroup[] = [
       { to: "/hotel", icon: Hotel, label: "Tipos", permKey: "hotel_room_types_view", tabParam: "room-types" },
       { to: "/hotel", icon: UsersIcon, label: "Huéspedes", permKey: "hotel_guests_view", tabParam: "guests" },
       { to: "/hotel", icon: Sparkles, label: "Housekeeping", permKey: "housekeeping_view", tabParam: "housekeeping" },
-      { to: "/hotel-operativo", icon: Sparkles, label: "Tablet Operativo", permKey: "housekeeping_view" },
+      
       { to: "/hotel", icon: Shirt, label: "Lavandería", permKey: "laundry_view", tabParam: "laundry" },
       { to: "/hotel", icon: Package, label: "Lencería", permKey: "linen_inventory_view", tabParam: "linen" },
     ],
