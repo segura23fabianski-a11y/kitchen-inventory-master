@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_chat_logs: {
+        Row: {
+          ai_response: string | null
+          analysis_type: string | null
+          created_at: string
+          id: string
+          restaurant_id: string
+          user_id: string
+          user_question: string
+        }
+        Insert: {
+          ai_response?: string | null
+          analysis_type?: string | null
+          created_at?: string
+          id?: string
+          restaurant_id: string
+          user_id: string
+          user_question: string
+        }
+        Update: {
+          ai_response?: string | null
+          analysis_type?: string | null
+          created_at?: string
+          id?: string
+          restaurant_id?: string
+          user_id?: string
+          user_question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_chat_logs_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           id: string

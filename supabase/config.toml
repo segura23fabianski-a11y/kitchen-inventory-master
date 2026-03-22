@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.reset-inventory]
 verify_jwt = false
+
+[functions.business-ai]
+verify_jwt = false

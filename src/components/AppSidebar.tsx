@@ -4,7 +4,7 @@ import {
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, TrendingDown, ChevronDown, Settings, Receipt, Utensils, CalendarDays, Paintbrush,
   HelpCircle, Calculator, FlaskConical, Hotel, BedDouble, CalendarCheck, CalendarPlus,
-  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign
+  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign, Bot
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -124,6 +124,7 @@ const navGroups: NavGroup[] = [
       { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "recalculate_inventory" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "reset_inventory" },
       { to: "/pos", icon: Shield, label: "Admin POS", permKey: "pos_admin", tabParam: "admin-pos" },
+      { to: "/business-ai", icon: Bot, label: "Asistente IA", permKey: "business_ai" },
       { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
     ],
   },
