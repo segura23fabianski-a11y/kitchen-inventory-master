@@ -65,18 +65,64 @@ export default function StaysTab() {
   const { data: rooms } = useQuery({
     queryKey: ["rooms-for-checkin"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").eq("status", "available").order("room_number");
-      if (error) throw error;
-      return data as any[];
+      const [{ data: roomData, error: roomError }, { data: activeStays, error: staysError }, { data: pendingTasks, error: tasksError }] = await Promise.all([
+        supabase
+          .from("rooms" as any)
+          .select("id, room_number, status, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)")
+          .order("room_number"),
+        supabase.from("stays" as any).select("room_id").eq("status", "checked_in"),
+        supabase.from("housekeeping_tasks" as any).select("room_id").in("status", ["pending", "in_progress"]),
+      ]);
+      if (roomError) throw roomError;
+      if (staysError) throw staysError;
+      if (tasksError) throw tasksError;
+
+      const occupiedRoomIds = new Set((activeStays as any[] | null)?.map((stay: any) => stay.room_id) || []);
+      const blockedRoomIds = new Set((pendingTasks as any[] | null)?.map((task: any) => task.room_id) || []);
+
+      return ((roomData as any[]) || [])
+        .map((room: any) => ({
+          ...room,
+          status: room.status === "maintenance"
+            ? "maintenance"
+            : occupiedRoomIds.has(room.id)
+              ? "occupied"
+              : blockedRoomIds.has(room.id)
+                ? "cleaning"
+                : "available",
+        }))
+        .filter((room: any) => room.status === "available");
     },
   });
 
   const { data: allRooms } = useQuery({
     queryKey: ["all-rooms-list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("rooms" as any).select("id, room_number, status, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)").order("room_number");
-      if (error) throw error;
-      return data as any[];
+      const [{ data: roomData, error: roomError }, { data: activeStays, error: staysError }, { data: pendingTasks, error: tasksError }] = await Promise.all([
+        supabase
+          .from("rooms" as any)
+          .select("id, room_number, status, room_type_id, room_types(name, base_rate, rate_single, rate_double, rate_triple, max_occupancy)")
+          .order("room_number"),
+        supabase.from("stays" as any).select("room_id").eq("status", "checked_in"),
+        supabase.from("housekeeping_tasks" as any).select("room_id").in("status", ["pending", "in_progress"]),
+      ]);
+      if (roomError) throw roomError;
+      if (staysError) throw staysError;
+      if (tasksError) throw tasksError;
+
+      const occupiedRoomIds = new Set((activeStays as any[] | null)?.map((stay: any) => stay.room_id) || []);
+      const blockedRoomIds = new Set((pendingTasks as any[] | null)?.map((task: any) => task.room_id) || []);
+
+      return ((roomData as any[]) || []).map((room: any) => ({
+        ...room,
+        status: room.status === "maintenance"
+          ? "maintenance"
+          : occupiedRoomIds.has(room.id)
+            ? "occupied"
+            : blockedRoomIds.has(room.id)
+              ? "cleaning"
+              : "available",
+      }));
     },
   });
 
