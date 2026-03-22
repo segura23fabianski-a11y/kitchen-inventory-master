@@ -44,7 +44,7 @@ import PurchasesReport from "./pages/PurchasesReport";
 import CorporateMasters from "./pages/CorporateMasters";
 import InventoryValue from "./pages/InventoryValue";
 import BusinessAI from "./pages/BusinessAI";
-import HotelOperativoTablet from "./pages/HotelOperativoTablet";
+
 
 import NotFound from "./pages/NotFound";
 
@@ -160,7 +160,7 @@ const AppRoutes = () => (
         <Route path="/corporate-masters" element={<ProtectedRoute permKey="corporate_masters"><CorporateMasters /></ProtectedRoute>} />
         <Route path="/inventory-value" element={<ProtectedRoute permKey="reports"><InventoryValue /></ProtectedRoute>} />
         <Route path="/business-ai" element={<ProtectedRoute permKey="business_ai"><BusinessAI /></ProtectedRoute>} />
-        <Route path="/hotel-operativo" element={<ProtectedRoute permKey="housekeeping_view"><HotelOperativoTablet /></ProtectedRoute>} />
+        
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
