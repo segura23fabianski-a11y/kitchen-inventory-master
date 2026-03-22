@@ -75,9 +75,9 @@ const navGroups: NavGroup[] = [
       { to: "/movements", icon: ArrowRightLeft, label: "Movimientos", permKey: "movements" },
       { to: "/kardex", icon: FileText, label: "Kardex", permKey: "kardex" },
       { to: "/physical-inventory", icon: ClipboardCheck, label: "Inv. Físico", permKey: "physical_inventory" },
-      { to: "/waste-control", icon: Trash2, label: "Mermas", permKey: "waste" },
+      { to: "/waste", icon: Trash2, label: "Mermas", permKey: "waste_control" },
       { to: "/transformations", icon: FlaskConical, label: "Transformaciones", permKey: "transformations" },
-      { to: "/manual-consumption", icon: SprayCan, label: "Consumo Manual", permKey: "manual_consumption" },
+      { to: "/operations", icon: SprayCan, label: "Consumo Manual", permKey: "operations_kiosk" },
       { to: "/price-history", icon: TrendingUp, label: "Historial Precios", permKey: "price_history" },
       { to: "/inventory-value", icon: Calculator, label: "Valor Inventario", permKey: "reports" },
     ],
@@ -89,7 +89,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/suppliers", icon: Users, label: "Proveedores", permKey: "suppliers" },
       { to: "/purchase-orders", icon: FileText, label: "Órdenes Compra", permKey: "purchase_orders" },
-      { to: "/purchase-invoices", icon: Receipt, label: "Facturas", permKey: "purchase_invoices" },
+      { to: "/purchases", icon: Receipt, label: "Facturas", permKey: "purchases" },
       { to: "/purchases-report", icon: BarChart3, label: "Reporte Compras", permKey: "purchases_report" },
     ],
   },
@@ -100,7 +100,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/recipes", icon: UtensilsCrossed, label: "Recetas", permKey: "recipes" },
       { to: "/meal-planning", icon: CalendarDays, label: "Plan Alimenticio", permKey: "meal_planning" },
-      { to: "/kitchen-kiosk", icon: Utensils, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
+      { to: "/kitchen", icon: Utensils, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
     ],
   },
   {
@@ -108,8 +108,8 @@ const navGroups: NavGroup[] = [
     label: "Reportes",
     icon: BarChart3,
     items: [
-      { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
-      { to: "/executive-dashboard", icon: PieChart, label: "Ejecutivo", permKey: "executive_dashboard" },
+      { to: "/", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
+      { to: "/executive", icon: PieChart, label: "Ejecutivo", permKey: "executive_dashboard" },
       { to: "/reports", icon: BarChart3, label: "Reportes Op.", permKey: "reports" },
       { to: "/operational-reports", icon: TrendingDown, label: "Análisis Costos", permKey: "operational_reports" },
       { to: "/corporate-masters", icon: Building2, label: "Maestros Corp.", permKey: "corporate_masters" },
@@ -122,10 +122,10 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
-      { to: "/roles", icon: Shield, label: "Roles", permKey: "manage_roles" },
-      { to: "/audit-log", icon: History, label: "Auditoría", permKey: "audit_log" },
-      { to: "/branding", icon: Paintbrush, label: "Marca", permKey: "manage_branding" },
-      { to: "/user-manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
+      { to: "/roles", icon: Shield, label: "Roles", permKey: "roles" },
+      { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
+      { to: "/branding", icon: Paintbrush, label: "Marca", permKey: "branding" },
+      { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
     ],
   },
 ];
