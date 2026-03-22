@@ -124,6 +124,7 @@ const navGroups: NavGroup[] = [
       { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "recalculate_inventory" },
       { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "reset_inventory" },
       { to: "/pos", icon: Shield, label: "Admin POS", permKey: "pos_admin", tabParam: "admin-pos" },
+      { to: "/business-ai", icon: Bot, label: "Asistente IA", permKey: "business_ai" },
       { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
     ],
   },
