@@ -122,10 +122,10 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
-      { to: "/roles", icon: Shield, label: "Roles", permKey: "manage_roles" },
-      { to: "/audit-log", icon: History, label: "Auditoría", permKey: "audit_log" },
-      { to: "/branding", icon: Paintbrush, label: "Marca", permKey: "manage_branding" },
-      { to: "/user-manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
+      { to: "/roles", icon: Shield, label: "Roles", permKey: "roles" },
+      { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
+      { to: "/branding", icon: Paintbrush, label: "Marca", permKey: "branding" },
+      { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
     ],
   },
 ];
