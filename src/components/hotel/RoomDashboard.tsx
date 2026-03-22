@@ -141,9 +141,17 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
       const primaryGuest = stay?.stay_guests?.find((sg: any) => sg.is_primary);
       const guestCount = stay?.stay_guests?.length || 0;
       const hkTask = pendingTasks?.find((t: any) => t.room_id === room.id);
+      const effectiveStatus = room.status === "maintenance"
+        ? "maintenance"
+        : stay
+          ? "occupied"
+          : hkTask
+            ? "cleaning"
+            : "available";
 
       return {
         ...room,
+        status: effectiveStatus,
         stay,
         primaryGuestName: primaryGuest
           ? `${primaryGuest.hotel_guests?.first_name} ${primaryGuest.hotel_guests?.last_name}`
