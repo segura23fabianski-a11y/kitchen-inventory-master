@@ -10,8 +10,9 @@ import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
 
 interface NavItem {
@@ -178,7 +179,24 @@ function useOpenGroups(pathname: string, tabParam: string | null) {
   return { openGroups, toggle };
 }
 
-function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
+// Collapse context
+const SidebarCollapseCtx = createContext<{ collapsed: boolean; setCollapsed: (v: boolean) => void }>({ collapsed: false, setCollapsed: () => {} });
+export const useSidebarCollapse = () => useContext(SidebarCollapseCtx);
+
+const COLLAPSED_KEY = "sidebar-collapsed";
+
+export function SidebarCollapseProvider({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(COLLAPSED_KEY) === "true"; } catch { return false; }
+  });
+  const set = useCallback((v: boolean) => {
+    setCollapsed(v);
+    localStorage.setItem(COLLAPSED_KEY, String(v));
+  }, []);
+  return <SidebarCollapseCtx.Provider value={{ collapsed, setCollapsed: set }}>{children}</SidebarCollapseCtx.Provider>;
+}
+
+function useSidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { signOut, user } = useAuth();
   const { hasPermission } = usePermissions();
   const location = useLocation();
@@ -188,7 +206,6 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
   const branding = useBranding();
   const navRef = useRef<HTMLElement>(null);
 
-  // Preserve sidebar nav scroll position across route changes
   const navScrollTop = useRef(0);
   useEffect(() => {
     const nav = navRef.current;
@@ -197,35 +214,33 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
     nav.addEventListener("scroll", handleScroll, { passive: true });
     return () => nav.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // Restore scroll after render
   useEffect(() => {
     const nav = navRef.current;
-    if (nav && navScrollTop.current > 0) {
-      nav.scrollTop = navScrollTop.current;
-    }
+    if (nav && navScrollTop.current > 0) nav.scrollTop = navScrollTop.current;
   });
 
   const visibleGroups = navGroups
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((i) => hasPermission(i.permKey)),
-    }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => hasPermission(i.permKey)) }))
     .filter((g) => g.items.length > 0);
 
   const isItemActive = (item: NavItem) => {
     if (item.tabParam) {
       if (location.pathname !== item.to) return false;
       const defaultTab = item.to === "/hotel" ? "dashboard" : "orders";
-      const activeTab = currentTab || defaultTab;
-      return activeTab === item.tabParam;
+      return (currentTab || defaultTab) === item.tabParam;
     }
     return location.pathname === item.to;
   };
 
+  return { visibleGroups, isItemActive, openGroups, toggle, branding, user, signOut, navRef, onNavigate };
+}
+
+function ExpandedSidebar({ ctx }: { ctx: ReturnType<typeof useSidebarNav> }) {
+  const { visibleGroups, isItemActive, openGroups, toggle, branding, user, signOut, navRef, onNavigate } = ctx;
+  const { setCollapsed } = useSidebarCollapse();
+
   return (
     <>
-      {/* Header */}
       <div className="flex h-14 items-center gap-3 px-5 border-b border-sidebar-border shrink-0">
         {branding.logo_small_url ? (
           <img src={branding.logo_small_url} alt="Logo" className="h-8 w-8 rounded-lg object-contain" />
@@ -237,40 +252,29 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
         <span className="font-heading text-base font-semibold text-sidebar-foreground">
           {branding.app_name || "Inventario"}
         </span>
+        <button
+          onClick={() => setCollapsed(true)}
+          className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+          title="Minimizar menú"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Grouped navigation — preserve scroll position across re-renders */}
-      <nav
-        ref={navRef}
-        className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
-      >
+      <nav ref={navRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
         {visibleGroups.map((group) => {
           const isOpen = !!openGroups[group.id];
           const hasActiveRoute = group.items.some((i) => isItemActive(i));
-
           return (
-            <Collapsible
-              key={group.id}
-              open={isOpen}
-              onOpenChange={() => toggle(group.id)}
-            >
+            <Collapsible key={group.id} open={isOpen} onOpenChange={() => toggle(group.id)}>
               <CollapsibleTrigger className="w-full">
-                <div
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors w-full",
-                    hasActiveRoute
-                      ? "text-sidebar-primary bg-sidebar-accent/50"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                  )}
-                >
+                <div className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors w-full",
+                  hasActiveRoute ? "text-sidebar-primary bg-sidebar-accent/50" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                )}>
                   <group.icon className="h-4 w-4 shrink-0" />
                   <span className="flex-1 text-left">{group.label}</span>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 shrink-0 transition-transform duration-200",
-                      isOpen && "rotate-180"
-                    )}
-                  />
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -278,20 +282,11 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
                   {group.items.map((item, idx) => {
                     const active = isItemActive(item);
                     const href = item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
-
                     return (
-                      <NavLink
-                        key={`${item.to}-${item.tabParam || idx}`}
-                        to={href}
-                        end={!item.tabParam}
-                        onClick={onNavigate}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors",
-                          active
-                            ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                        )}
-                      >
+                      <NavLink key={`${item.to}-${item.tabParam || idx}`} to={href} end={!item.tabParam} onClick={onNavigate}
+                        className={cn("flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors",
+                          active ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                        )}>
                         <item.icon className="h-3.5 w-3.5" />
                         {item.label}
                       </NavLink>
@@ -304,22 +299,15 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-sidebar-border p-3 shrink-0">
         <div className="flex items-center gap-3 rounded-lg px-3 py-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-foreground shrink-0">
             {user?.email?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">
-              {user?.email}
-            </p>
+            <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.email}</p>
           </div>
-          <button
-            onClick={signOut}
-            className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
-            title="Cerrar sesión"
-          >
+          <button onClick={signOut} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors" title="Cerrar sesión">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
@@ -328,10 +316,79 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function DesktopSidebar() {
+function CollapsedSidebar({ ctx }: { ctx: ReturnType<typeof useSidebarNav> }) {
+  const { visibleGroups, isItemActive, branding, user, signOut, onNavigate } = ctx;
+  const { setCollapsed } = useSidebarCollapse();
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
-      <SidebarNavContent />
+    <>
+      <div className="flex h-14 items-center justify-center border-b border-sidebar-border shrink-0">
+        {branding.logo_small_url ? (
+          <img src={branding.logo_small_url} alt="Logo" className="h-7 w-7 rounded-lg object-contain" />
+        ) : (
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary">
+            <Package className="h-3.5 w-3.5 text-sidebar-primary-foreground" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-center py-2">
+        <button onClick={() => setCollapsed(false)}
+          className="p-1.5 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          title="Expandir menú">
+          <PanelLeftOpen className="h-4 w-4" />
+        </button>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-1">
+        {visibleGroups.map((group) => (
+          <div key={group.id} className="space-y-0.5">
+            <div className="flex justify-center py-1">
+              <group.icon className="h-3.5 w-3.5 text-sidebar-foreground/40" />
+            </div>
+            {group.items.map((item, idx) => {
+              const active = isItemActive(item);
+              const href = item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
+              return (
+                <NavLink key={`${item.to}-${item.tabParam || idx}`} to={href} end={!item.tabParam} onClick={onNavigate} title={item.label}
+                  className={cn("flex items-center justify-center rounded-lg p-2 transition-colors",
+                    active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}>
+                  <item.icon className="h-4 w-4" />
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      <div className="border-t border-sidebar-border p-2 shrink-0 flex flex-col items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-foreground" title={user?.email || ""}>
+          {user?.email?.charAt(0).toUpperCase()}
+        </div>
+        <button onClick={signOut} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors" title="Cerrar sesión">
+          <LogOut className="h-4 w-4" />
+        </button>
+      </div>
+    </>
+  );
+}
+
+function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
+  const ctx = useSidebarNav({ onNavigate });
+  return <ExpandedSidebar ctx={ctx} />;
+}
+
+export function DesktopSidebar() {
+  const { collapsed } = useSidebarCollapse();
+  const ctx = useSidebarNav({});
+
+  return (
+    <aside className={cn(
+      "fixed inset-y-0 left-0 z-30 hidden md:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300",
+      collapsed ? "w-14" : "w-64"
+    )}>
+      {collapsed ? <CollapsedSidebar ctx={ctx} /> : <ExpandedSidebar ctx={ctx} />}
     </aside>
   );
 }
