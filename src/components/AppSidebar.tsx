@@ -75,7 +75,7 @@ const navGroups: NavGroup[] = [
       { to: "/movements", icon: ArrowRightLeft, label: "Movimientos", permKey: "movements" },
       { to: "/kardex", icon: FileText, label: "Kardex", permKey: "kardex" },
       { to: "/physical-inventory", icon: ClipboardCheck, label: "Inv. Físico", permKey: "physical_inventory" },
-      { to: "/waste-control", icon: Trash2, label: "Mermas", permKey: "waste" },
+      { to: "/waste", icon: Trash2, label: "Mermas", permKey: "waste_control" },
       { to: "/transformations", icon: FlaskConical, label: "Transformaciones", permKey: "transformations" },
       { to: "/manual-consumption", icon: SprayCan, label: "Consumo Manual", permKey: "manual_consumption" },
       { to: "/price-history", icon: TrendingUp, label: "Historial Precios", permKey: "price_history" },
