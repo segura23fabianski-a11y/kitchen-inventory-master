@@ -316,9 +316,8 @@ function ExpandedSidebar({ ctx }: { ctx: ReturnType<typeof useSidebarNav> }) {
   );
 }
 
-function CollapsedSidebar({ ctx }: { ctx: ReturnType<typeof useSidebarNav> }) {
-  const { visibleGroups, isItemActive, branding, user, signOut, onNavigate } = ctx;
-  const { setCollapsed } = useSidebarCollapse();
+function CollapsedSidebar({ ctx, onRequestExpand }: { ctx: ReturnType<typeof useSidebarNav>; onRequestExpand: () => void }) {
+  const { visibleGroups, isItemActive, branding, user, signOut } = ctx;
 
   return (
     <>
@@ -332,14 +331,6 @@ function CollapsedSidebar({ ctx }: { ctx: ReturnType<typeof useSidebarNav> }) {
         )}
       </div>
 
-      <div className="flex justify-center py-2">
-        <button onClick={() => setCollapsed(false)}
-          className="p-1.5 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          title="Expandir menú">
-          <PanelLeftOpen className="h-4 w-4" />
-        </button>
-      </div>
-
       <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-1">
         {visibleGroups.map((group) => (
           <div key={group.id} className="space-y-0.5">
@@ -348,14 +339,13 @@ function CollapsedSidebar({ ctx }: { ctx: ReturnType<typeof useSidebarNav> }) {
             </div>
             {group.items.map((item, idx) => {
               const active = isItemActive(item);
-              const href = item.tabParam ? `${item.to}?tab=${item.tabParam}` : item.to;
               return (
-                <NavLink key={`${item.to}-${item.tabParam || idx}`} to={href} end={!item.tabParam} onClick={onNavigate} title={item.label}
-                  className={cn("flex items-center justify-center rounded-lg p-2 transition-colors",
+                <button key={`${item.to}-${item.tabParam || idx}`} title={item.label} onClick={onRequestExpand}
+                  className={cn("flex w-full items-center justify-center rounded-lg p-2 transition-colors",
                     active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   )}>
                   <item.icon className="h-4 w-4" />
-                </NavLink>
+                </button>
               );
             })}
           </div>
@@ -381,15 +371,31 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DesktopSidebar() {
   const { collapsed } = useSidebarCollapse();
-  const ctx = useSidebarNav({});
+  const [peek, setPeek] = useState(false);
+  const ctx = useSidebarNav({ onNavigate: collapsed ? () => setPeek(false) : undefined });
 
   return (
-    <aside className={cn(
-      "fixed inset-y-0 left-0 z-30 hidden md:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300",
-      collapsed ? "w-14" : "w-64"
-    )}>
-      {collapsed ? <CollapsedSidebar ctx={ctx} /> : <ExpandedSidebar ctx={ctx} />}
-    </aside>
+    <>
+      {/* Collapsed icon strip */}
+      {collapsed && (
+        <aside className="fixed inset-y-0 left-0 z-30 hidden md:flex w-14 flex-col bg-sidebar border-r border-sidebar-border">
+          <CollapsedSidebar ctx={ctx} onRequestExpand={() => setPeek(true)} />
+        </aside>
+      )}
+
+      {/* Full sidebar: always visible when not collapsed, or as overlay when peeking */}
+      {(!collapsed || peek) && (
+        <>
+          {peek && <div className="fixed inset-0 z-30 hidden md:block" onClick={() => setPeek(false)} />}
+          <aside className={cn(
+            "fixed inset-y-0 left-0 z-40 hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border transition-all duration-200",
+            peek && "shadow-xl"
+          )}>
+            <ExpandedSidebar ctx={ctx} />
+          </aside>
+        </>
+      )}
+    </>
   );
 }
 
