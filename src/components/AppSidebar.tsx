@@ -109,7 +109,7 @@ const navGroups: NavGroup[] = [
     icon: BarChart3,
     items: [
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
-      { to: "/executive-dashboard", icon: PieChart, label: "Ejecutivo", permKey: "executive_dashboard" },
+      { to: "/executive", icon: PieChart, label: "Ejecutivo", permKey: "executive_dashboard" },
       { to: "/reports", icon: BarChart3, label: "Reportes Op.", permKey: "reports" },
       { to: "/operational-reports", icon: TrendingDown, label: "Análisis Costos", permKey: "operational_reports" },
       { to: "/corporate-masters", icon: Building2, label: "Maestros Corp.", permKey: "corporate_masters" },
