@@ -4,7 +4,7 @@ import {
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, TrendingDown, ChevronDown, Settings, Receipt, Utensils, CalendarDays, Paintbrush,
   HelpCircle, Calculator, FlaskConical, Hotel, BedDouble, CalendarCheck, CalendarPlus,
-  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign
+  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign, Bot
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
