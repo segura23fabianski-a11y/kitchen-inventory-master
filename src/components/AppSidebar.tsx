@@ -100,7 +100,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/recipes", icon: UtensilsCrossed, label: "Recetas", permKey: "recipes" },
       { to: "/meal-planning", icon: CalendarDays, label: "Plan Alimenticio", permKey: "meal_planning" },
-      { to: "/kitchen-kiosk", icon: Utensils, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
+      { to: "/kitchen", icon: Utensils, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
     ],
   },
   {
