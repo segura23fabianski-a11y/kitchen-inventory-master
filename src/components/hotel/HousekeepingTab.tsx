@@ -260,8 +260,18 @@ export default function HousekeepingTab() {
       if (error) throw error;
       const task = tasks?.find((t: any) => t.id === taskId);
       if (newStatus === "done" && (task?.task_type === "checkout_clean" || task?.task_type === "daily_clean")) {
-        const { error: rErr } = await supabase.from("rooms" as any).update({ status: "available" } as any).eq("id", roomId);
-        if (rErr) throw rErr;
+        if (task?.task_type === "checkout_clean") {
+          // Checkout clean: room becomes available (no guest)
+          const { error: rErr } = await supabase.from("rooms" as any).update({ status: "available" } as any).eq("id", roomId);
+          if (rErr) throw rErr;
+        } else {
+          // Daily clean: check if there's an active stay — if so, room goes back to "occupied"
+          const { data: activeStay } = await supabase.from("stays" as any)
+            .select("id").eq("room_id", roomId).eq("status", "checked_in").limit(1).maybeSingle();
+          const newRoomStatus = activeStay ? "occupied" : "available";
+          const { error: rErr } = await supabase.from("rooms" as any).update({ status: newRoomStatus } as any).eq("id", roomId);
+          if (rErr) throw rErr;
+        }
       }
     },
     onSuccess: (_, variables) => {
