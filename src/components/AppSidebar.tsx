@@ -4,8 +4,7 @@ import {
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, TrendingDown, ChevronDown, Settings, Receipt, Utensils, CalendarDays, Paintbrush,
   HelpCircle, Calculator, FlaskConical, Hotel, BedDouble, CalendarCheck, CalendarPlus,
-  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign, Bot,
-  ChevronRight
+  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign, Bot
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -14,13 +13,13 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useBranding } from "@/hooks/use-branding";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NavItem {
   to: string;
   icon: typeof LayoutDashboard;
   label: string;
   permKey: string;
+  /** For hotel sub-tabs that share /hotel path */
   tabParam?: string;
 }
 
@@ -44,6 +43,7 @@ const navGroups: NavGroup[] = [
       { to: "/hotel", icon: Hotel, label: "Tipos", permKey: "hotel_room_types_view", tabParam: "room-types" },
       { to: "/hotel", icon: UsersIcon, label: "Huéspedes", permKey: "hotel_guests_view", tabParam: "guests" },
       { to: "/hotel", icon: Sparkles, label: "Housekeeping", permKey: "housekeeping_view", tabParam: "housekeeping" },
+      
       { to: "/hotel", icon: Shirt, label: "Lavandería", permKey: "laundry_view", tabParam: "laundry" },
       { to: "/hotel", icon: Package, label: "Lencería", permKey: "linen_inventory_view", tabParam: "linen" },
     ],
@@ -53,67 +53,63 @@ const navGroups: NavGroup[] = [
     label: "POS / Ventas",
     icon: ShoppingCart,
     items: [
-      { to: "/pos", icon: ShoppingCart, label: "Restaurante", permKey: "pos_restaurant", tabParam: "orders" },
+      { to: "/pos", icon: Utensils, label: "Restaurante", permKey: "pos_restaurant", tabParam: "restaurant" },
       { to: "/pos", icon: Building2, label: "Corporativo", permKey: "pos_corporate", tabParam: "corporate" },
       { to: "/pos", icon: List, label: "Menú", permKey: "pos_menu", tabParam: "menu" },
       { to: "/pos", icon: LayoutGrid, label: "Mesas", permKey: "pos_tables", tabParam: "tables" },
-      { to: "/pos", icon: UtensilsCrossed, label: "Cocina", permKey: "pos_kitchen", tabParam: "kitchen" },
       { to: "/pos", icon: DollarSign, label: "Caja", permKey: "pos_cash_register", tabParam: "cash-register" },
-      { to: "/pos", icon: FileText, label: "Contratos", permKey: "pos_contracts", tabParam: "contracts" },
-      { to: "/pos", icon: Activity, label: "Tarifas Serv.", permKey: "pos_service_rates", tabParam: "service-rates" },
-      { to: "/pos", icon: Settings, label: "Admin POS", permKey: "pos_admin", tabParam: "admin" },
     ],
   },
   {
-    id: "inventory",
+    id: "inventario",
     label: "Inventario",
     icon: Archive,
     items: [
+      { to: "/", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
       { to: "/products", icon: Package, label: "Productos", permKey: "products" },
       { to: "/categories", icon: Tag, label: "Categorías", permKey: "categories" },
-      { to: "/warehouses", icon: Warehouse, label: "Bodegas", permKey: "warehouses" },
       { to: "/movements", icon: ArrowRightLeft, label: "Movimientos", permKey: "movements" },
-      { to: "/kardex", icon: FileText, label: "Kardex", permKey: "kardex" },
-      { to: "/physical-inventory", icon: ClipboardCheck, label: "Inv. Físico", permKey: "physical_inventory" },
-      { to: "/waste", icon: Trash2, label: "Mermas", permKey: "waste_control" },
+      { to: "/kardex", icon: BookOpen, label: "Kardex", permKey: "kardex" },
+      { to: "/warehouses", icon: Warehouse, label: "Almacenes", permKey: "warehouses" },
+      { to: "/physical-inventory", icon: ClipboardCheck, label: "Inventario Físico", permKey: "physical_inventory" },
       { to: "/transformations", icon: FlaskConical, label: "Transformaciones", permKey: "transformations" },
-      { to: "/operations", icon: SprayCan, label: "Consumo Manual", permKey: "operations_kiosk" },
-      { to: "/price-history", icon: TrendingUp, label: "Historial Precios", permKey: "price_history" },
-      { to: "/inventory-value", icon: Calculator, label: "Valor Inventario", permKey: "reports" },
+      { to: "/waste", icon: AlertTriangle, label: "Desperdicios", permKey: "waste_control" },
     ],
   },
   {
-    id: "purchases",
+    id: "compras",
     label: "Compras",
-    icon: Truck,
+    icon: Receipt,
     items: [
-      { to: "/suppliers", icon: Users, label: "Proveedores", permKey: "suppliers" },
-      { to: "/purchase-orders", icon: FileText, label: "Órdenes Compra", permKey: "purchase_orders" },
+      { to: "/purchase-orders", icon: ShoppingCart, label: "Pedidos", permKey: "purchase_orders" },
       { to: "/purchases", icon: Receipt, label: "Facturas", permKey: "purchases" },
-      { to: "/purchases-report", icon: BarChart3, label: "Reporte Compras", permKey: "purchases_report" },
+      { to: "/suppliers", icon: Truck, label: "Proveedores", permKey: "suppliers" },
+      { to: "/price-history", icon: TrendingUp, label: "Histórico Precios", permKey: "price_history" },
     ],
   },
   {
-    id: "kitchen",
+    id: "cocina",
     label: "Cocina",
     icon: ChefHat,
     items: [
-      { to: "/recipes", icon: UtensilsCrossed, label: "Recetas", permKey: "recipes" },
-      { to: "/meal-planning", icon: CalendarDays, label: "Plan Alimenticio", permKey: "meal_planning" },
-      { to: "/kitchen", icon: Utensils, label: "Kiosco Operativo", permKey: "kitchen_kiosk" },
+      { to: "/recipes", icon: ChefHat, label: "Recetas", permKey: "recipes" },
+      { to: "/meal-planning", icon: CalendarDays, label: "Minuta", permKey: "meal_planning" },
+      { to: "/kitchen", icon: UtensilsCrossed, label: "Kiosco Cocina", permKey: "kitchen_kiosk" },
+      { to: "/operations", icon: SprayCan, label: "Kiosco Operativo", permKey: "operations_kiosk" },
     ],
   },
   {
-    id: "reports",
+    id: "reportes",
     label: "Reportes",
     icon: BarChart3,
     items: [
-      { to: "/", icon: LayoutDashboard, label: "Dashboard", permKey: "dashboard" },
-      { to: "/executive", icon: PieChart, label: "Ejecutivo", permKey: "executive_dashboard" },
-      { to: "/reports", icon: BarChart3, label: "Reportes Op.", permKey: "reports" },
-      { to: "/operational-reports", icon: TrendingDown, label: "Análisis Costos", permKey: "operational_reports" },
-      { to: "/corporate-masters", icon: Building2, label: "Maestros Corp.", permKey: "corporate_masters" },
-      { to: "/business-ai", icon: Bot, label: "IA Negocios", permKey: "business_ai" },
+      { to: "/executive", icon: PieChart, label: "Dashboard Ejecutivo", permKey: "executive_dashboard" },
+      { to: "/casino", icon: Activity, label: "Rentabilidad del día", permKey: "casino_dashboard" },
+      { to: "/reports", icon: TrendingDown, label: "Consumo", permKey: "reports" },
+      { to: "/purchases-report", icon: FileText, label: "Compras", permKey: "reports" },
+      { to: "/operational-reports", icon: Layers, label: "Operativos", permKey: "operational_reports" },
+      { to: "/inventory-value", icon: DollarSign, label: "Valor Inventario", permKey: "reports" },
+      { to: "/hotel", icon: BarChart3, label: "Hotel Corp.", permKey: "hotel_corporate_reports_view", tabParam: "reports" },
     ],
   },
   {
@@ -122,9 +118,14 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
-      { to: "/roles", icon: Shield, label: "Roles", permKey: "roles" },
+      { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
+      { to: "/corporate-masters", icon: Building2, label: "Maestros Corp.", permKey: "corporate_masters" },
+      { to: "/branding", icon: Paintbrush, label: "Branding", permKey: "branding" },
       { to: "/audit", icon: History, label: "Auditoría", permKey: "audit" },
-      { to: "/branding", icon: Paintbrush, label: "Marca", permKey: "branding" },
+      { to: "/recalculate-inventory", icon: Calculator, label: "Recalcular Inventario", permKey: "recalculate_inventory" },
+      { to: "/reset-inventory", icon: Trash2, label: "Reset Inventario", permKey: "reset_inventory" },
+      { to: "/pos", icon: Shield, label: "Admin POS", permKey: "pos_admin", tabParam: "admin-pos" },
+      { to: "/business-ai", icon: Bot, label: "Asistente IA", permKey: "business_ai" },
       { to: "/manual", icon: HelpCircle, label: "Manual de Usuario", permKey: "user_manual" },
     ],
   },
@@ -177,7 +178,7 @@ function useOpenGroups(pathname: string, tabParam: string | null) {
   return { openGroups, toggle };
 }
 
-function SidebarNavContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
+function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { signOut, user } = useAuth();
   const { hasPermission } = usePermissions();
   const location = useLocation();
@@ -187,6 +188,7 @@ function SidebarNavContent({ onNavigate, collapsed = false }: { onNavigate?: () 
   const branding = useBranding();
   const navRef = useRef<HTMLElement>(null);
 
+  // Preserve sidebar nav scroll position across route changes
   const navScrollTop = useRef(0);
   useEffect(() => {
     const nav = navRef.current;
@@ -196,6 +198,7 @@ function SidebarNavContent({ onNavigate, collapsed = false }: { onNavigate?: () 
     return () => nav.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Restore scroll after render
   useEffect(() => {
     const nav = navRef.current;
     if (nav && navScrollTop.current > 0) {
@@ -220,71 +223,6 @@ function SidebarNavContent({ onNavigate, collapsed = false }: { onNavigate?: () 
     return location.pathname === item.to;
   };
 
-  if (collapsed) {
-    return (
-      <TooltipProvider delayDuration={0}>
-        {/* Header icon */}
-        <div className="flex h-12 items-center justify-center border-b border-sidebar-border shrink-0">
-          {branding.logo_small_url ? (
-            <img src={branding.logo_small_url} alt="Logo" className="h-7 w-7 rounded-lg object-contain" />
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary">
-              <Package className="h-3.5 w-3.5 text-sidebar-primary-foreground" />
-            </div>
-          )}
-        </div>
-
-        {/* Icon-only nav */}
-        <nav ref={navRef} className="flex-1 overflow-y-auto py-2 space-y-1 flex flex-col items-center">
-          {visibleGroups.map((group) => {
-            const hasActiveRoute = group.items.some((i) => isItemActive(i));
-            return (
-              <Tooltip key={group.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      // Navigate to first item of the group
-                      const first = group.items[0];
-                      const href = first.tabParam ? `${first.to}?tab=${first.tabParam}` : first.to;
-                      window.location.href = href;
-                      onNavigate?.();
-                    }}
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                      hasActiveRoute
-                        ? "bg-sidebar-accent text-sidebar-primary"
-                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                    )}
-                  >
-                    <group.icon className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">
-                  {group.label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </nav>
-
-        {/* Footer icon */}
-        <div className="border-t border-sidebar-border p-2 shrink-0 flex flex-col items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={signOut}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">Cerrar sesión</TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
-    );
-  }
-
   return (
     <>
       {/* Header */}
@@ -301,14 +239,21 @@ function SidebarNavContent({ onNavigate, collapsed = false }: { onNavigate?: () 
         </span>
       </div>
 
-      {/* Grouped navigation */}
-      <nav ref={navRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+      {/* Grouped navigation — preserve scroll position across re-renders */}
+      <nav
+        ref={navRef}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+      >
         {visibleGroups.map((group) => {
           const isOpen = !!openGroups[group.id];
           const hasActiveRoute = group.items.some((i) => isItemActive(i));
 
           return (
-            <Collapsible key={group.id} open={isOpen} onOpenChange={() => toggle(group.id)}>
+            <Collapsible
+              key={group.id}
+              open={isOpen}
+              onOpenChange={() => toggle(group.id)}
+            >
               <CollapsibleTrigger className="w-full">
                 <div
                   className={cn(
@@ -391,53 +336,11 @@ export function DesktopSidebar() {
   );
 }
 
-export function MobileSidebar() {
-  const [expanded, setExpanded] = useState(false);
-
+export function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   return (
-    <>
-      {/* Backdrop */}
-      {expanded && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
-          onClick={() => setExpanded(false)}
-        />
-      )}
-
-      {/* Collapsed icon strip (always visible on mobile) */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-200 md:hidden",
-          expanded ? "w-64" : "w-12"
-        )}
-      >
-        {expanded ? (
-          <>
-            <div className="flex h-12 items-center justify-end px-2 border-b border-sidebar-border shrink-0">
-              <button
-                onClick={() => setExpanded(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent"
-              >
-                <ChevronRight className="h-4 w-4 rotate-180" />
-              </button>
-            </div>
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <SidebarNavContent onNavigate={() => setExpanded(false)} />
-            </div>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setExpanded(true)}
-              className="flex h-12 items-center justify-center border-b border-sidebar-border shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <SidebarNavContent collapsed onNavigate={() => setExpanded(false)} />
-          </>
-        )}
-      </aside>
-    </>
+    <div className="flex h-full flex-col bg-sidebar">
+      <SidebarNavContent onNavigate={onClose} />
+    </div>
   );
 }
 
