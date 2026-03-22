@@ -371,15 +371,31 @@ function SidebarNavContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DesktopSidebar() {
   const { collapsed } = useSidebarCollapse();
-  const ctx = useSidebarNav({});
+  const [peek, setPeek] = useState(false);
+  const ctx = useSidebarNav({ onNavigate: collapsed ? () => setPeek(false) : undefined });
 
   return (
-    <aside className={cn(
-      "fixed inset-y-0 left-0 z-30 hidden md:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300",
-      collapsed ? "w-14" : "w-64"
-    )}>
-      {collapsed ? <CollapsedSidebar ctx={ctx} /> : <ExpandedSidebar ctx={ctx} />}
-    </aside>
+    <>
+      {/* Collapsed icon strip */}
+      {collapsed && (
+        <aside className="fixed inset-y-0 left-0 z-30 hidden md:flex w-14 flex-col bg-sidebar border-r border-sidebar-border">
+          <CollapsedSidebar ctx={ctx} onRequestExpand={() => setPeek(true)} />
+        </aside>
+      )}
+
+      {/* Full sidebar: always visible when not collapsed, or as overlay when peeking */}
+      {(!collapsed || peek) && (
+        <>
+          {peek && <div className="fixed inset-0 z-30 hidden md:block" onClick={() => setPeek(false)} />}
+          <aside className={cn(
+            "fixed inset-y-0 left-0 z-40 hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border transition-all duration-200",
+            peek && "shadow-xl"
+          )}>
+            <ExpandedSidebar ctx={ctx} />
+          </aside>
+        </>
+      )}
+    </>
   );
 }
 
