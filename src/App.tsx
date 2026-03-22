@@ -44,7 +44,7 @@ import PurchasesReport from "./pages/PurchasesReport";
 import CorporateMasters from "./pages/CorporateMasters";
 import InventoryValue from "./pages/InventoryValue";
 import BusinessAI from "./pages/BusinessAI";
-import HotelOperativoTablet from "./pages/HotelOperativoTablet";
+
 
 import NotFound from "./pages/NotFound";
 
