@@ -42,6 +42,9 @@ type SmartInvoice = {
   created_by: string;
   created_at: string;
   notes: string | null;
+  source: string;
+  source_email_from: string | null;
+  source_email_subject: string | null;
 };
 
 type SmartItem = {
