@@ -789,6 +789,29 @@ export default function SmartInvoices() {
                 </div>
               </div>
 
+              {/* Validation Warnings */}
+              {editingInvoice.validation_warnings && editingInvoice.validation_warnings.length > 0 && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1">
+                  <p className="text-sm font-medium text-destructive flex items-center gap-1">
+                    <ShieldAlert className="h-4 w-4" /> Discrepancias XML vs PDF detectadas:
+                  </p>
+                  <ul className="text-xs text-destructive/80 list-disc pl-5 space-y-0.5">
+                    {editingInvoice.validation_warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-muted-foreground">Revisa y confirma los datos manualmente.</p>
+                </div>
+              )}
+
+              {/* Source info */}
+              {editingInvoice.file_type && editingInvoice.file_type !== "pdf" && (
+                <div className="flex gap-2 items-center text-xs text-muted-foreground">
+                  {editingInvoice.file_type === "xml" && <><FileCode className="h-3.5 w-3.5 text-primary" /> Datos extraídos desde XML (fuente confiable)</>}
+                  {editingInvoice.file_type === "zip" && <><FileArchive className="h-3.5 w-3.5 text-primary" /> Datos extraídos desde ZIP (XML + PDF)</>}
+                </div>
+              )}
+
               {/* Stats */}
               {editItems.length > 0 && (
                 <div className="flex gap-3 flex-wrap">
