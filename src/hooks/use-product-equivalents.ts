@@ -24,7 +24,7 @@ export function useProductEquivalents() {
         .from("product_equivalents" as any)
         .select("product_id, equivalent_product_id, priority");
       if (error) throw error;
-      return data as { product_id: string; equivalent_product_id: string; priority: number }[];
+      return data as unknown as { product_id: string; equivalent_product_id: string; priority: number }[];
     },
   });
 
