@@ -2029,6 +2029,55 @@ export type Database = {
           },
         ]
       }
+      product_equivalents: {
+        Row: {
+          created_at: string
+          equivalent_product_id: string
+          id: string
+          priority: number
+          product_id: string
+          restaurant_id: string
+        }
+        Insert: {
+          created_at?: string
+          equivalent_product_id: string
+          id?: string
+          priority?: number
+          product_id: string
+          restaurant_id: string
+        }
+        Update: {
+          created_at?: string
+          equivalent_product_id?: string
+          id?: string
+          priority?: number
+          product_id?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_equivalents_equivalent_product_id_fkey"
+            columns: ["equivalent_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_equivalents_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_equivalents_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_operational_services: {
         Row: {
           created_at: string
