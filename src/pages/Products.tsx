@@ -553,8 +553,14 @@ export default function Products() {
                       )}
                     </div>
 
+                    {/* Productos equivalentes — solo en modo edición */}
+                    {editId && (
+                      <ProductEquivalents productId={editId} productName={form.name} />
+                    )}
+
                     <Button type="submit" className="w-full" disabled={upsertProduct.isPending || !isValid}>
                       {upsertProduct.isPending ? "Guardando..." : "Guardar"}
+                    </Button>
                     </Button>
                   </form>
                 </DialogContent>
