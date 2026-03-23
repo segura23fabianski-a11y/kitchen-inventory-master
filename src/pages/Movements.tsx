@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon, PackageMinus, X } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { BulkExitDialog } from "@/components/BulkExitDialog";
+import { BulkEntryDialog } from "@/components/BulkEntryDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
