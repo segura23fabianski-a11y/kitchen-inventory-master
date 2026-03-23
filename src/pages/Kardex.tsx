@@ -414,6 +414,9 @@ export default function Kardex() {
                           <TableCell className="text-right font-medium text-red-500">
                             {row.salida > 0 ? `-${row.salida.toLocaleString("es-CO")}` : ""}
                           </TableCell>
+                          <TableCell className="text-right font-medium text-blue-600">
+                            {row.ajuste !== null ? row.ajuste.toLocaleString("es-CO") : ""}
+                          </TableCell>
                           <TableCell className="text-right text-xs">
                             {row.costoUnitario > 0 ? `$${row.costoUnitario.toLocaleString("es-CO", { minimumFractionDigits: 2 })}` : "—"}
                           </TableCell>

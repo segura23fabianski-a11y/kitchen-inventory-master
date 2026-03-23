@@ -315,7 +315,10 @@ export default function AuditLog() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{ENTITY_LABELS[ev.entity_type] || ev.entity_type}</Badge>
+                        <div className="flex flex-col gap-0.5">
+                          <Badge variant="outline">{ENTITY_LABELS[ev.entity_type] || ev.entity_type}</Badge>
+                          <span className="text-xs text-muted-foreground truncate max-w-[180px]">{getEntityDisplay(ev)}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${ACTION_COLORS[ev.action] || ""}`}>
