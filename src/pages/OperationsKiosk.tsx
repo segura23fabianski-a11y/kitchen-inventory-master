@@ -24,6 +24,7 @@ import {
   CalendarDays, ClipboardList, Droplets, Search, Package,
   Plus, Settings, Trash2, Tag, Pencil,
 } from "lucide-react";
+import { useProductEquivalents } from "@/hooks/use-product-equivalents";
 
 // ── Types ──
 type MainMode = "home" | "recipes" | "services";
