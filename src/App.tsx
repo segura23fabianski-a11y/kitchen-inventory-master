@@ -44,7 +44,7 @@ import PurchasesReport from "./pages/PurchasesReport";
 import CorporateMasters from "./pages/CorporateMasters";
 import InventoryValue from "./pages/InventoryValue";
 import BusinessAI from "./pages/BusinessAI";
-
+import SmartInvoices from "./pages/SmartInvoices";
 
 import NotFound from "./pages/NotFound";
 
