@@ -223,7 +223,20 @@ export default function SmartInvoices() {
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
         body: { smart_invoice_id: smartInvoiceId },
       });
-      if (error) throw error;
+      
+      // Handle edge function errors with useful messages
+      if (error) {
+        // Try to extract the actual error message from the response
+        const errorMsg = typeof error === 'object' && 'message' in error 
+          ? error.message 
+          : String(error);
+        
+        // If it's just the generic "non-2xx" error, provide a better message
+        if (errorMsg.includes("non-2xx")) {
+          throw new Error("Error al comunicarse con el servicio de análisis. Verifica que el PDF sea válido e intenta de nuevo.");
+        }
+        throw new Error(errorMsg);
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -236,7 +249,7 @@ export default function SmartInvoices() {
       });
     },
     onError: (e: any) => {
-      toast({ title: "Error al analizar", description: e.message, variant: "destructive" });
+      toast({ title: "Error al analizar factura", description: e.message, variant: "destructive" });
       qc.invalidateQueries({ queryKey: ["smart-invoices"] });
     },
   });

@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) throw new Error("Not authenticated");
+    if (userError || !user) throw new Error("No autenticado");
 
     // Admin client for privileged operations
     const adminClient = createClient(supabaseUrl, serviceKey);
@@ -47,8 +47,16 @@ Deno.serve(async (req) => {
       .single();
     if (evError || !event) throw new Error("Evento no encontrado");
 
-    // Get user's restaurant
-    const { data: restaurantId } = await adminClient.rpc("get_my_restaurant_id");
+    // Get user's restaurant via profile (NOT via rpc which uses auth.uid())
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("restaurant_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single();
+    
+    if (!profile?.restaurant_id) throw new Error("Sin restaurante asignado");
+    const restaurantId = profile.restaurant_id;
 
     // Validations
     if (event.restaurant_id !== restaurantId) throw new Error("No pertenece a tu restaurante");
@@ -115,6 +123,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
+    console.error("rollback-audit-event error:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

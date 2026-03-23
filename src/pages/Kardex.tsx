@@ -389,6 +389,7 @@ export default function Kardex() {
                         <TableHead>Documento / Origen</TableHead>
                         <TableHead className="text-right">Entrada</TableHead>
                         <TableHead className="text-right">Salida</TableHead>
+                        <TableHead className="text-right">Ajuste</TableHead>
                         <TableHead className="text-right">Costo Unit.</TableHead>
                         <TableHead className="text-right">Costo Total</TableHead>
                         <TableHead className="text-right font-semibold">Saldo</TableHead>
@@ -412,6 +413,9 @@ export default function Kardex() {
                           </TableCell>
                           <TableCell className="text-right font-medium text-red-500">
                             {row.salida > 0 ? `-${row.salida.toLocaleString("es-CO")}` : ""}
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-blue-600">
+                            {row.ajuste !== null ? row.ajuste.toLocaleString("es-CO") : ""}
                           </TableCell>
                           <TableCell className="text-right text-xs">
                             {row.costoUnitario > 0 ? `$${row.costoUnitario.toLocaleString("es-CO", { minimumFractionDigits: 2 })}` : "—"}

@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -11,31 +10,67 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "La función de análisis de IA no está configurada. Contacta al administrador." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const authHeader = req.headers.get("authorization") ?? "";
     const token = authHeader.replace("Bearer ", "");
+
+    if (!token) {
+      return new Response(JSON.stringify({ error: "No autorizado. Inicia sesión nuevamente." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     
     const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
-    if (authErr || !user) throw new Error("No autorizado");
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Sesión expirada. Vuelve a iniciar sesión." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Get user's restaurant
     const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", user.id).single();
-    if (!profile?.restaurant_id) throw new Error("Sin restaurante asignado");
+    if (!profile?.restaurant_id) {
+      return new Response(JSON.stringify({ error: "Sin restaurante asignado al usuario." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const restaurantId = profile.restaurant_id;
 
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Cuerpo de solicitud inválido." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { smart_invoice_id } = body;
-    if (!smart_invoice_id) throw new Error("smart_invoice_id requerido");
+    if (!smart_invoice_id) {
+      return new Response(JSON.stringify({ error: "smart_invoice_id es requerido." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Fetch the smart invoice
     const { data: smartInv, error: invErr } = await db
@@ -44,19 +79,55 @@ serve(async (req) => {
       .eq("id", smart_invoice_id)
       .eq("restaurant_id", restaurantId)
       .single();
-    if (invErr || !smartInv) throw new Error("Factura inteligente no encontrada");
+    if (invErr || !smartInv) {
+      console.error("Smart invoice fetch error:", invErr);
+      return new Response(JSON.stringify({ error: "Factura inteligente no encontrada." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Download PDF from storage
     const pdfPath = smartInv.pdf_url;
-    if (!pdfPath) throw new Error("No hay PDF asociado");
+    if (!pdfPath) {
+      return new Response(JSON.stringify({ error: "No hay PDF asociado a esta factura." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
+    console.log("Downloading PDF from:", pdfPath);
     const { data: pdfData, error: dlErr } = await db.storage
       .from("invoice-pdfs")
       .download(pdfPath);
-    if (dlErr || !pdfData) throw new Error("No se pudo descargar el PDF");
+    if (dlErr || !pdfData) {
+      console.error("PDF download error:", dlErr);
+      return new Response(JSON.stringify({ error: "No se pudo descargar el PDF. Verifica que el archivo exista en el almacenamiento." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const pdfBytes = await pdfData.arrayBuffer();
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+    // Convert PDF to base64 - handle large files in chunks
+    const pdfBytes = new Uint8Array(await pdfData.arrayBuffer());
+    const pdfSizeMB = pdfBytes.length / (1024 * 1024);
+    console.log(`PDF size: ${pdfSizeMB.toFixed(2)} MB`);
+
+    if (pdfSizeMB > 20) {
+      return new Response(JSON.stringify({ error: `El PDF es demasiado grande (${pdfSizeMB.toFixed(1)} MB). El máximo permitido es 20 MB.` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Convert to base64 in chunks to avoid stack overflow
+    let pdfBase64 = "";
+    const chunkSize = 32768;
+    for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+      const chunk = pdfBytes.subarray(i, Math.min(i + chunkSize, pdfBytes.length));
+      pdfBase64 += String.fromCharCode(...chunk);
+    }
+    pdfBase64 = btoa(pdfBase64);
 
     // Fetch products, presentations, and aliases for matching context
     const [productsRes, presentationsRes, aliasesRes] = await Promise.all([
@@ -80,6 +151,8 @@ serve(async (req) => {
     }).join("\n");
 
     const aliasCatalog = aliases.map((a: any) => `- "${a.external_name}" → producto_id:${a.product_id}`).join("\n");
+
+    console.log("Calling AI gateway...");
 
     // Call Lovable AI with the PDF
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -159,25 +232,51 @@ INSTRUCCIONES:
       const errText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errText);
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Límite de solicitudes excedido, intenta de nuevo en unos minutos." }), {
+        // Reset status back to pending so user can retry
+        await db.from("smart_invoices").update({ status: "pending" }).eq("id", smart_invoice_id);
+        return new Response(JSON.stringify({ error: "Límite de solicitudes de IA excedido. Intenta de nuevo en unos minutos." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes para el servicio de IA." }), {
+        await db.from("smart_invoices").update({ status: "pending" }).eq("id", smart_invoice_id);
+        return new Response(JSON.stringify({ error: "Créditos de IA insuficientes. Contacta al administrador." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI error: ${aiResponse.status}`);
+      await db.from("smart_invoices").update({ status: "pending" }).eq("id", smart_invoice_id);
+      return new Response(JSON.stringify({ error: `Error del servicio de IA (código ${aiResponse.status}). Intenta de nuevo.` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const aiResult = await aiResponse.json();
-    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("La IA no pudo extraer datos del PDF");
+    console.log("AI response received, processing...");
 
-    const extracted = JSON.parse(toolCall.function.arguments);
+    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) {
+      console.error("No tool call in AI response:", JSON.stringify(aiResult).substring(0, 500));
+      await db.from("smart_invoices").update({ status: "pending" }).eq("id", smart_invoice_id);
+      return new Response(JSON.stringify({ error: "La IA no pudo extraer datos del PDF. Verifica que el archivo sea una factura legible." }), {
+        status: 422,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let extracted: any;
+    try {
+      extracted = JSON.parse(toolCall.function.arguments);
+    } catch (parseErr) {
+      console.error("Failed to parse AI response:", toolCall.function.arguments?.substring(0, 500));
+      await db.from("smart_invoices").update({ status: "pending" }).eq("id", smart_invoice_id);
+      return new Response(JSON.stringify({ error: "No se pudo interpretar la respuesta de la IA. Intenta de nuevo." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Update smart invoice header
     await db.from("smart_invoices").update({
@@ -192,14 +291,17 @@ INSTRUCCIONES:
 
     // Try to match supplier
     if (extracted.supplier_name) {
-      const { data: matchedSuppliers } = await db
-        .from("suppliers")
-        .select("id, name")
-        .eq("restaurant_id", restaurantId)
-        .ilike("name", `%${extracted.supplier_name.split(" ")[0]}%`)
-        .limit(1);
-      if (matchedSuppliers?.length) {
-        await db.from("smart_invoices").update({ supplier_id: matchedSuppliers[0].id }).eq("id", smart_invoice_id);
+      const firstWord = extracted.supplier_name.split(" ")[0];
+      if (firstWord && firstWord.length > 2) {
+        const { data: matchedSuppliers } = await db
+          .from("suppliers")
+          .select("id, name")
+          .eq("restaurant_id", restaurantId)
+          .ilike("name", `%${firstWord}%`)
+          .limit(1);
+        if (matchedSuppliers?.length) {
+          await db.from("smart_invoices").update({ supplier_id: matchedSuppliers[0].id }).eq("id", smart_invoice_id);
+        }
       }
     }
 
@@ -280,8 +382,16 @@ INSTRUCCIONES:
 
     if (itemsToInsert.length > 0) {
       const { error: insertErr } = await db.from("smart_invoice_items").insert(itemsToInsert);
-      if (insertErr) console.error("Error inserting items:", insertErr);
+      if (insertErr) {
+        console.error("Error inserting items:", insertErr);
+        return new Response(JSON.stringify({ error: "Se analizó el PDF pero hubo un error al guardar las líneas. Intenta de nuevo." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
+
+    console.log(`Successfully parsed ${itemsToInsert.length} items`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -295,7 +405,7 @@ INSTRUCCIONES:
   } catch (e) {
     console.error("parse-invoice error:", e);
     const msg = e instanceof Error ? e.message : "Error desconocido";
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: `Error interno: ${msg}` }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

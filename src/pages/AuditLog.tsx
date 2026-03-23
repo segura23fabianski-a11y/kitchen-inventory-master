@@ -128,7 +128,43 @@ export default function AuditLog() {
     },
   });
 
+  // Fetch entity names for display (products, recipes, categories)
+  const { data: productNames } = useQuery({
+    queryKey: ["product-names-audit"],
+    queryFn: async () => {
+      const { data } = await supabase.from("products").select("id, name");
+      return data ?? [];
+    },
+  });
+  const { data: recipeNames } = useQuery({
+    queryKey: ["recipe-names-audit"],
+    queryFn: async () => {
+      const { data } = await supabase.from("recipes").select("id, name");
+      return data ?? [];
+    },
+  });
+  const { data: categoryNames } = useQuery({
+    queryKey: ["category-names-audit"],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("id, name");
+      return data ?? [];
+    },
+  });
+
   const profileMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) ?? []);
+
+  const entityNameMap = new Map([
+    ...(productNames?.map((p) => [p.id, p.name] as [string, string]) ?? []),
+    ...(recipeNames?.map((r) => [r.id, r.name] as [string, string]) ?? []),
+    ...(categoryNames?.map((c) => [c.id, c.name] as [string, string]) ?? []),
+  ]);
+
+  const getEntityDisplay = (ev: any) => {
+    const name = entityNameMap.get(ev.entity_id);
+    // Also check before/after for name field
+    const fallbackName = ev.after?.name || ev.before?.name;
+    return name || fallbackName || ev.entity_id?.substring(0, 8) + "…";
+  };
 
   const rollbackMutation = useMutation({
     mutationFn: async ({ eventId, reason }: { eventId: string; reason: string }) => {
@@ -279,7 +315,10 @@ export default function AuditLog() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{ENTITY_LABELS[ev.entity_type] || ev.entity_type}</Badge>
+                        <div className="flex flex-col gap-0.5">
+                          <Badge variant="outline">{ENTITY_LABELS[ev.entity_type] || ev.entity_type}</Badge>
+                          <span className="text-xs text-muted-foreground truncate max-w-[180px]">{getEntityDisplay(ev)}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${ACTION_COLORS[ev.action] || ""}`}>
