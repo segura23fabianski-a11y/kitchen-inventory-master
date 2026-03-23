@@ -662,15 +662,32 @@ export default function SmartInvoices() {
                       <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
                       <TableCell>{inv.supplier_name || "—"}</TableCell>
                       <TableCell>
-                        {inv.source === "email" ? (
-                          <Badge variant="outline" className="gap-1 text-xs" title={inv.source_email_from || ""}>
-                            <Mail className="h-3 w-3" /> Email
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="gap-1 text-xs">
-                            <Upload className="h-3 w-3" /> Manual
-                          </Badge>
-                        )}
+                        <div className="flex gap-1 items-center">
+                          {inv.source === "email" ? (
+                            <Badge variant="outline" className="gap-1 text-xs" title={inv.source_email_from || ""}>
+                              <Mail className="h-3 w-3" /> Email
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 text-xs">
+                              <Upload className="h-3 w-3" /> Manual
+                            </Badge>
+                          )}
+                          {inv.file_type === "xml" && (
+                            <Badge variant="outline" className="gap-1 text-xs text-primary">
+                              <FileCode className="h-3 w-3" /> XML
+                            </Badge>
+                          )}
+                          {inv.file_type === "zip" && (
+                            <Badge variant="outline" className="gap-1 text-xs text-primary">
+                              <FileArchive className="h-3 w-3" /> ZIP
+                            </Badge>
+                          )}
+                          {inv.validation_warnings && inv.validation_warnings.length > 0 && (
+                            <Badge variant="destructive" className="gap-1 text-xs" title={inv.validation_warnings.join("; ")}>
+                              <ShieldAlert className="h-3 w-3" /> !
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{inv.invoice_date ? format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
                       <TableCell className="text-right font-mono">
