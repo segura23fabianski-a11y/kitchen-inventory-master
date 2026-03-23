@@ -954,11 +954,10 @@ export default function KitchenKiosk() {
                             <AlertTriangle className="h-3 w-3" /> Faltan {shortfall} unidades. Agrega otro producto para completar.
                           </p>
                           <SearchableSelect
-                            options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
-                              value: p.id,
-                              label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
-                              searchTerms: p.name + " " + (p.barcode || ""),
-                            })) ?? []}
+                            options={buildComboProductOptions(
+                              comp.selectedProducts.map(sp => sp.productId),
+                              comp.selectedProductId,
+                            )}
                             value=""
                             onValueChange={(v) => addSecondaryProduct(comp.componentId, v)}
                             placeholder="Agregar producto adicional..."
