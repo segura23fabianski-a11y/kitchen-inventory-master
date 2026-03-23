@@ -287,7 +287,44 @@ export default function KitchenKiosk() {
     });
   }, [products, productSearch, codesByProduct]);
 
-  // ──── Barcode scanner detection ────
+  /**
+   * Build product options for a combo component selector.
+   * If the component already has a primary product selected, equivalents of that product
+   * are shown first with a ⚡ prefix. Otherwise shows all products.
+   */
+  const buildComboProductOptions = (
+    excludeIds: string[],
+    primaryProductId?: string,
+  ) => {
+    if (!products) return [];
+    const excluded = new Set(excludeIds);
+    const available = products.filter((p) => !excluded.has(p.id));
+
+    if (primaryProductId && hasEquivalents(primaryProductId)) {
+      const eqIds = getEquivalentIds(primaryProductId);
+      const equivalents = available.filter((p) => eqIds.has(p.id));
+      const others = available.filter((p) => !eqIds.has(p.id));
+      return [
+        ...equivalents.map((p) => ({
+          value: p.id,
+          label: `⚡ ${p.name} — Stock: ${p.current_stock} ${p.unit} (equivalente)`,
+          searchTerms: p.name + " " + (p.barcode || "") + " equivalente",
+        })),
+        ...others.map((p) => ({
+          value: p.id,
+          label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+          searchTerms: p.name + " " + (p.barcode || ""),
+        })),
+      ];
+    }
+
+    return available.map((p) => ({
+      value: p.id,
+      label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+      searchTerms: p.name + " " + (p.barcode || ""),
+    }));
+  };
+
   const addProductToCart = useCallback((productId: string) => {
     const p = products?.find((x) => x.id === productId);
     if (!p) return;
