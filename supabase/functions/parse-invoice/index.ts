@@ -21,38 +21,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const authHeader = req.headers.get("authorization") ?? "";
-    const token = authHeader.replace("Bearer ", "");
-
-    if (!token) {
-      return new Response(JSON.stringify({ error: "No autorizado. Inicia sesión nuevamente." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    
-    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Sesión expirada. Vuelve a iniciar sesión." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Get user's restaurant
-    const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", user.id).single();
-    if (!profile?.restaurant_id) {
-      return new Response(JSON.stringify({ error: "Sin restaurante asignado al usuario." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const restaurantId = profile.restaurant_id;
 
     let body: any;
     try {
@@ -62,6 +31,92 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const { internal_call } = body ?? {};
+    
+    let userId: string;
+    let restaurantId: string;
+
+    if (internal_call) {
+      // Called internally from receive-invoice-email with service role
+      // Verify we have the service role auth
+      const authHeader = req.headers.get("authorization") ?? "";
+      if (!authHeader.includes(SUPABASE_SERVICE_ROLE_KEY.substring(0, 20))) {
+        // Not service role - still validate as user
+        const token = authHeader.replace("Bearer ", "");
+        if (!token) {
+          return new Response(JSON.stringify({ error: "No autorizado." }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        });
+        const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
+        if (authErr || !user) {
+          return new Response(JSON.stringify({ error: "Sesión expirada." }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        userId = user.id;
+        const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", user.id).single();
+        if (!profile?.restaurant_id) {
+          return new Response(JSON.stringify({ error: "Sin restaurante asignado." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        restaurantId = profile.restaurant_id;
+      } else {
+        // Internal call - get restaurant from the smart_invoice itself
+        const { smart_invoice_id: sid } = body;
+        if (!sid) {
+          return new Response(JSON.stringify({ error: "smart_invoice_id requerido." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: inv } = await db.from("smart_invoices").select("restaurant_id, created_by").eq("id", sid).single();
+        if (!inv) {
+          return new Response(JSON.stringify({ error: "Factura no encontrada." }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        restaurantId = inv.restaurant_id;
+        userId = inv.created_by;
+      }
+    } else {
+      const authHeader = req.headers.get("authorization") ?? "";
+      const token = authHeader.replace("Bearer ", "");
+      if (!token) {
+        return new Response(JSON.stringify({ error: "No autorizado. Inicia sesión nuevamente." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: "Sesión expirada. Vuelve a iniciar sesión." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = user.id;
+      const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", userId).single();
+      if (!profile?.restaurant_id) {
+        return new Response(JSON.stringify({ error: "Sin restaurante asignado al usuario." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      restaurantId = profile.restaurant_id;
     }
 
     const { smart_invoice_id } = body;
@@ -178,7 +233,8 @@ INSTRUCCIONES:
 2. Para cada línea, intenta identificar el producto del catálogo que mejor coincida (match flexible por nombre, no requiere match exacto).
 3. Si detectas una presentación (ej: "bolsa 900g", "pack x6", "caja x12"), indícala.
 4. Si NO puedes identificar un producto con confianza, marca confidence como 0.
-5. Extrae subtotales y total de la factura.`,
+5. Extrae subtotales y total de la factura.
+6. CLASIFICACIÓN COSTO vs GASTO: Para cada línea, clasifica si es un COSTO (materia prima, insumo, ingrediente que entra al inventario) o un GASTO (servicio, flete, impuesto, descuento, cargo operativo que NO entra al inventario). Ejemplos de COSTO: pollo, aceite, harina, vasos, servilletas, químicos de limpieza, amenities. Ejemplos de GASTO: transporte, flete, IVA adicional, descuento comercial, servicio de entrega, propina.`,
           },
           {
             role: "user",
@@ -214,8 +270,9 @@ INSTRUCCIONES:
                         matched_product_id: { type: "string", description: "ID UUID del producto del catálogo (o vacío)" },
                         detected_presentation: { type: "string", description: "Presentación detectada (ej: bolsa 900g, pack x6) o vacío" },
                         confidence: { type: "number", description: "Confianza del match de 0 a 1" },
+                        is_expense: { type: "boolean", description: "true si es un GASTO (flete, servicio, impuesto, descuento), false si es un COSTO (materia prima, insumo para inventario)" },
                       },
-                      required: ["description", "quantity", "unit_price", "total", "confidence"],
+                      required: ["description", "quantity", "unit_price", "total", "confidence", "is_expense"],
                     },
                   },
                 },
@@ -376,7 +433,8 @@ INSTRUCCIONES:
         line_total: item.total,
         match_status: matchStatus,
         match_confidence: matchConfidence,
-        needs_review: matchStatus !== "confirmed",
+        is_expense: item.is_expense === true,
+        needs_review: item.is_expense === true ? false : matchStatus !== "confirmed",
       };
     });
 

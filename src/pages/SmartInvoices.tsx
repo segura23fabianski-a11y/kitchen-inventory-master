@@ -22,7 +22,7 @@ import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Search, Eye, Send, Trash2, AlertTriangle, Check, HelpCircle,
-  FileText, Loader2, Sparkles, ArrowRight, RefreshCw, X, Brain
+  FileText, Loader2, Sparkles, ArrowRight, RefreshCw, X, Brain, Mail
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -42,6 +42,9 @@ type SmartInvoice = {
   created_by: string;
   created_at: string;
   notes: string | null;
+  source: string;
+  source_email_from: string | null;
+  source_email_subject: string | null;
 };
 
 type SmartItem = {
@@ -508,6 +511,7 @@ export default function SmartInvoices() {
                 <TableRow>
                   <TableHead>Nº Factura</TableHead>
                   <TableHead>Proveedor</TableHead>
+                  <TableHead>Origen</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead className="text-right">Total Detectado</TableHead>
                   <TableHead>Estado</TableHead>
@@ -517,9 +521,9 @@ export default function SmartInvoices() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
                 ) : !filtered.length ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay facturas inteligentes. Sube un PDF para comenzar.
                   </TableCell></TableRow>
                 ) : filtered.map((inv) => {
@@ -528,6 +532,17 @@ export default function SmartInvoices() {
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
                       <TableCell>{inv.supplier_name || "—"}</TableCell>
+                      <TableCell>
+                        {inv.source === "email" ? (
+                          <Badge variant="outline" className="gap-1 text-xs" title={inv.source_email_from || ""}>
+                            <Mail className="h-3 w-3" /> Email
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Upload className="h-3 w-3" /> Manual
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{inv.invoice_date ? format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
                       <TableCell className="text-right font-mono">
                         {inv.total_detected != null ? `$${Number(inv.total_detected).toFixed(2)}` : "—"}
@@ -643,6 +658,11 @@ export default function SmartInvoices() {
                   <Badge className={cn("gap-1", MATCH_COLORS.unmatched)}>
                     <AlertTriangle className="h-3 w-3" /> {editItems.filter((i) => i.match_status === "unmatched").length} sin match
                   </Badge>
+                  {editItems.filter((i) => i.is_expense).length > 0 && (
+                    <Badge variant="secondary" className="gap-1">
+                      💰 {editItems.filter((i) => i.is_expense).length} gastos (no inventario)
+                    </Badge>
+                  )}
                 </div>
               )}
 

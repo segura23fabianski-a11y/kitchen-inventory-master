@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.business-ai]
 verify_jwt = false
+
+[functions.receive-invoice-email]
+verify_jwt = false
