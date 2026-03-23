@@ -76,8 +76,8 @@ export default function KitchenKiosk() {
   const { toast } = useToast();
   const restaurantId = useRestaurantId();
   const qc = useQueryClient();
+  const { getSuggestedEquivalents, hasEquivalents, getEquivalentIds } = useProductEquivalents();
 
-  // ──── Data queries ────
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
