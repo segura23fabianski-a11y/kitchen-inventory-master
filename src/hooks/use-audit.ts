@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 
-type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "ADD_CODE" | "REMOVE_CODE" | "COST_CHANGE" | "ROLLBACK" | "BACKDATED_MOVEMENT" | "PRODUCT_COST_REVALUATION";
+type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "ADD_CODE" | "REMOVE_CODE" | "COST_CHANGE" | "ROLLBACK" | "BACKDATED_MOVEMENT" | "PRODUCT_COST_REVALUATION" | "CONVERT";
 
 interface AuditParams {
   entityType: string;

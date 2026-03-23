@@ -553,6 +553,11 @@ export default function Products() {
                       )}
                     </div>
 
+                    {/* Presentaciones de compra — solo en modo edición */}
+                    {editId && (
+                      <PurchasePresentations productId={editId} productName={form.name} productUnit={form.unit} />
+                    )}
+
                     {/* Productos equivalentes — solo en modo edición */}
                     {editId && (
                       <ProductEquivalents productId={editId} productName={form.name} />
