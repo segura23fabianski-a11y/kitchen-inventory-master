@@ -504,9 +504,26 @@ export default function SmartInvoices() {
   });
 
   // ─── Helpers ───────────────────────────────────────────────
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) uploadMutation.mutate(file);
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (ext === "zip") {
+      uploadZipMutation.mutate(file);
+    } else {
+      uploadMutation.mutate(file);
+    }
     e.target.value = "";
   };
 
