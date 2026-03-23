@@ -3590,6 +3590,7 @@ export type Database = {
           ai_raw_response: Json | null
           created_at: string
           created_by: string
+          file_type: string
           id: string
           invoice_date: string | null
           invoice_number: string | null
@@ -3607,11 +3608,14 @@ export type Database = {
           updated_at: string
           validated_at: string | null
           validated_by: string | null
+          validation_warnings: Json | null
+          xml_url: string | null
         }
         Insert: {
           ai_raw_response?: Json | null
           created_at?: string
           created_by: string
+          file_type?: string
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -3629,11 +3633,14 @@ export type Database = {
           updated_at?: string
           validated_at?: string | null
           validated_by?: string | null
+          validation_warnings?: Json | null
+          xml_url?: string | null
         }
         Update: {
           ai_raw_response?: Json | null
           created_at?: string
           created_by?: string
+          file_type?: string
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -3651,6 +3658,8 @@ export type Database = {
           updated_at?: string
           validated_at?: string | null
           validated_by?: string | null
+          validation_warnings?: Json | null
+          xml_url?: string | null
         }
         Relationships: [
           {
