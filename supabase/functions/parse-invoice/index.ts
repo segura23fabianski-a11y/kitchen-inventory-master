@@ -233,7 +233,8 @@ INSTRUCCIONES:
 2. Para cada línea, intenta identificar el producto del catálogo que mejor coincida (match flexible por nombre, no requiere match exacto).
 3. Si detectas una presentación (ej: "bolsa 900g", "pack x6", "caja x12"), indícala.
 4. Si NO puedes identificar un producto con confianza, marca confidence como 0.
-5. Extrae subtotales y total de la factura.`,
+5. Extrae subtotales y total de la factura.
+6. CLASIFICACIÓN COSTO vs GASTO: Para cada línea, clasifica si es un COSTO (materia prima, insumo, ingrediente que entra al inventario) o un GASTO (servicio, flete, impuesto, descuento, cargo operativo que NO entra al inventario). Ejemplos de COSTO: pollo, aceite, harina, vasos, servilletas, químicos de limpieza, amenities. Ejemplos de GASTO: transporte, flete, IVA adicional, descuento comercial, servicio de entrega, propina.`,
           },
           {
             role: "user",
