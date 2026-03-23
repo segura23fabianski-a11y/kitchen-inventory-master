@@ -658,6 +658,11 @@ export default function SmartInvoices() {
                   <Badge className={cn("gap-1", MATCH_COLORS.unmatched)}>
                     <AlertTriangle className="h-3 w-3" /> {editItems.filter((i) => i.match_status === "unmatched").length} sin match
                   </Badge>
+                  {editItems.filter((i) => i.is_expense).length > 0 && (
+                    <Badge variant="secondary" className="gap-1">
+                      💰 {editItems.filter((i) => i.is_expense).length} gastos (no inventario)
+                    </Badge>
+                  )}
                 </div>
               )}
 
