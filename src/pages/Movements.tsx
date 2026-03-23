@@ -435,6 +435,7 @@ export default function Movements() {
           </div>
           )}
           <BulkExitDialog open={bulkExitOpen} onOpenChange={setBulkExitOpen} products={products ?? []} />
+          <BulkEntryDialog open={bulkEntryOpen} onOpenChange={setBulkEntryOpen} products={products ?? []} />
         </div>
 
         <Card>
