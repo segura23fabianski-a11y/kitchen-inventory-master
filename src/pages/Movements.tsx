@@ -36,6 +36,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 
 export default function Movements() {
   const [open, setOpen] = useState(false);
+  const [bulkEntryOpen, setBulkEntryOpen] = useState(false);
   const [bulkExitOpen, setBulkExitOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
