@@ -511,6 +511,7 @@ export default function SmartInvoices() {
                 <TableRow>
                   <TableHead>Nº Factura</TableHead>
                   <TableHead>Proveedor</TableHead>
+                  <TableHead>Origen</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead className="text-right">Total Detectado</TableHead>
                   <TableHead>Estado</TableHead>
