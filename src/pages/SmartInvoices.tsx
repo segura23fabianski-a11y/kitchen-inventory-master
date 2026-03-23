@@ -597,18 +597,18 @@ export default function SmartInvoices() {
               <Brain className="h-7 w-7 text-primary" />
               Facturas Inteligentes
             </h1>
-            <p className="text-muted-foreground">Sube un PDF y deja que la IA extraiga los datos automáticamente.</p>
+            <p className="text-muted-foreground">Sube un PDF, XML o ZIP y deja que el sistema extraiga los datos automáticamente.</p>
           </div>
           {canCreate && (
             <div className="flex gap-2">
-              <Button onClick={() => fileRef.current?.click()} disabled={uploadMutation.isPending || parseMutation.isPending}>
-                {uploadMutation.isPending || parseMutation.isPending ? (
+              <Button onClick={() => fileRef.current?.click()} disabled={uploadMutation.isPending || uploadZipMutation.isPending || parseMutation.isPending}>
+                {uploadMutation.isPending || uploadZipMutation.isPending || parseMutation.isPending ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando…</>
                 ) : (
-                  <><Upload className="mr-2 h-4 w-4" /> Subir PDF</>
+                  <><Upload className="mr-2 h-4 w-4" /> Subir Archivo</>
                 )}
               </Button>
-              <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFileUpload} />
+              <input ref={fileRef} type="file" accept=".pdf,.xml,.zip" className="hidden" onChange={handleFileUpload} />
             </div>
           )}
         </div>
