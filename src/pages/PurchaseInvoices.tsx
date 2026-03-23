@@ -916,13 +916,31 @@ export default function PurchaseInvoices() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item) => {
+                  {items.map((item) => {
                       const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_cost) || 0);
                       return (
                         <TableRow key={item.tempId}>
                           <TableCell>{item.product_name} <span className="text-xs text-muted-foreground">({item.product_unit})</span></TableCell>
-                          <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                          <TableCell className="text-right font-mono">${Number(item.unit_cost).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <NumericKeypadInput
+                              mode="decimal"
+                              value={item.quantity}
+                              onChange={(v) => setItems((prev) => prev.map((i) => i.tempId === item.tempId ? { ...i, quantity: v } : i))}
+                              min="0.01"
+                              keypadLabel="Cantidad"
+                              className="h-8 w-24 ml-auto text-right font-mono"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <NumericKeypadInput
+                              mode="decimal"
+                              value={item.unit_cost}
+                              onChange={(v) => setItems((prev) => prev.map((i) => i.tempId === item.tempId ? { ...i, unit_cost: v } : i))}
+                              min="0.01"
+                              keypadLabel="Costo unitario"
+                              className="h-8 w-28 ml-auto text-right font-mono"
+                            />
+                          </TableCell>
                           <TableCell className="text-right font-mono font-medium">${lineTotal.toFixed(2)}</TableCell>
                           <TableCell>
                             <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.tempId)}>
