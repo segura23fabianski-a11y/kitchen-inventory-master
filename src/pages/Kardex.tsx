@@ -389,6 +389,7 @@ export default function Kardex() {
                         <TableHead>Documento / Origen</TableHead>
                         <TableHead className="text-right">Entrada</TableHead>
                         <TableHead className="text-right">Salida</TableHead>
+                        <TableHead className="text-right">Ajuste</TableHead>
                         <TableHead className="text-right">Costo Unit.</TableHead>
                         <TableHead className="text-right">Costo Total</TableHead>
                         <TableHead className="text-right font-semibold">Saldo</TableHead>
