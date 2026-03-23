@@ -46,6 +46,9 @@ type SmartInvoice = {
   source: string;
   source_email_from: string | null;
   source_email_subject: string | null;
+  xml_url: string | null;
+  file_type: string;
+  validation_warnings: string[] | null;
 };
 
 type SmartItem = {
