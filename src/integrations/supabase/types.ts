@@ -1289,6 +1289,71 @@ export type Database = {
           },
         ]
       }
+      invoice_product_aliases: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          external_name: string
+          id: string
+          presentation_id: string | null
+          product_id: string
+          restaurant_id: string
+          supplier_id: string | null
+          times_used: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          external_name: string
+          id?: string
+          presentation_id?: string | null
+          product_id: string
+          restaurant_id: string
+          supplier_id?: string | null
+          times_used?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          external_name?: string
+          id?: string
+          presentation_id?: string | null
+          product_id?: string
+          restaurant_id?: string
+          supplier_id?: string | null
+          times_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_product_aliases_presentation_id_fkey"
+            columns: ["presentation_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_product_aliases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_product_aliases_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_product_aliases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       laundry_orders: {
         Row: {
           company_id: string | null
@@ -2615,6 +2680,61 @@ export type Database = {
           },
         ]
       }
+      purchase_presentations: {
+        Row: {
+          active: boolean
+          conversion_factor: number
+          created_at: string
+          id: string
+          name: string
+          product_id: string
+          restaurant_id: string
+          supplier_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          conversion_factor?: number
+          created_at?: string
+          id?: string
+          name: string
+          product_id: string
+          restaurant_id: string
+          supplier_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          conversion_factor?: number
+          created_at?: string
+          id?: string
+          name?: string
+          product_id?: string
+          restaurant_id?: string
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_presentations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_presentations_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_presentations_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipe_component_tags: {
         Row: {
           component_id: string
@@ -3366,6 +3486,183 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smart_invoice_items: {
+        Row: {
+          created_at: string
+          id: string
+          is_expense: boolean | null
+          line_total: number | null
+          match_confidence: number | null
+          match_status: string | null
+          needs_review: boolean | null
+          notes: string | null
+          presentation_id: string | null
+          product_id: string | null
+          quantity_in_base_unit: number | null
+          quantity_in_presentation: number | null
+          raw_description: string | null
+          raw_quantity: string | null
+          raw_total: string | null
+          raw_unit_price: string | null
+          restaurant_id: string
+          smart_invoice_id: string
+          unit_cost_per_base: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_expense?: boolean | null
+          line_total?: number | null
+          match_confidence?: number | null
+          match_status?: string | null
+          needs_review?: boolean | null
+          notes?: string | null
+          presentation_id?: string | null
+          product_id?: string | null
+          quantity_in_base_unit?: number | null
+          quantity_in_presentation?: number | null
+          raw_description?: string | null
+          raw_quantity?: string | null
+          raw_total?: string | null
+          raw_unit_price?: string | null
+          restaurant_id: string
+          smart_invoice_id: string
+          unit_cost_per_base?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_expense?: boolean | null
+          line_total?: number | null
+          match_confidence?: number | null
+          match_status?: string | null
+          needs_review?: boolean | null
+          notes?: string | null
+          presentation_id?: string | null
+          product_id?: string | null
+          quantity_in_base_unit?: number | null
+          quantity_in_presentation?: number | null
+          raw_description?: string | null
+          raw_quantity?: string | null
+          raw_total?: string | null
+          raw_unit_price?: string | null
+          restaurant_id?: string
+          smart_invoice_id?: string
+          unit_cost_per_base?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_invoice_items_presentation_id_fkey"
+            columns: ["presentation_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_presentations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_invoice_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_invoice_items_smart_invoice_id_fkey"
+            columns: ["smart_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "smart_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smart_invoices: {
+        Row: {
+          ai_raw_response: Json | null
+          created_at: string
+          created_by: string
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          linked_invoice_id: string | null
+          notes: string | null
+          pdf_url: string | null
+          restaurant_id: string
+          status: string
+          supplier_id: string | null
+          supplier_name: string | null
+          total_detected: number | null
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          ai_raw_response?: Json | null
+          created_at?: string
+          created_by: string
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          linked_invoice_id?: string | null
+          notes?: string | null
+          pdf_url?: string | null
+          restaurant_id: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          total_detected?: number | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          ai_raw_response?: Json | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          linked_invoice_id?: string | null
+          notes?: string | null
+          pdf_url?: string | null
+          restaurant_id?: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          total_detected?: number | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_invoices_linked_invoice_id_fkey"
+            columns: ["linked_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_invoices_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
