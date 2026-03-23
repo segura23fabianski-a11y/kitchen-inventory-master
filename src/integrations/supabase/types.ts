@@ -3597,6 +3597,9 @@ export type Database = {
           notes: string | null
           pdf_url: string | null
           restaurant_id: string
+          source: string
+          source_email_from: string | null
+          source_email_subject: string | null
           status: string
           supplier_id: string | null
           supplier_name: string | null
@@ -3616,6 +3619,9 @@ export type Database = {
           notes?: string | null
           pdf_url?: string | null
           restaurant_id: string
+          source?: string
+          source_email_from?: string | null
+          source_email_subject?: string | null
           status?: string
           supplier_id?: string | null
           supplier_name?: string | null
@@ -3635,6 +3641,9 @@ export type Database = {
           notes?: string | null
           pdf_url?: string | null
           restaurant_id?: string
+          source?: string
+          source_email_from?: string | null
+          source_email_subject?: string | null
           status?: string
           supplier_id?: string | null
           supplier_name?: string | null
