@@ -19,17 +19,14 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // User client to check identity
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) throw new Error("No autenticado");
 
-    // Admin client for privileged operations
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Check user is admin
     const { data: isAdmin } = await adminClient.rpc("has_role", {
       _user_id: user.id,
       _role: "admin",
@@ -39,7 +36,6 @@ Deno.serve(async (req) => {
     const { event_id, reason } = await req.json();
     if (!event_id) throw new Error("event_id requerido");
 
-    // Get the audit event
     const { data: event, error: evError } = await adminClient
       .from("audit_events")
       .select("*")
@@ -47,29 +43,26 @@ Deno.serve(async (req) => {
       .single();
     if (evError || !event) throw new Error("Evento no encontrado");
 
-    // Get user's restaurant via profile (NOT via rpc which uses auth.uid())
+    // Get user's restaurant via profile
     const { data: profile } = await adminClient
       .from("profiles")
       .select("restaurant_id")
       .eq("user_id", user.id)
       .eq("status", "active")
-      .single();
+      .maybeSingle();
     
     if (!profile?.restaurant_id) throw new Error("Sin restaurante asignado");
     const restaurantId = profile.restaurant_id;
 
-    // Validations
     if (event.restaurant_id !== restaurantId) throw new Error("No pertenece a tu restaurante");
     if (!event.can_rollback) throw new Error("Este evento no es reversible");
     if (event.rollback_applied) throw new Error("Este evento ya fue revertido");
-    if (!event.before) throw new Error("No hay datos previos para revertir");
 
     const allowedEntities = ["product", "recipe", "recipe_ingredient", "category", "inventory_movement"];
     if (!allowedEntities.includes(event.entity_type)) {
       throw new Error(`No se permite rollback para ${event.entity_type}`);
     }
 
-    // Map entity_type to table name
     const tableMap: Record<string, string> = {
       product: "products",
       recipe: "recipes",
@@ -79,30 +72,71 @@ Deno.serve(async (req) => {
     };
 
     const tableName = tableMap[event.entity_type];
-    const beforeData = event.before as Record<string, any>;
+    const action = event.action as string;
 
-    // Remove fields that shouldn't be updated
-    const { id, created_at, restaurant_id, ...updateFields } = beforeData;
+    // Determine rollback strategy based on original action
+    let rollbackBefore = event.after; // what was set (will become "before" in rollback event)
+    let rollbackAfter: any = null;
 
-    // Apply the rollback
-    const { error: updateError } = await adminClient
-      .from(tableName)
-      .update(updateFields)
-      .eq("id", event.entity_id);
-    if (updateError) throw new Error(`Error al revertir: ${updateError.message}`);
+    if (action === "CREATE") {
+      // Rollback a CREATE = DELETE the entity
+      // First get current state before deleting
+      const { data: currentState } = await adminClient
+        .from(tableName)
+        .select("*")
+        .eq("id", event.entity_id)
+        .maybeSingle();
+
+      if (!currentState) throw new Error("El registro ya no existe, no se puede revertir");
+
+      rollbackBefore = currentState;
+
+      const { error: deleteError } = await adminClient
+        .from(tableName)
+        .delete()
+        .eq("id", event.entity_id);
+      if (deleteError) throw new Error(`Error al eliminar: ${deleteError.message}`);
+
+      rollbackAfter = null; // deleted
+
+    } else if (action === "DELETE") {
+      // Rollback a DELETE = RE-INSERT the entity using before data
+      if (!event.before) throw new Error("No hay datos previos para restaurar");
+      
+      const { error: insertError } = await adminClient
+        .from(tableName)
+        .insert(event.before);
+      if (insertError) throw new Error(`Error al restaurar: ${insertError.message}`);
+
+      rollbackAfter = event.before;
+
+    } else {
+      // UPDATE, COST_CHANGE, etc. = restore previous values
+      if (!event.before) throw new Error("No hay datos previos para revertir");
+
+      const beforeData = event.before as Record<string, any>;
+      const { id, created_at, restaurant_id, ...updateFields } = beforeData;
+
+      const { error: updateError } = await adminClient
+        .from(tableName)
+        .update(updateFields)
+        .eq("id", event.entity_id);
+      if (updateError) throw new Error(`Error al revertir: ${updateError.message}`);
+
+      const { data: currentState } = await adminClient
+        .from(tableName)
+        .select("*")
+        .eq("id", event.entity_id)
+        .maybeSingle();
+
+      rollbackAfter = currentState;
+    }
 
     // Mark original event as rolled back
     await adminClient
       .from("audit_events")
       .update({ rollback_applied: true })
       .eq("id", event_id);
-
-    // Get the current state after rollback for the new audit event
-    const { data: currentState } = await adminClient
-      .from(tableName)
-      .select("*")
-      .eq("id", event.entity_id)
-      .single();
 
     // Create rollback audit event
     await adminClient.from("audit_events").insert({
@@ -111,11 +145,11 @@ Deno.serve(async (req) => {
       entity_id: event.entity_id,
       action: "ROLLBACK",
       performed_by: user.id,
-      before: event.after,
-      after: currentState,
+      before: rollbackBefore,
+      after: rollbackAfter,
       can_rollback: false,
       rollback_of_event_id: event_id,
-      metadata: { reason: reason || null },
+      metadata: { reason: reason || null, original_action: action },
     });
 
     return new Response(
