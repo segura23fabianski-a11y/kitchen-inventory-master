@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, ArrowDownCircle, ArrowUpCircle, Settings2, Trash2, Search, CalendarIcon, PackageMinus, X } from "lucide-react";
 import BulkUploadDialog from "@/components/BulkUploadDialog";
 import { BulkExitDialog } from "@/components/BulkExitDialog";
+import { BulkEntryDialog } from "@/components/BulkEntryDialog";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
@@ -35,6 +36,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 
 export default function Movements() {
   const [open, setOpen] = useState(false);
+  const [bulkEntryOpen, setBulkEntryOpen] = useState(false);
   const [bulkExitOpen, setBulkExitOpen] = useState(false);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -266,6 +268,11 @@ export default function Movements() {
           {canCreate && (
           <div className="flex items-center gap-2">
             {allowedTypes.includes("entrada") && <BulkUploadDialog products={products ?? []} />}
+            {allowedTypes.includes("entrada") && (
+              <Button variant="outline" onClick={() => setBulkEntryOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Entradas Masivas
+              </Button>
+            )}
             {allowedTypes.includes("salida") && (
               <Button variant="outline" onClick={() => setBulkExitOpen(true)}>
                 <PackageMinus className="mr-2 h-4 w-4" /> Salidas Masivas
@@ -428,6 +435,7 @@ export default function Movements() {
           </div>
           )}
           <BulkExitDialog open={bulkExitOpen} onOpenChange={setBulkExitOpen} products={products ?? []} />
+          <BulkEntryDialog open={bulkEntryOpen} onOpenChange={setBulkEntryOpen} products={products ?? []} />
         </div>
 
         <Card>
