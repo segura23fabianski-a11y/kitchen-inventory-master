@@ -79,7 +79,7 @@ function getInvoiceRootId(xml: string): string {
 
 /**
  * Parse a Colombian-style electronic invoice XML (UBL 2.1 / DIAN format).
- * Also supports simpler custom XML formats with common field names.
+ * Also supports AttachedDocument wrappers and simpler custom XML formats.
  */
 function parseInvoiceXml(xmlText: string): {
   supplier_name: string | null;
@@ -97,6 +97,38 @@ function parseInvoiceXml(xmlText: string): {
     tax_amount: number;
   }>;
 } {
+  const normalizeEmbeddedXml = (value: string) => value
+    .replace(/^<!\[CDATA\[/i, "")
+    .replace(/\]\]>$/i, "")
+    .trim();
+
+  const isAttachedDocument = /<AttachedDocument[\s>]|<[^>]+:AttachedDocument[\s>]/i.test(xmlText);
+  if (isAttachedDocument) {
+    const parentDocumentId = getTagContent(xmlText, "cbc:ParentDocumentID") || getTagContent(xmlText, "ParentDocumentID");
+    const embeddedDescription = getTagContent(xmlText, "cbc:Description") || getTagContent(xmlText, "Description");
+    const embeddedXml = embeddedDescription ? normalizeEmbeddedXml(embeddedDescription) : "";
+
+    if (embeddedXml && /<Invoice[\s>]|<[^>]+:Invoice[\s>]/i.test(embeddedXml)) {
+      const embeddedParsed = parseInvoiceXml(embeddedXml);
+      if (parentDocumentId) {
+        embeddedParsed.invoice_number = parentDocumentId.trim();
+      }
+      console.log(`AttachedDocument resolved: parentDocumentId=${parentDocumentId || "n/a"}, embeddedInvoice=${embeddedParsed.invoice_number || "n/a"}`);
+      return embeddedParsed;
+    }
+
+    return {
+      supplier_name: null,
+      supplier_nit: null,
+      invoice_number: parentDocumentId || null,
+      invoice_date: null,
+      subtotal: null,
+      tax_total: null,
+      total: null,
+      items: [],
+    };
+  }
+
   const isUBL = xmlText.includes("ubltr") || xmlText.includes("Invoice") || xmlText.includes("cac:") || xmlText.includes("cbc:");
 
   let supplierName: string | null = null;
@@ -109,26 +141,27 @@ function parseInvoiceXml(xmlText: string): {
   const items: Array<{ description: string; quantity: number; unit_price: number; total: number; tax_amount: number }> = [];
 
   if (isUBL) {
-    // Invoice number: use root-level extraction to avoid picking up nested IDs
     invoiceNumber = getInvoiceRootId(xmlText);
-    
-    // If that failed, try the DIAN prefix+number pattern
+
     if (!invoiceNumber) {
-      // Some DIAN XMLs have <cbc:ID> with schemeID attribute at root level
-      const idMatch = xmlText.match(/<cbc:ID[^>]*>([^<]{1,30})<\/cbc:ID>/);
+      const qrText = getTagContent(xmlText, "sts:QRCode") || getTagContent(xmlText, "QRCode");
+      const qrInvoiceNumber = qrText.match(/NumFac:\s*([^\s<\n\r]+)/i)?.[1]?.trim();
+      if (qrInvoiceNumber) invoiceNumber = qrInvoiceNumber;
+    }
+
+    if (!invoiceNumber) {
+      const idMatch = xmlText.match(/<cbc:ID[^>]*>([^<]{1,30})<\/cbc:ID>/i);
       if (idMatch) invoiceNumber = idMatch[1].trim();
     }
 
     invoiceDate = getTagContent(xmlText, "cbc:IssueDate") || getTagContent(xmlText, "IssueDate");
 
-    // Supplier info from AccountingSupplierParty
     const supplierBlock = getTagContent(xmlText, "cac:AccountingSupplierParty") || getTagContent(xmlText, "AccountingSupplierParty");
     if (supplierBlock) {
       supplierName = getTagContent(supplierBlock, "cbc:RegistrationName") || getTagContent(supplierBlock, "cbc:Name") || getTagContent(supplierBlock, "RegistrationName");
       supplierNit = getTagContent(supplierBlock, "cbc:CompanyID") || getTagContent(supplierBlock, "CompanyID");
     }
 
-    // Totals
     const legalTotal = getTagContent(xmlText, "cac:LegalMonetaryTotal") || getTagContent(xmlText, "LegalMonetaryTotal");
     if (legalTotal) {
       subtotal = parseFloat(getTagContent(legalTotal, "cbc:LineExtensionAmount") || getTagContent(legalTotal, "LineExtensionAmount")) || null;
@@ -140,9 +173,8 @@ function parseInvoiceXml(xmlText: string): {
       taxTotal = parseFloat(getTagContent(taxTotalBlock, "cbc:TaxAmount") || getTagContent(taxTotalBlock, "TaxAmount")) || null;
     }
 
-    // Invoice lines
-    const lineBlocks = getAllTags(xmlText, "cac:InvoiceLine").length > 0 
-      ? getAllTags(xmlText, "cac:InvoiceLine") 
+    const lineBlocks = getAllTags(xmlText, "cac:InvoiceLine").length > 0
+      ? getAllTags(xmlText, "cac:InvoiceLine")
       : getAllTags(xmlText, "InvoiceLine");
 
     for (const line of lineBlocks) {
@@ -150,24 +182,19 @@ function parseInvoiceXml(xmlText: string): {
       const qty = parseFloat(getTagContent(line, "cbc:InvoicedQuantity") || getTagContent(line, "InvoicedQuantity") || getTagContent(line, "Quantity")) || 0;
       const lineExt = parseFloat(getTagContent(line, "cbc:LineExtensionAmount") || getTagContent(line, "LineExtensionAmount")) || 0;
 
-      // Try PriceAmount for unit price first, fallback to division
       const priceBlock = getTagContent(line, "cac:Price") || getTagContent(line, "Price");
       let unitPrice = 0;
       if (priceBlock) {
         unitPrice = parseFloat(getTagContent(priceBlock, "cbc:PriceAmount") || getTagContent(priceBlock, "PriceAmount")) || 0;
       }
-      if (!unitPrice && qty > 0) {
-        unitPrice = lineExt / qty;
-      }
+      if (!unitPrice && qty > 0) unitPrice = lineExt / qty;
 
-      // Tax per line
       const lineTaxBlock = getTagContent(line, "cac:TaxTotal") || getTagContent(line, "TaxTotal");
       const lineTax = lineTaxBlock ? (parseFloat(getTagContent(lineTaxBlock, "cbc:TaxAmount") || getTagContent(lineTaxBlock, "TaxAmount")) || 0) : 0;
 
       items.push({ description: desc, quantity: qty, unit_price: unitPrice, total: lineExt, tax_amount: lineTax });
     }
   } else {
-    // Generic XML format
     supplierName = getTagContent(xmlText, "proveedor") || getTagContent(xmlText, "supplier") || getTagContent(xmlText, "nombre_proveedor") || getTagContent(xmlText, "RazonSocial");
     supplierNit = getTagContent(xmlText, "nit") || getTagContent(xmlText, "NIT") || getTagContent(xmlText, "rfc") || getTagContent(xmlText, "RFC") || getTagContent(xmlText, "NumeroDocumento");
     invoiceNumber = getTagContent(xmlText, "numero_factura") || getTagContent(xmlText, "invoice_number") || getTagContent(xmlText, "NumeroFactura") || getTagContent(xmlText, "Numero");
