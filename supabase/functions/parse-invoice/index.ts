@@ -21,6 +21,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Cuerpo de solicitud inválido." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { internal_call } = body ?? {};
     
     let userId: string;
