@@ -532,6 +532,17 @@ export default function SmartInvoices() {
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
                       <TableCell>{inv.supplier_name || "—"}</TableCell>
+                      <TableCell>
+                        {inv.source === "email" ? (
+                          <Badge variant="outline" className="gap-1 text-xs" title={inv.source_email_from || ""}>
+                            <Mail className="h-3 w-3" /> Email
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Upload className="h-3 w-3" /> Manual
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{inv.invoice_date ? format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
                       <TableCell className="text-right font-mono">
                         {inv.total_detected != null ? `$${Number(inv.total_detected).toFixed(2)}` : "—"}
