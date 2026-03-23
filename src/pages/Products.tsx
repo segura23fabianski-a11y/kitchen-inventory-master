@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter, Power } from "lucide-react";
 import CostRevaluationDialog from "@/components/CostRevaluationDialog";
 import ProductEquivalents from "@/components/ProductEquivalents";
+import PurchasePresentations from "@/components/PurchasePresentations";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
@@ -552,6 +553,11 @@ export default function Products() {
                         </div>
                       )}
                     </div>
+
+                    {/* Presentaciones de compra — solo en modo edición */}
+                    {editId && (
+                      <PurchasePresentations productId={editId} productName={form.name} productUnit={form.unit} />
+                    )}
 
                     {/* Productos equivalentes — solo en modo edición */}
                     {editId && (
