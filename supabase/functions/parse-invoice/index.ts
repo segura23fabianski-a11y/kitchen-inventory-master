@@ -107,28 +107,6 @@ Deno.serve(async (req) => {
       restaurantId = profile.restaurant_id;
     }
 
-    const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Get user's restaurant
-    const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", user.id).single();
-    if (!profile?.restaurant_id) {
-      return new Response(JSON.stringify({ error: "Sin restaurante asignado al usuario." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const restaurantId = profile.restaurant_id;
-
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
-      return new Response(JSON.stringify({ error: "Cuerpo de solicitud inválido." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { smart_invoice_id } = body;
     if (!smart_invoice_id) {
       return new Response(JSON.stringify({ error: "smart_invoice_id es requerido." }), {
