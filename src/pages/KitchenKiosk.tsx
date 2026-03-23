@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProductionRunDialog } from "@/components/ProductionRunDialog";
+import { useProductEquivalents } from "@/hooks/use-product-equivalents";
 
 interface CartItem {
   productId: string;
@@ -75,8 +76,8 @@ export default function KitchenKiosk() {
   const { toast } = useToast();
   const restaurantId = useRestaurantId();
   const qc = useQueryClient();
+  const { getSuggestedEquivalents, hasEquivalents, getEquivalentIds } = useProductEquivalents();
 
-  // ──── Data queries ────
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
@@ -286,7 +287,44 @@ export default function KitchenKiosk() {
     });
   }, [products, productSearch, codesByProduct]);
 
-  // ──── Barcode scanner detection ────
+  /**
+   * Build product options for a combo component selector.
+   * If the component already has a primary product selected, equivalents of that product
+   * are shown first with a ⚡ prefix. Otherwise shows all products.
+   */
+  const buildComboProductOptions = (
+    excludeIds: string[],
+    primaryProductId?: string,
+  ) => {
+    if (!products) return [];
+    const excluded = new Set(excludeIds);
+    const available = products.filter((p) => !excluded.has(p.id));
+
+    if (primaryProductId && hasEquivalents(primaryProductId)) {
+      const eqIds = getEquivalentIds(primaryProductId);
+      const equivalents = available.filter((p) => eqIds.has(p.id));
+      const others = available.filter((p) => !eqIds.has(p.id));
+      return [
+        ...equivalents.map((p) => ({
+          value: p.id,
+          label: `⚡ ${p.name} — Stock: ${p.current_stock} ${p.unit} (equivalente)`,
+          searchTerms: p.name + " " + (p.barcode || "") + " equivalente",
+        })),
+        ...others.map((p) => ({
+          value: p.id,
+          label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+          searchTerms: p.name + " " + (p.barcode || ""),
+        })),
+      ];
+    }
+
+    return available.map((p) => ({
+      value: p.id,
+      label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
+      searchTerms: p.name + " " + (p.barcode || ""),
+    }));
+  };
+
   const addProductToCart = useCallback((productId: string) => {
     const p = products?.find((x) => x.id === productId);
     if (!p) return;
@@ -864,11 +902,10 @@ export default function KitchenKiosk() {
 
                       {/* Primary product selector */}
                       <SearchableSelect
-                        options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
-                          value: p.id,
-                          label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
-                          searchTerms: p.name + " " + (p.barcode || ""),
-                        })) ?? []}
+                        options={buildComboProductOptions(
+                          comp.selectedProducts.map(sp => sp.productId),
+                          comp.selectedProductId || undefined,
+                        )}
                         value={comp.selectedProductId}
                         onValueChange={(v) => updateComboComponent(comp.componentId, v)}
                         placeholder="Buscar y seleccionar producto..."
@@ -917,11 +954,10 @@ export default function KitchenKiosk() {
                             <AlertTriangle className="h-3 w-3" /> Faltan {shortfall} unidades. Agrega otro producto para completar.
                           </p>
                           <SearchableSelect
-                            options={products?.filter(p => !comp.selectedProducts.some(sp => sp.productId === p.id)).map((p) => ({
-                              value: p.id,
-                              label: `${p.name} — Stock: ${p.current_stock} ${p.unit}`,
-                              searchTerms: p.name + " " + (p.barcode || ""),
-                            })) ?? []}
+                            options={buildComboProductOptions(
+                              comp.selectedProducts.map(sp => sp.productId),
+                              comp.selectedProductId,
+                            )}
                             value=""
                             onValueChange={(v) => addSecondaryProduct(comp.componentId, v)}
                             placeholder="Agregar producto adicional..."

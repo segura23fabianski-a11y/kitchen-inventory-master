@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { fuzzyMatch } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ import {
   CalendarDays, ClipboardList, Droplets, Search, Package,
   Plus, Settings, Trash2, Tag, Pencil,
 } from "lucide-react";
+import { useProductEquivalents } from "@/hooks/use-product-equivalents";
 
 // ── Types ──
 type MainMode = "home" | "recipes" | "services";
@@ -71,6 +72,7 @@ export default function OperationsKiosk() {
   const { logAudit } = useAudit();
   const restaurantId = useRestaurantId();
   const qc = useQueryClient();
+  const { getSuggestedEquivalents, hasEquivalents } = useProductEquivalents();
 
   const isAdmin = hasPermission("products") || hasPermission("recipes");
 
@@ -621,16 +623,44 @@ export default function OperationsKiosk() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {recipeIngredients.map((ing: any) => (
-                        <TableRow key={ing.id}>
-                          <TableCell className="font-medium">{ing.prod?.name ?? "—"}</TableCell>
-                          <TableCell className="text-right">{ing.totalQty.toFixed(2)} {ing.unit}</TableCell>
-                          <TableCell className={`text-right ${!ing.hasStock ? "text-destructive font-semibold" : ""}`}>
-                            {ing.prod ? `${Number(ing.prod.current_stock).toFixed(2)} ${ing.prod.unit}` : "—"}
-                          </TableCell>
-                          <TableCell className="text-right">${ing.cost.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {recipeIngredients.map((ing: any) => {
+                        const equivalents = !ing.hasStock && ing.prod ? getSuggestedEquivalents(ing.product_id) : [];
+                        const availableEquivalents = equivalents.filter(eq => eq.currentStock > 0);
+                        return (
+                          <React.Fragment key={ing.id}>
+                            <TableRow>
+                              <TableCell className="font-medium">
+                                {ing.prod?.name ?? "—"}
+                                {hasEquivalents(ing.product_id) && (
+                                  <Badge variant="outline" className="ml-1.5 text-[10px]">tiene equivalentes</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">{ing.totalQty.toFixed(2)} {ing.unit}</TableCell>
+                              <TableCell className={`text-right ${!ing.hasStock ? "text-destructive font-semibold" : ""}`}>
+                                {ing.prod ? `${Number(ing.prod.current_stock).toFixed(2)} ${ing.prod.unit}` : "—"}
+                              </TableCell>
+                              <TableCell className="text-right">${ing.cost.toFixed(2)}</TableCell>
+                            </TableRow>
+                            {!ing.hasStock && availableEquivalents.length > 0 && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="py-1 px-4">
+                                  <div className="rounded-md bg-warning/10 border border-warning/30 p-2 text-xs">
+                                    <p className="font-medium text-warning mb-1">⚡ Equivalentes disponibles:</p>
+                                    {availableEquivalents.map(eq => (
+                                      <p key={eq.id} className="text-muted-foreground">
+                                        {eq.name} — Stock: {eq.currentStock} {eq.unit}
+                                      </p>
+                                    ))}
+                                    <p className="mt-1 text-[10px] text-muted-foreground italic">
+                                      Puedes usar estos productos como sustituto registrándolos manualmente.
+                                    </p>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                   <div className="rounded-md bg-muted p-4 flex items-center justify-between">
