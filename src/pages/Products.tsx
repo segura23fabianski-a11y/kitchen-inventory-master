@@ -561,7 +561,6 @@ export default function Products() {
                     <Button type="submit" className="w-full" disabled={upsertProduct.isPending || !isValid}>
                       {upsertProduct.isPending ? "Guardando..." : "Guardar"}
                     </Button>
-                    </Button>
                   </form>
                 </DialogContent>
               </Dialog>
