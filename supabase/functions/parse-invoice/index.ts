@@ -433,7 +433,8 @@ INSTRUCCIONES:
         line_total: item.total,
         match_status: matchStatus,
         match_confidence: matchConfidence,
-        needs_review: matchStatus !== "confirmed",
+        is_expense: item.is_expense === true,
+        needs_review: item.is_expense === true ? false : matchStatus !== "confirmed",
       };
     });
 
