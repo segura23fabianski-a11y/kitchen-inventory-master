@@ -21,25 +21,90 @@ Deno.serve(async (req) => {
       });
     }
 
-    const authHeader = req.headers.get("authorization") ?? "";
-    const token = authHeader.replace("Bearer ", "");
-
-    if (!token) {
-      return new Response(JSON.stringify({ error: "No autorizado. Inicia sesión nuevamente." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { internal_call } = body ?? {};
     
-    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Sesión expirada. Vuelve a iniciar sesión." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let userId: string;
+    let restaurantId: string;
+
+    if (internal_call) {
+      // Called internally from receive-invoice-email with service role
+      // Verify we have the service role auth
+      const authHeader = req.headers.get("authorization") ?? "";
+      if (!authHeader.includes(SUPABASE_SERVICE_ROLE_KEY.substring(0, 20))) {
+        // Not service role - still validate as user
+        const token = authHeader.replace("Bearer ", "");
+        if (!token) {
+          return new Response(JSON.stringify({ error: "No autorizado." }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        });
+        const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
+        if (authErr || !user) {
+          return new Response(JSON.stringify({ error: "Sesión expirada." }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        userId = user.id;
+        const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", user.id).single();
+        if (!profile?.restaurant_id) {
+          return new Response(JSON.stringify({ error: "Sin restaurante asignado." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        restaurantId = profile.restaurant_id;
+      } else {
+        // Internal call - get restaurant from the smart_invoice itself
+        const { smart_invoice_id: sid } = body;
+        if (!sid) {
+          return new Response(JSON.stringify({ error: "smart_invoice_id requerido." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: inv } = await db.from("smart_invoices").select("restaurant_id, created_by").eq("id", sid).single();
+        if (!inv) {
+          return new Response(JSON.stringify({ error: "Factura no encontrada." }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        restaurantId = inv.restaurant_id;
+        userId = inv.created_by;
+      }
+    } else {
+      const authHeader = req.headers.get("authorization") ?? "";
+      const token = authHeader.replace("Bearer ", "");
+      if (!token) {
+        return new Response(JSON.stringify({ error: "No autorizado. Inicia sesión nuevamente." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+        global: { headers: { Authorization: `Bearer ${token}` } },
       });
+      const { data: { user }, error: authErr } = await userClient.auth.getUser(token);
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: "Sesión expirada. Vuelve a iniciar sesión." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = user.id;
+      const { data: profile } = await db.from("profiles").select("restaurant_id").eq("user_id", userId).single();
+      if (!profile?.restaurant_id) {
+        return new Response(JSON.stringify({ error: "Sin restaurante asignado al usuario." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      restaurantId = profile.restaurant_id;
     }
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
