@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { JSZip } from "https://esm.sh/jszip@3.10.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,15 +21,13 @@ Deno.serve(async (req) => {
     if (!webhookSecret) {
       console.error("INVOICE_WEBHOOK_SECRET not configured");
       return new Response(JSON.stringify({ error: "Webhook not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (providedSecret !== webhookSecret) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -37,8 +36,7 @@ Deno.serve(async (req) => {
       body = await req.json();
     } catch {
       return new Response(JSON.stringify({ error: "Invalid request body" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -46,52 +44,136 @@ Deno.serve(async (req) => {
       restaurant_id,
       from_email,
       subject,
+      // Existing: single PDF
       pdf_base64,
       pdf_filename,
+      // New: support multiple attachments or ZIP
+      attachments, // Array of { base64, filename, content_type }
       created_by_user_id,
     } = body;
 
-    if (!restaurant_id || !pdf_base64) {
-      return new Response(JSON.stringify({ error: "restaurant_id and pdf_base64 are required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!restaurant_id) {
+      return new Response(JSON.stringify({ error: "restaurant_id is required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Decode PDF from base64
-    const binaryString = atob(pdf_base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    // Normalize attachments into a unified list
+    type Attachment = { base64: string; filename: string; content_type: string };
+    let allAttachments: Attachment[] = [];
+
+    if (attachments && Array.isArray(attachments)) {
+      allAttachments = attachments;
+    } else if (pdf_base64) {
+      // Legacy single-PDF format
+      allAttachments = [{
+        base64: pdf_base64,
+        filename: pdf_filename || `email-${Date.now()}.pdf`,
+        content_type: "application/pdf",
+      }];
     }
 
-    const pdfSizeMB = bytes.length / (1024 * 1024);
-    if (pdfSizeMB > 20) {
-      return new Response(JSON.stringify({ error: `PDF too large: ${pdfSizeMB.toFixed(1)} MB (max 20 MB)` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (allAttachments.length === 0) {
+      return new Response(JSON.stringify({ error: "No attachments provided" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Upload PDF to storage
-    const filename = pdf_filename || `email-${Date.now()}.pdf`;
-    const storagePath = `${restaurant_id}/email-${Date.now()}-${filename}`;
+    // Process attachments: extract ZIP contents, separate XML and PDF
+    let xmlFile: { bytes: Uint8Array; filename: string } | null = null;
+    let pdfFile: { bytes: Uint8Array; filename: string } | null = null;
 
-    const { error: uploadErr } = await db.storage
-      .from("invoice-pdfs")
-      .upload(storagePath, bytes, { contentType: "application/pdf" });
+    for (const att of allAttachments) {
+      const bytes = Uint8Array.from(atob(att.base64), (c) => c.charCodeAt(0));
+      const lowerName = (att.filename || "").toLowerCase();
+      const lowerType = (att.content_type || "").toLowerCase();
 
-    if (uploadErr) {
-      console.error("Storage upload error:", uploadErr);
-      return new Response(JSON.stringify({ error: "Failed to store PDF" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (lowerName.endsWith(".zip") || lowerType === "application/zip" || lowerType === "application/x-zip-compressed") {
+        // Extract ZIP
+        console.log(`Extracting ZIP: ${att.filename}`);
+        try {
+          const zip = new JSZip();
+          await zip.loadAsync(bytes);
+
+          for (const [name, file] of Object.entries(zip.files)) {
+            if ((file as any).dir) continue;
+            const lower = name.toLowerCase();
+            if (lower.endsWith(".xml") && !xmlFile) {
+              const content = await (file as any).async("uint8array");
+              xmlFile = { bytes: content, filename: name };
+              console.log(`Found XML in ZIP: ${name}`);
+            } else if (lower.endsWith(".pdf") && !pdfFile) {
+              const content = await (file as any).async("uint8array");
+              pdfFile = { bytes: content, filename: name };
+              console.log(`Found PDF in ZIP: ${name}`);
+            }
+          }
+        } catch (zipErr) {
+          console.error("ZIP extraction error:", zipErr);
+        }
+      } else if (lowerName.endsWith(".xml") || lowerType === "application/xml" || lowerType === "text/xml") {
+        if (!xmlFile) {
+          xmlFile = { bytes, filename: att.filename };
+          console.log(`Direct XML attachment: ${att.filename}`);
+        }
+      } else if (lowerName.endsWith(".pdf") || lowerType === "application/pdf") {
+        if (!pdfFile) {
+          pdfFile = { bytes, filename: att.filename };
+          console.log(`Direct PDF attachment: ${att.filename}`);
+        }
+      }
+    }
+
+    if (!xmlFile && !pdfFile) {
+      return new Response(JSON.stringify({ error: "No XML or PDF files found in attachments" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Find a default user for this restaurant if not provided
+    // Size checks
+    if (pdfFile && pdfFile.bytes.length / (1024 * 1024) > 20) {
+      return new Response(JSON.stringify({ error: `PDF too large: ${(pdfFile.bytes.length / (1024 * 1024)).toFixed(1)} MB (max 20 MB)` }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Upload files to storage
+    const timestamp = Date.now();
+    let pdfStoragePath: string | null = null;
+    let xmlStoragePath: string | null = null;
+
+    if (pdfFile) {
+      pdfStoragePath = `${restaurant_id}/email-${timestamp}-${pdfFile.filename}`;
+      const { error: pdfUpErr } = await db.storage.from("invoice-pdfs").upload(pdfStoragePath, pdfFile.bytes, { contentType: "application/pdf" });
+      if (pdfUpErr) {
+        console.error("PDF upload error:", pdfUpErr);
+        pdfStoragePath = null;
+      }
+    }
+
+    if (xmlFile) {
+      xmlStoragePath = `${restaurant_id}/email-${timestamp}-${xmlFile.filename}`;
+      const { error: xmlUpErr } = await db.storage.from("invoice-pdfs").upload(xmlStoragePath, xmlFile.bytes, { contentType: "application/xml" });
+      if (xmlUpErr) {
+        console.error("XML upload error:", xmlUpErr);
+        xmlStoragePath = null;
+      }
+    }
+
+    if (!pdfStoragePath && !xmlStoragePath) {
+      return new Response(JSON.stringify({ error: "Failed to store files" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Determine file_type
+    let fileType = "pdf";
+    if (xmlStoragePath && pdfStoragePath) fileType = "zip"; // both present (likely from ZIP)
+    else if (xmlStoragePath) fileType = "xml";
+
+    // Find default user
     let userId = created_by_user_id;
     if (!userId) {
       const { data: profile } = await db
@@ -106,8 +188,7 @@ Deno.serve(async (req) => {
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "No active user found for restaurant" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -116,7 +197,9 @@ Deno.serve(async (req) => {
       .from("smart_invoices")
       .insert({
         restaurant_id,
-        pdf_url: storagePath,
+        pdf_url: pdfStoragePath,
+        xml_url: xmlStoragePath,
+        file_type: fileType,
         status: "pending",
         created_by: userId,
         source: "email",
@@ -129,16 +212,14 @@ Deno.serve(async (req) => {
     if (invErr) {
       console.error("Smart invoice creation error:", invErr);
       return new Response(JSON.stringify({ error: "Failed to create invoice record" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Created smart invoice ${smartInv.id} from email: ${from_email}`);
+    console.log(`Created smart invoice ${smartInv.id} (${fileType}) from email: ${from_email}`);
 
     // Trigger AI parsing automatically
     try {
-      // Build the auth header using service role for internal call
       const parseResponse = await fetch(`${SUPABASE_URL}/functions/v1/parse-invoice`, {
         method: "POST",
         headers: {
@@ -151,7 +232,6 @@ Deno.serve(async (req) => {
       if (!parseResponse.ok) {
         const errText = await parseResponse.text();
         console.warn("Auto-parse failed (invoice saved, can retry manually):", errText);
-        // Don't fail the whole request - the invoice is saved and can be parsed manually
       } else {
         console.log("Auto-parse triggered successfully");
       }
@@ -162,7 +242,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       smart_invoice_id: smartInv.id,
-      message: "Invoice received and queued for AI processing",
+      file_type: fileType,
+      has_xml: !!xmlStoragePath,
+      has_pdf: !!pdfStoragePath,
+      message: "Invoice received and queued for processing",
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
