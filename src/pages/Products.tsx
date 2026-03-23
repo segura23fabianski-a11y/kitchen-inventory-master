@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2, Upload, Download, FileSpreadsheet, X, ImageIcon, DollarSign, Filter, Power } from "lucide-react";
 import CostRevaluationDialog from "@/components/CostRevaluationDialog";
+import ProductEquivalents from "@/components/ProductEquivalents";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useAuth } from "@/lib/auth";
 import { useAudit } from "@/hooks/use-audit";
