@@ -72,6 +72,7 @@ export default function OperationsKiosk() {
   const { logAudit } = useAudit();
   const restaurantId = useRestaurantId();
   const qc = useQueryClient();
+  const { getSuggestedEquivalents, hasEquivalents } = useProductEquivalents();
 
   const isAdmin = hasPermission("products") || hasPermission("recipes");
 
