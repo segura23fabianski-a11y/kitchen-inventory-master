@@ -33,6 +33,51 @@ function getAttr(xml: string, attr: string): string {
 }
 
 /**
+ * Get the invoice-level <cbc:ID> — the one that is a direct child of the 
+ * root <Invoice> or <fe:Invoice> element, NOT nested inside sub-blocks.
+ * Colombian UBL 2.1 puts the invoice number here.
+ */
+function getInvoiceRootId(xml: string): string {
+  // Strategy: Remove all known nested blocks that contain their own <cbc:ID>,
+  // then extract the first <cbc:ID> from what remains — that's the invoice number.
+  const blocksToRemove = [
+    "cac:AccountingSupplierParty", "cac:AccountingCustomerParty",
+    "cac:TaxRepresentativeParty", "cac:Delivery", "cac:PaymentMeans",
+    "cac:PaymentTerms", "cac:AllowanceCharge", "cac:TaxTotal",
+    "cac:LegalMonetaryTotal", "cac:InvoiceLine", "cac:CreditNoteLine",
+    "cac:DebitNoteLine", "cac:AdditionalDocumentReference",
+    "cac:BillingReference", "cac:ContractDocumentReference",
+    "cac:DespatchDocumentReference", "cac:ReceiptDocumentReference",
+    "cac:OrderReference", "cac:Signature", "cac:PayeeParty",
+    "cac:PrepaidPayment",
+    // Also non-prefixed versions
+    "AccountingSupplierParty", "AccountingCustomerParty",
+    "TaxTotal", "LegalMonetaryTotal", "InvoiceLine",
+    "Signature", "AdditionalDocumentReference",
+    // DIAN extensions
+    "ext:UBLExtensions", "sts:DianExtensions",
+  ];
+
+  let stripped = xml;
+  for (const block of blocksToRemove) {
+    const re = new RegExp(`<${block}[\\s>][\\s\\S]*?</${block}>`, "gi");
+    stripped = stripped.replace(re, "");
+  }
+
+  // Now get the first <cbc:ID> — should be the invoice number
+  const id = getTagContent(stripped, "cbc:ID") || getTagContent(stripped, "ID");
+  
+  // Sanity check: invoice numbers are typically short alphanumeric strings
+  // If we got something that looks like a hash (>40 chars, hex), reject it
+  if (id && id.length > 40 && /^[a-f0-9]+$/i.test(id)) {
+    console.warn(`Rejected hash-like ID: ${id.substring(0, 30)}...`);
+    return "";
+  }
+
+  return id;
+}
+
+/**
  * Parse a Colombian-style electronic invoice XML (UBL 2.1 / DIAN format).
  * Also supports simpler custom XML formats with common field names.
  */
@@ -52,7 +97,6 @@ function parseInvoiceXml(xmlText: string): {
     tax_amount: number;
   }>;
 } {
-  // Try UBL 2.1 format first (Colombian DIAN)
   const isUBL = xmlText.includes("ubltr") || xmlText.includes("Invoice") || xmlText.includes("cac:") || xmlText.includes("cbc:");
 
   let supplierName: string | null = null;
@@ -65,8 +109,16 @@ function parseInvoiceXml(xmlText: string): {
   const items: Array<{ description: string; quantity: number; unit_price: number; total: number; tax_amount: number }> = [];
 
   if (isUBL) {
-    // UBL 2.1 format
-    invoiceNumber = getTagContent(xmlText, "cbc:ID") || getTagContent(xmlText, "ID");
+    // Invoice number: use root-level extraction to avoid picking up nested IDs
+    invoiceNumber = getInvoiceRootId(xmlText);
+    
+    // If that failed, try the DIAN prefix+number pattern
+    if (!invoiceNumber) {
+      // Some DIAN XMLs have <cbc:ID> with schemeID attribute at root level
+      const idMatch = xmlText.match(/<cbc:ID[^>]*>([^<]{1,30})<\/cbc:ID>/);
+      if (idMatch) invoiceNumber = idMatch[1].trim();
+    }
+
     invoiceDate = getTagContent(xmlText, "cbc:IssueDate") || getTagContent(xmlText, "IssueDate");
 
     // Supplier info from AccountingSupplierParty
@@ -97,7 +149,16 @@ function parseInvoiceXml(xmlText: string): {
       const desc = getTagContent(line, "cbc:Description") || getTagContent(line, "Description") || getTagContent(line, "cbc:Name") || getTagContent(line, "Name") || "Sin descripción";
       const qty = parseFloat(getTagContent(line, "cbc:InvoicedQuantity") || getTagContent(line, "InvoicedQuantity") || getTagContent(line, "Quantity")) || 0;
       const lineExt = parseFloat(getTagContent(line, "cbc:LineExtensionAmount") || getTagContent(line, "LineExtensionAmount")) || 0;
-      const unitPrice = qty > 0 ? lineExt / qty : 0;
+
+      // Try PriceAmount for unit price first, fallback to division
+      const priceBlock = getTagContent(line, "cac:Price") || getTagContent(line, "Price");
+      let unitPrice = 0;
+      if (priceBlock) {
+        unitPrice = parseFloat(getTagContent(priceBlock, "cbc:PriceAmount") || getTagContent(priceBlock, "PriceAmount")) || 0;
+      }
+      if (!unitPrice && qty > 0) {
+        unitPrice = lineExt / qty;
+      }
 
       // Tax per line
       const lineTaxBlock = getTagContent(line, "cac:TaxTotal") || getTagContent(line, "TaxTotal");
@@ -106,7 +167,7 @@ function parseInvoiceXml(xmlText: string): {
       items.push({ description: desc, quantity: qty, unit_price: unitPrice, total: lineExt, tax_amount: lineTax });
     }
   } else {
-    // Generic XML format - try common field names
+    // Generic XML format
     supplierName = getTagContent(xmlText, "proveedor") || getTagContent(xmlText, "supplier") || getTagContent(xmlText, "nombre_proveedor") || getTagContent(xmlText, "RazonSocial");
     supplierNit = getTagContent(xmlText, "nit") || getTagContent(xmlText, "NIT") || getTagContent(xmlText, "rfc") || getTagContent(xmlText, "RFC") || getTagContent(xmlText, "NumeroDocumento");
     invoiceNumber = getTagContent(xmlText, "numero_factura") || getTagContent(xmlText, "invoice_number") || getTagContent(xmlText, "NumeroFactura") || getTagContent(xmlText, "Numero");
@@ -115,7 +176,6 @@ function parseInvoiceXml(xmlText: string): {
     taxTotal = parseFloat(getTagContent(xmlText, "impuestos") || getTagContent(xmlText, "tax") || getTagContent(xmlText, "IVA") || getTagContent(xmlText, "TotalImpuestos")) || null;
     total = parseFloat(getTagContent(xmlText, "total") || getTagContent(xmlText, "Total") || getTagContent(xmlText, "ValorTotal")) || null;
 
-    // Generic items
     const itemTags = ["item", "linea", "detalle", "producto", "Item", "Linea", "Detalle", "DetalleFactura"];
     for (const tag of itemTags) {
       const found = getAllTags(xmlText, tag);
@@ -132,6 +192,8 @@ function parseInvoiceXml(xmlText: string): {
       }
     }
   }
+
+  console.log(`XML extraction result: invoice=${invoiceNumber}, supplier=${supplierName}, nit=${supplierNit}, items=${items.length}, total=${total}`);
 
   return { supplier_name: supplierName, supplier_nit: supplierNit, invoice_number: invoiceNumber, invoice_date: invoiceDate, subtotal, tax_total: taxTotal, total, items };
 }
