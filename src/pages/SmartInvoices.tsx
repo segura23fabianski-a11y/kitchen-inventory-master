@@ -22,7 +22,7 @@ import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Search, Eye, Send, Trash2, AlertTriangle, Check, HelpCircle,
-  FileText, Loader2, Sparkles, ArrowRight, RefreshCw, X, Brain
+  FileText, Loader2, Sparkles, ArrowRight, RefreshCw, X, Brain, Mail
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
