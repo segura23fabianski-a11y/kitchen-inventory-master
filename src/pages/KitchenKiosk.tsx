@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProductionRunDialog } from "@/components/ProductionRunDialog";
+import { useProductEquivalents } from "@/hooks/use-product-equivalents";
 
 interface CartItem {
   productId: string;
