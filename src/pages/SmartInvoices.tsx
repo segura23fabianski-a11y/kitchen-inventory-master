@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -28,6 +28,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 type SmartInvoice = {
   id: string;
@@ -100,6 +101,9 @@ export default function SmartInvoices() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingInvoice, setEditingInvoice] = useState<SmartInvoice | null>(null);
   const [convertConfirmId, setConvertConfirmId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const canView = hasPermission("purchases");
   const canCreate = hasPermission("purchases_create");
@@ -187,6 +191,11 @@ export default function SmartInvoices() {
     const matchStatus = statusFilter === "all" || inv.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const paginatedList = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   // ─── Upload File (PDF, XML, ZIP) ────────────────────────────
   const uploadMutation = useMutation({
@@ -619,11 +628,11 @@ export default function SmartInvoices() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <KioskTextInput className="pl-10" placeholder="Buscar…" value={search} onChange={setSearch} keyboardLabel="Buscar" inputType="search" />
+                <KioskTextInput className="pl-10" placeholder="Buscar…" value={search} onChange={(v) => { setSearch(v); setPage(1); }} keyboardLabel="Buscar" inputType="search" />
               </div>
               <div className="flex gap-2 flex-wrap">
                 {["all", "pending", "processing", "draft", "validated", "posted", "rejected"].map((s) => (
-                  <Button key={s} variant={statusFilter === s ? "default" : "outline"} size="sm" onClick={() => setStatusFilter(s)}>
+                  <Button key={s} variant={statusFilter === s ? "default" : "outline"} size="sm" onClick={() => { setStatusFilter(s); setPage(1); }}>
                     {s === "all" ? "Todos" : STATUS_MAP[s]?.label ?? s}
                   </Button>
                 ))}
@@ -655,7 +664,7 @@ export default function SmartInvoices() {
                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay facturas inteligentes. Sube un PDF para comenzar.
                   </TableCell></TableRow>
-                ) : filtered.map((inv) => {
+                ) : paginatedList.map((inv) => {
                   const st = STATUS_MAP[inv.status] || { label: inv.status, variant: "outline" as const };
                   return (
                     <TableRow key={inv.id}>
@@ -713,7 +722,7 @@ export default function SmartInvoices() {
                             </Button>
                           )}
                           {["pending", "processing", "draft", "rejected"].includes(inv.status) && (
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(inv.id)} title="Eliminar">
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteConfirmId(inv.id)} title="Eliminar">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -724,9 +733,40 @@ export default function SmartInvoices() {
                 })}
               </TableBody>
             </Table>
+            {filtered.length > 0 && (
+              <PaginationControls
+                page={page}
+                pageSize={pageSize}
+                totalCount={filtered.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── Delete Confirm Dialog ─────────────────────────────── */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(v) => !v && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar factura?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Se eliminará la factura y sus líneas asociadas.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmId) deleteMutation.mutate(deleteConfirmId);
+                setDeleteConfirmId(null);
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Draft Editor Dialog ──────────────────────────────── */}
       <Dialog open={!!editingInvoice} onOpenChange={(v) => !v && setEditingInvoice(null)}>
