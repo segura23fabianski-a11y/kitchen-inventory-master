@@ -12,9 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw, AlertTriangle, Bed } from "lucide-react";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw, AlertTriangle, Bed, Sparkles } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -55,7 +55,8 @@ export default function HousekeepingTab() {
   const [newTemplateType, setNewTemplateType] = useState("daily_clean");
   const [laundryCollectionItems, setLaundryCollectionItems] = useState<Record<string, number>>({});
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  // Check if current user has 'camarera' role
+
+  // Check if current user has 'camarera' or 'admin' role
   const { data: currentUserRoles } = useQuery({
     queryKey: ["my-user-roles", user?.id],
     queryFn: async () => {
@@ -67,6 +68,7 @@ export default function HousekeepingTab() {
     enabled: !!user,
   });
   const isCamarera = currentUserRoles?.includes("camarera");
+  const isAdmin = currentUserRoles?.includes("admin");
 
   // Fetch all rooms for task creation
   const { data: allRooms } = useQuery({
@@ -95,13 +97,25 @@ export default function HousekeepingTab() {
     enabled: !!restaurantId,
   });
 
+  // ── Fetch tasks — camareras only see their tasks for today ──
   const { data: tasks, isLoading } = useQuery({
-    queryKey: ["housekeeping-tasks", filterStatus],
+    queryKey: ["housekeeping-tasks", filterStatus, isCamarera, user?.id],
     queryFn: async () => {
       let q = supabase.from("housekeeping_tasks" as any)
         .select("*, rooms(room_number, room_types(name))")
-        .order("created_at", { ascending: false }).limit(100);
+        .order("created_at", { ascending: false });
+
+      // Camareras: only their tasks for today
+      if (isCamarera && user) {
+        const todayStart = format(startOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss");
+        const todayEnd = format(endOfDay(new Date()), "yyyy-MM-dd'T'HH:mm:ss");
+        q = q.eq("assigned_to", user.id)
+          .gte("created_at", todayStart)
+          .lte("created_at", todayEnd);
+      }
+
       if (filterStatus !== "all") q = q.eq("status", filterStatus);
+      q = q.limit(100);
       const { data, error } = await q;
       if (error) throw error;
       return data as any[];
@@ -114,6 +128,25 @@ export default function HousekeepingTab() {
       if (!checklistTask) return [];
       const { data, error } = await supabase.from("housekeeping_task_items" as any)
         .select("*").eq("housekeeping_task_id", checklistTask.id).order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!checklistTask,
+  });
+
+  // ── Fetch laundry orders associated with this task's room/stay for completion check ──
+  const { data: taskLaundryOrders } = useQuery({
+    queryKey: ["task-laundry-orders", checklistTask?.room_id, checklistTask?.id],
+    queryFn: async () => {
+      if (!checklistTask) return [];
+      // Get laundry orders for this room created today (same day as task)
+      const taskDate = format(new Date(checklistTask.created_at), "yyyy-MM-dd");
+      const { data, error } = await supabase.from("laundry_orders" as any)
+        .select("id, status, laundry_type, total_pieces, created_at")
+        .eq("room_id", checklistTask.room_id)
+        .gte("created_at", `${taskDate}T00:00:00`)
+        .lte("created_at", `${taskDate}T23:59:59`)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
@@ -197,7 +230,6 @@ export default function HousekeepingTab() {
       } as any).select("id").single();
       if (error) throw error;
 
-      // Create checklist items from templates
       const taskId = (hTask as any).id;
       const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
         .select("item_name, sort_order")
@@ -242,15 +274,33 @@ export default function HousekeepingTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // ── Toggle checklist item — auto-start task on first check ──
   const toggleItemMutation = useMutation({
-    mutationFn: async ({ itemId, completed }: { itemId: string; completed: boolean }) => {
+    mutationFn: async ({ itemId, completed, taskId, currentTaskStatus }: { itemId: string; completed: boolean; taskId: string; currentTaskStatus: string }) => {
       const { error } = await supabase.from("housekeeping_task_items" as any).update({
         is_completed: completed,
         completed_at: completed ? new Date().toISOString() : null,
       } as any).eq("id", itemId);
       if (error) throw error;
+
+      // Auto-start task when first item is checked
+      if (completed && currentTaskStatus === "pending") {
+        const { error: statusErr } = await supabase.from("housekeeping_tasks" as any)
+          .update({ status: "in_progress" } as any).eq("id", taskId);
+        if (statusErr) throw statusErr;
+      }
     },
-    onSuccess: () => refetchChecklist(),
+    onSuccess: (_, variables) => {
+      refetchChecklist();
+      if (variables.completed && variables.currentTaskStatus === "pending") {
+        qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+        // Update local checklistTask state
+        if (checklistTask && checklistTask.id === variables.taskId) {
+          setChecklistTask({ ...checklistTask, status: "in_progress" });
+        }
+        toast({ title: "Tarea iniciada automáticamente" });
+      }
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -263,11 +313,9 @@ export default function HousekeepingTab() {
       const task = tasks?.find((t: any) => t.id === taskId);
       if (newStatus === "done" && (task?.task_type === "checkout_clean" || task?.task_type === "daily_clean")) {
         if (task?.task_type === "checkout_clean") {
-          // Checkout clean: room becomes available (no guest)
           const { error: rErr } = await supabase.from("rooms" as any).update({ status: "available" } as any).eq("id", roomId);
           if (rErr) throw rErr;
         } else {
-          // Daily clean: check if there's an active stay — if so, room goes back to "occupied"
           const { data: activeStay } = await supabase.from("stays" as any)
             .select("id").eq("room_id", roomId).eq("status", "checked_in").limit(1).maybeSingle();
           const newRoomStatus = activeStay ? "occupied" : "available";
@@ -311,13 +359,15 @@ export default function HousekeepingTab() {
   const allChecked = checklistItems?.length > 0 && checklistItems.every((i: any) => i.is_completed);
   const checkedCount = checklistItems?.filter((i: any) => i.is_completed).length || 0;
 
+  // Check if laundry is fully processed for completion
+  const pendingLaundry = (taskLaundryOrders || []).filter((lo: any) => lo.status !== "delivered" && lo.status !== "completed");
+  const canComplete = allChecked && pendingLaundry.length === 0;
+
   // ── Re-populate checklist items from templates ──
   const repopulateChecklistMutation = useMutation({
     mutationFn: async ({ taskId, taskType }: { taskId: string; taskType: string }) => {
       if (!restaurantId) throw new Error("Sin restaurante");
-      // Delete existing items
       await supabase.from("housekeeping_task_items" as any).delete().eq("housekeeping_task_id", taskId);
-      // Get templates
       const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
         .select("item_name, sort_order")
         .eq("restaurant_id", restaurantId)
@@ -349,7 +399,6 @@ export default function HousekeepingTab() {
       if (items.length === 0) throw new Error("Agregue al menos un ítem de ropa");
       const totalPieces = items.reduce((sum, i) => sum + i.quantity, 0);
 
-      // Find the active stay for this room
       const { data: stay } = await supabase.from("stays" as any)
         .select("id, company_id, stay_guests(guest_id, is_primary)").eq("room_id", roomId).eq("status", "checked_in").limit(1).single();
 
@@ -372,7 +421,6 @@ export default function HousekeepingTab() {
       } as any);
       if (error) throw error;
 
-      // Register linen movements only for hotel linen (from room to laundry)
       if (laundryType === "hotel_linen") {
         for (const item of items) {
           const { data: linenItem } = await supabase.from("hotel_linen_inventory" as any)
@@ -395,6 +443,7 @@ export default function HousekeepingTab() {
       else setPersonalCollectionItems({});
       qc.invalidateQueries({ queryKey: ["laundry-orders"] });
       qc.invalidateQueries({ queryKey: ["hotel-linen-movements"] });
+      qc.invalidateQueries({ queryKey: ["task-laundry-orders"] });
       toast({ title: variables.laundryType === "guest_personal" ? "Ropa personal registrada" : "Recolección de ropa registrada" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -404,7 +453,6 @@ export default function HousekeepingTab() {
   const autoGenerateMutation = useMutation({
     mutationFn: async () => {
       if (!restaurantId || !user) throw new Error("Sin restaurante");
-      // Get occupied rooms (status = 'occupied')
       const { data: occupiedRooms, error: rErr } = await supabase
         .from("rooms" as any)
         .select("id, room_number, room_types(name)")
@@ -412,7 +460,6 @@ export default function HousekeepingTab() {
       if (rErr) throw rErr;
       if (!occupiedRooms || (occupiedRooms as any[]).length === 0) throw new Error("No hay habitaciones ocupadas actualmente");
 
-      // Check today's existing daily tasks to avoid duplicates
       const today = format(new Date(), "yyyy-MM-dd");
       const { data: existingToday } = await supabase
         .from("housekeeping_tasks" as any)
@@ -426,7 +473,6 @@ export default function HousekeepingTab() {
 
       if (roomsToCreate.length === 0) throw new Error("Ya se generaron las tareas diarias para todas las habitaciones ocupadas hoy");
 
-      // Get checklist templates
       const { data: templates } = await supabase.from("housekeeping_checklist_templates" as any)
         .select("item_name, sort_order")
         .eq("restaurant_id", restaurantId)
@@ -460,7 +506,6 @@ export default function HousekeepingTab() {
               item_name: name, sort_order: i,
             }));
         await supabase.from("housekeeping_task_items" as any).insert(items as any);
-
         created++;
       }
       return created;
@@ -477,7 +522,6 @@ export default function HousekeepingTab() {
     queryKey: ["linen-change-suggestions", restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      // Get active stays with check-in date
       const { data: activeStaysData, error: sErr } = await supabase.from("stays" as any)
         .select("id, room_id, check_in_at, rooms(room_number, room_types(name))")
         .eq("status", "checked_in");
@@ -489,7 +533,6 @@ export default function HousekeepingTab() {
         const daysSinceCheckIn = differenceInDays(new Date(), new Date((stay as any).check_in_at));
         if (daysSinceCheckIn < 3) continue;
 
-        // Check last hotel_linen laundry order for this room
         const { data: lastLaundry } = await supabase.from("laundry_orders" as any)
           .select("created_at")
           .eq("room_id", (stay as any).room_id)
@@ -518,11 +561,8 @@ export default function HousekeepingTab() {
   });
 
   // ── Delete task (admin) ──
-  const isAdmin = currentUserRoles?.includes("admin");
-
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      // Delete checklist items first
       await supabase.from("housekeeping_task_items" as any).delete().eq("housekeeping_task_id", taskId);
       const { error } = await supabase.from("housekeeping_tasks" as any).delete().eq("id", taskId);
       if (error) throw error;
@@ -543,14 +583,12 @@ export default function HousekeepingTab() {
       return;
     }
 
-    // Fetch active stays with guest shift info for all rooms that have tasks
     const roomIds = [...new Set(pendingTasks.map((t: any) => t.room_id))];
     const { data: activeStays } = await supabase.from("stays" as any)
       .select("room_id, stay_guests(shift_label, shift_start, shift_end, hotel_guests(first_name, last_name))")
       .eq("status", "checked_in")
       .in("room_id", roomIds);
 
-    // Build a map: room_id -> guest shift info
     const shiftMap: Record<string, string> = {};
     if (activeStays) {
       for (const stay of activeStays as any[]) {
@@ -570,7 +608,6 @@ export default function HousekeepingTab() {
     const margin = 14;
     const today = format(new Date(), "EEEE dd 'de' MMMM 'de' yyyy", { locale: es });
 
-    // Header
     doc.setFillColor(30, 64, 120);
     doc.rect(0, 0, pageW, 22, "F");
     doc.setFont("helvetica", "bold");
@@ -595,7 +632,7 @@ export default function HousekeepingTab() {
       getStaffName(t.assigned_to) || "Sin asignar",
       shiftMap[t.room_id] || "Sin turno",
       STATUS_LABELS[t.status] || t.status,
-      "", // checkbox column
+      "",
     ]);
 
     autoTable(doc, {
@@ -622,7 +659,6 @@ export default function HousekeepingTab() {
           data.cell.styles.textColor = [200, 30, 30];
           data.cell.styles.fontStyle = "bold";
         }
-        // Highlight shift info
         if (data.section === "body" && data.column.index === 5 && data.cell.raw !== "Sin turno") {
           data.cell.styles.textColor = [20, 80, 160];
         }
@@ -631,13 +667,11 @@ export default function HousekeepingTab() {
 
     y = (doc as any).lastAutoTable.finalY + 6;
 
-    // Legend about shifts
     doc.setFontSize(7);
     doc.setTextColor(80, 80, 80);
     doc.text("⚠ IMPORTANTE: Respetar los turnos de los huéspedes. No ingresar a la habitación mientras estén descansando.", margin, y);
     y += 8;
 
-    // Signature area
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.3);
     const sigW = (pageW - margin * 2 - 10) / 2;
@@ -648,7 +682,6 @@ export default function HousekeepingTab() {
     doc.text("Firma Supervisora / Ama de llaves", margin + sigW / 2, y + 19, { align: "center" });
     doc.text("Firma Recepción", margin + sigW + 10 + sigW / 2, y + 19, { align: "center" });
 
-    // Footer
     doc.setFontSize(6.5);
     doc.setTextColor(140, 140, 140);
     doc.text(`Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, doc.internal.pageSize.getHeight() - 10);
@@ -659,7 +692,12 @@ export default function HousekeepingTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-3">
-        <h3 className="text-lg font-semibold text-foreground">Housekeeping</h3>
+        <h3 className="text-lg font-semibold text-foreground">
+          Housekeeping
+          {isCamarera && (
+            <span className="text-sm font-normal text-muted-foreground ml-2">— Mis tareas de hoy</span>
+          )}
+        </h3>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => autoGenerateMutation.mutate()} disabled={autoGenerateMutation.isPending}>
             <Wand2 className="h-4 w-4 mr-1" />{autoGenerateMutation.isPending ? "Generando..." : "Generar Tareas del Día"}
@@ -683,69 +721,69 @@ export default function HousekeepingTab() {
       </div>
 
       {/* ── Checklist Templates Management ── */}
-      <Collapsible open={templatesOpen} onOpenChange={setTemplatesOpen}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-            <Settings2 className="h-4 w-4" />Plantillas de Checklist
-            <Badge variant="secondary" className="ml-1">{checklistTemplates?.filter((t: any) => t.active).length || 0}</Badge>
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-2">
-          <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Estos ítems se copian automáticamente al checklist de cada nueva tarea de limpieza según su tipo.
-            </p>
-            {/* Add new template */}
-            <div className="flex gap-2 items-end flex-wrap">
-              <div className="flex-1 min-w-[200px]">
-                <Label className="text-xs">Nombre del ítem</Label>
-                <Input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)} placeholder="Ej: Limpiar espejos" />
-              </div>
-              <div className="w-44">
-                <Label className="text-xs">Tipo de tarea</Label>
-                <Select value={newTemplateType} onValueChange={setNewTemplateType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily_clean">Limpieza Diaria</SelectItem>
-                    <SelectItem value="checkout_clean">Limpieza Check-out</SelectItem>
-                    <SelectItem value="maintenance">Mantenimiento</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button size="sm" onClick={() => addTemplateMutation.mutate()} disabled={!newTemplateName.trim() || addTemplateMutation.isPending}>
-                <Plus className="h-4 w-4 mr-1" />Agregar
-              </Button>
-            </div>
-            {/* List templates grouped by type */}
-            {["daily_clean", "checkout_clean", "maintenance"].map(type => {
-              const items = (checklistTemplates || []).filter((t: any) => t.task_type === type);
-              if (items.length === 0) return null;
-              return (
-                <div key={type} className="space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{TASK_TYPE_LABELS[type]}</p>
-                  {items.map((tpl: any) => (
-                    <div key={tpl.id} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <span className={`flex-1 text-sm ${!tpl.active ? "line-through text-muted-foreground" : "text-foreground"}`}>{tpl.item_name}</span>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
-                        onClick={() => toggleTemplateMutation.mutate({ id: tpl.id, active: !tpl.active })}>
-                        {tpl.active ? "Desactivar" : "Activar"}
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-1 text-destructive hover:text-destructive"
-                        onClick={() => deleteTemplateMutation.mutate(tpl.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
+      {!isCamarera && (
+        <Collapsible open={templatesOpen} onOpenChange={setTemplatesOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+              <Settings2 className="h-4 w-4" />Plantillas de Checklist
+              <Badge variant="secondary" className="ml-1">{checklistTemplates?.filter((t: any) => t.active).length || 0}</Badge>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Estos ítems se copian automáticamente al checklist de cada nueva tarea de limpieza según su tipo.
+              </p>
+              <div className="flex gap-2 items-end flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="text-xs">Nombre del ítem</Label>
+                  <Input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)} placeholder="Ej: Limpiar espejos" />
                 </div>
-              );
-            })}
-            {(!checklistTemplates || checklistTemplates.length === 0) && (
-              <p className="text-sm text-muted-foreground text-center py-2">No hay plantillas. Se usarán ítems por defecto al crear tareas.</p>
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+                <div className="w-44">
+                  <Label className="text-xs">Tipo de tarea</Label>
+                  <Select value={newTemplateType} onValueChange={setNewTemplateType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily_clean">Limpieza Diaria</SelectItem>
+                      <SelectItem value="checkout_clean">Limpieza Check-out</SelectItem>
+                      <SelectItem value="maintenance">Mantenimiento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button size="sm" onClick={() => addTemplateMutation.mutate()} disabled={!newTemplateName.trim() || addTemplateMutation.isPending}>
+                  <Plus className="h-4 w-4 mr-1" />Agregar
+                </Button>
+              </div>
+              {["daily_clean", "checkout_clean", "maintenance"].map(type => {
+                const items = (checklistTemplates || []).filter((t: any) => t.task_type === type);
+                if (items.length === 0) return null;
+                return (
+                  <div key={type} className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{TASK_TYPE_LABELS[type]}</p>
+                    {items.map((tpl: any) => (
+                      <div key={tpl.id} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50">
+                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        <span className={`flex-1 text-sm ${!tpl.active ? "line-through text-muted-foreground" : "text-foreground"}`}>{tpl.item_name}</span>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                          onClick={() => toggleTemplateMutation.mutate({ id: tpl.id, active: !tpl.active })}>
+                          {tpl.active ? "Desactivar" : "Activar"}
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-1 text-destructive hover:text-destructive"
+                          onClick={() => deleteTemplateMutation.mutate(tpl.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              {(!checklistTemplates || checklistTemplates.length === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-2">No hay plantillas. Se usarán ítems por defecto al crear tareas.</p>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* ── Linen Change Suggestions ── */}
       {linenSuggestions && linenSuggestions.length > 0 && (
@@ -775,7 +813,7 @@ export default function HousekeepingTab() {
             <TableHead>Tipo Tarea</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Prioridad</TableHead>
-            <TableHead>Responsable</TableHead>
+            {!isCamarera && <TableHead>Responsable</TableHead>}
             <TableHead>Fecha</TableHead>
             <TableHead>Completada</TableHead>
             <TableHead className="w-48">Acciones</TableHead>
@@ -783,9 +821,11 @@ export default function HousekeepingTab() {
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+            <TableRow><TableCell colSpan={isCamarera ? 7 : 8} className="text-center text-muted-foreground">Cargando...</TableCell></TableRow>
           ) : tasks?.length === 0 ? (
-            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sin tareas</TableCell></TableRow>
+            <TableRow><TableCell colSpan={isCamarera ? 7 : 8} className="text-center text-muted-foreground">
+              {isCamarera ? "No tienes tareas asignadas para hoy" : "Sin tareas"}
+            </TableCell></TableRow>
           ) : tasks?.map((t: any) => {
             const assigneeName = getStaffName(t.assigned_to);
             return (
@@ -796,16 +836,18 @@ export default function HousekeepingTab() {
                 <TableCell>
                   {t.priority === "high" ? <Badge variant="destructive">Alta</Badge> : <span className="text-sm text-muted-foreground">Normal</span>}
                 </TableCell>
-                <TableCell>
-                  <button
-                    className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
-                    onClick={() => { setAssignDialog({ taskId: t.id, currentAssignee: t.assigned_to }); setAssignValue(t.assigned_to || ""); }}
-                    title="Asignar/reasignar"
-                  >
-                    <UserCircle className="h-3.5 w-3.5" />
-                    {assigneeName || <span className="text-muted-foreground italic">Sin asignar</span>}
-                  </button>
-                </TableCell>
+                {!isCamarera && (
+                  <TableCell>
+                    <button
+                      className="flex items-center gap-1 text-sm hover:text-primary transition-colors"
+                      onClick={() => { setAssignDialog({ taskId: t.id, currentAssignee: t.assigned_to }); setAssignValue(t.assigned_to || ""); }}
+                      title="Asignar/reasignar"
+                    >
+                      <UserCircle className="h-3.5 w-3.5" />
+                      {assigneeName || <span className="text-muted-foreground italic">Sin asignar</span>}
+                    </button>
+                  </TableCell>
+                )}
                 <TableCell>{format(new Date(t.created_at), "dd/MM/yy HH:mm")}</TableCell>
                 <TableCell>{t.completed_at ? format(new Date(t.completed_at), "dd/MM/yy HH:mm") : "—"}</TableCell>
                 <TableCell>
@@ -813,16 +855,6 @@ export default function HousekeepingTab() {
                     <Button variant="outline" size="sm" onClick={() => setChecklistTask(t)}>
                       <ClipboardList className="h-4 w-4 mr-1" />Checklist
                     </Button>
-                    {t.status === "pending" && (
-                      <Button variant="outline" size="sm" onClick={() => updateStatusMutation.mutate({ taskId: t.id, newStatus: "in_progress", roomId: t.room_id })}>
-                        <PlayCircle className="h-4 w-4 mr-1" />Iniciar
-                      </Button>
-                    )}
-                    {t.status === "in_progress" && (
-                      <Button variant="default" size="sm" onClick={() => updateStatusMutation.mutate({ taskId: t.id, newStatus: "done", roomId: t.room_id })}>
-                        <CheckCircle className="h-4 w-4 mr-1" />Completar
-                      </Button>
-                    )}
                     {t.status === "done" && (
                       <span className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Hecho</span>
                     )}
@@ -936,6 +968,18 @@ export default function HousekeepingTab() {
                 <span className="ml-2">• Responsable: {getStaffName(checklistTask.assigned_to) || "—"}</span>
               )}
             </p>
+
+            {/* Show room cleaning status indicator */}
+            <div className="flex items-center gap-2 text-xs mb-2">
+              <Badge variant={checklistTask?.status === "in_progress" ? "secondary" : checklistTask?.status === "done" ? "default" : "outline"} className="gap-1">
+                <Sparkles className="h-3 w-3" />
+                {STATUS_LABELS[checklistTask?.status] || checklistTask?.status}
+              </Badge>
+              {checklistTask?.status === "pending" && (
+                <span className="text-muted-foreground italic">Se inicia automáticamente al marcar el primer ítem</span>
+              )}
+            </div>
+
             {checklistItems?.length === 0 ? (
               <div className="text-center py-4 space-y-2">
                 <p className="text-sm text-muted-foreground">Sin ítems de checklist</p>
@@ -950,7 +994,12 @@ export default function HousekeepingTab() {
                   <div key={item.id} className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/50">
                     <Checkbox
                       checked={item.is_completed}
-                      onCheckedChange={(checked) => toggleItemMutation.mutate({ itemId: item.id, completed: !!checked })}
+                      onCheckedChange={(checked) => toggleItemMutation.mutate({
+                        itemId: item.id,
+                        completed: !!checked,
+                        taskId: checklistTask.id,
+                        currentTaskStatus: checklistTask.status,
+                      })}
                       disabled={checklistTask?.status === "done"}
                     />
                     <span className={`flex-1 text-sm ${item.is_completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
@@ -1025,13 +1074,41 @@ export default function HousekeepingTab() {
             </div>
           )}
 
+          {/* ── Laundry Status for task completion ── */}
+          {checklistTask?.status !== "done" && taskLaundryOrders && taskLaundryOrders.length > 0 && (
+            <div className="border-t pt-3 mt-3 space-y-2">
+              <p className="text-sm font-medium">Estado de Lavandería asociada</p>
+              {taskLaundryOrders.map((lo: any) => (
+                <div key={lo.id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-muted/30">
+                  <span>{lo.laundry_type === "hotel_linen" ? "Lencería" : "Ropa personal"} — {lo.total_pieces} pzas</span>
+                  <Badge variant={lo.status === "delivered" || lo.status === "completed" ? "default" : "outline"} className="text-[10px]">
+                    {lo.status === "pending" ? "Pendiente" : lo.status === "in_progress" ? "En proceso" : lo.status === "delivered" ? "Entregada" : lo.status}
+                  </Badge>
+                </div>
+              ))}
+              {pendingLaundry.length > 0 && (
+                <p className="text-xs text-yellow-600 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Hay lavandería pendiente. La tarea se podrá completar cuando toda la lavandería esté entregada.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Completion button — only when checklist is done AND laundry is processed */}
           {checklistTask?.status === "in_progress" && allChecked && (
-            <Button className="w-full mt-2" onClick={() => {
-              updateStatusMutation.mutate({ taskId: checklistTask.id, newStatus: "done", roomId: checklistTask.room_id });
-              setChecklistTask(null);
-            }}>
-              <CheckCircle className="h-4 w-4 mr-2" />Marcar como Completada
-            </Button>
+            canComplete ? (
+              <Button className="w-full mt-2" onClick={() => {
+                updateStatusMutation.mutate({ taskId: checklistTask.id, newStatus: "done", roomId: checklistTask.room_id });
+                setChecklistTask(null);
+              }}>
+                <CheckCircle className="h-4 w-4 mr-2" />Marcar como Completada
+              </Button>
+            ) : (
+              <Button className="w-full mt-2" disabled variant="outline">
+                <AlertTriangle className="h-4 w-4 mr-2" />Completar checklist y lavandería para finalizar
+              </Button>
+            )
           )}
           {checklistTask?.notes && (
             <p className="text-xs text-muted-foreground mt-2"><span className="font-medium">Notas:</span> {checklistTask.notes}</p>

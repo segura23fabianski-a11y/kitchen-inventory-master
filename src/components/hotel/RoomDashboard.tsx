@@ -8,11 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   LayoutGrid, List, LogIn, LogOut, Sparkles, Wrench, Eye,
-  AlertTriangle, Users, Building2, Search, BedDouble, CalendarPlus
+  AlertTriangle, Users, Building2, Search, BedDouble, CalendarPlus,
+  History, ClipboardList, Shirt, CalendarCheck
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -36,8 +38,8 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
   const [filterFloor, setFilterFloor] = useState("all");
   const [search, setSearch] = useState("");
   const [detailRoom, setDetailRoom] = useState<any>(null);
+  const [historyRoom, setHistoryRoom] = useState<any>(null);
 
-  // Fetch all rooms with types
   const { data: rooms, isLoading } = useQuery({
     queryKey: ["dashboard-rooms"],
     queryFn: async () => {
@@ -50,7 +52,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     },
   });
 
-  // Fetch active stays with guests and companies
   const { data: activeStays } = useQuery({
     queryKey: ["dashboard-active-stays"],
     queryFn: async () => {
@@ -63,7 +64,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     },
   });
 
-  // Fetch pending housekeeping tasks
   const { data: pendingTasks } = useQuery({
     queryKey: ["dashboard-housekeeping-pending"],
     queryFn: async () => {
@@ -94,7 +94,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     },
   });
 
-  // Fetch reservations for today and upcoming
   const { data: reservations } = useQuery({
     queryKey: ["dashboard-reservations"],
     queryFn: async () => {
@@ -110,11 +109,71 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     },
   });
 
+  // ── Room History queries ──
+  const { data: roomStays } = useQuery({
+    queryKey: ["room-history-stays", historyRoom?.id],
+    queryFn: async () => {
+      if (!historyRoom) return [];
+      const { data, error } = await supabase.from("stays" as any)
+        .select("id, status, check_in_at, check_out_at, rate_per_night, checkout_type, hotel_companies(name), stay_guests(is_primary, hotel_guests(first_name, last_name))")
+        .eq("room_id", historyRoom.id)
+        .order("check_in_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!historyRoom,
+  });
+
+  const { data: roomHkTasks } = useQuery({
+    queryKey: ["room-history-hk", historyRoom?.id],
+    queryFn: async () => {
+      if (!historyRoom) return [];
+      const { data, error } = await supabase.from("housekeeping_tasks" as any)
+        .select("id, task_type, status, created_at, completed_at, assigned_to, priority")
+        .eq("room_id", historyRoom.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!historyRoom,
+  });
+
+  const { data: roomLaundry } = useQuery({
+    queryKey: ["room-history-laundry", historyRoom?.id],
+    queryFn: async () => {
+      if (!historyRoom) return [];
+      const { data, error } = await supabase.from("laundry_orders" as any)
+        .select("id, laundry_type, status, total_pieces, created_at, completed_at")
+        .eq("room_id", historyRoom.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!historyRoom,
+  });
+
+  const { data: roomStaff } = useQuery({
+    queryKey: ["room-history-staff"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("user_id, full_name").eq("status", "active");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!historyRoom,
+  });
+
+  const getStaffNameHist = (userId: string | null) => {
+    if (!userId) return "Sin asignar";
+    return roomStaff?.find(s => s.user_id === userId)?.full_name || userId.slice(0, 8);
+  };
+
   const todayStr = new Date().toISOString().split("T")[0];
   const arrivalsToday = useMemo(() => (reservations || []).filter((r: any) => r.check_in_date === todayStr), [reservations, todayStr]);
   const upcomingReservations = useMemo(() => (reservations || []).filter((r: any) => r.check_in_date > todayStr), [reservations, todayStr]);
 
-  // Realtime subscriptions for automatic dashboard updates
   useEffect(() => {
     const channel = supabase
       .channel("hotel-dashboard-realtime")
@@ -133,7 +192,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
 
-  // Build enriched room data
   const enrichedRooms = useMemo(() => {
     if (!rooms) return [];
     return rooms.map(room => {
@@ -141,6 +199,9 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
       const primaryGuest = stay?.stay_guests?.find((sg: any) => sg.is_primary);
       const guestCount = stay?.stay_guests?.length || 0;
       const hkTask = pendingTasks?.find((t: any) => t.room_id === room.id);
+
+      // Show cleaning status even if room is occupied
+      const hasPendingCleaning = !!hkTask;
       const effectiveStatus = room.status === "maintenance"
         ? "maintenance"
         : stay
@@ -152,6 +213,8 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
       return {
         ...room,
         status: effectiveStatus,
+        hasPendingCleaning,
+        hkTaskStatus: hkTask?.status || null,
         stay,
         primaryGuestName: primaryGuest
           ? `${primaryGuest.hotel_guests?.first_name} ${primaryGuest.hotel_guests?.last_name}`
@@ -168,7 +231,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     });
   }, [rooms, activeStays, pendingTasks]);
 
-  // Filters
   const filteredRooms = useMemo(() => {
     return enrichedRooms.filter(r => {
       if (filterStatus !== "all" && r.status !== filterStatus) return false;
@@ -192,7 +254,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
     return Array.from(set).sort();
   }, [rooms]);
 
-  // Status summary
   const summary = useMemo(() => {
     const counts: Record<string, number> = { available: 0, occupied: 0, cleaning: 0, maintenance: 0 };
     enrichedRooms.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
@@ -202,6 +263,10 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
   const StatusDot = ({ status }: { status: string }) => {
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.available;
     return <span className={`inline-block w-2.5 h-2.5 rounded-full ${cfg.color}`} />;
+  };
+
+  const TASK_TYPE_LABELS: Record<string, string> = {
+    checkout_clean: "Check-out", daily_clean: "Diaria", daily: "Diaria", maintenance: "Mant.",
   };
 
   if (isLoading) {
@@ -225,7 +290,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
             <span className="hidden sm:inline">{cfg.label}</span>
           </button>
         ))}
-        {/* Reservation indicators */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-card-foreground text-sm">
           <CalendarPlus className="h-4 w-4 text-primary" />
           <span className="font-medium">{arrivalsToday.length}</span>
@@ -292,16 +356,19 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                 className="border rounded-xl p-3 cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] bg-card"
                 onClick={() => setDetailRoom(room)}
               >
-                {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-lg font-bold text-foreground">#{room.room_number}</span>
-                  <span className={`w-3 h-3 rounded-full ${cfg.color} shrink-0`} title={cfg.label} />
+                  <div className="flex items-center gap-1">
+                    {/* Show cleaning indicator on occupied rooms */}
+                    {room.status === "occupied" && room.hasPendingCleaning && (
+                      <span className={`w-2.5 h-2.5 rounded-full bg-yellow-500`} title="Limpieza pendiente" />
+                    )}
+                    <span className={`w-3 h-3 rounded-full ${cfg.color} shrink-0`} title={cfg.label} />
+                  </div>
                 </div>
 
-                {/* Room type */}
                 <p className="text-xs text-muted-foreground mb-2 truncate">{room.room_types?.name}</p>
 
-                {/* Status-specific content */}
                 {room.status === "occupied" && (
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-foreground truncate" title={room.primaryGuestName || ""}>
@@ -317,7 +384,13 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                       <span className="flex items-center gap-0.5">
                         <Users className="h-3 w-3" />{room.guestCount}
                       </span>
-                      {room.checkInAt && (
+                      {room.hasPendingCleaning && (
+                        <span className="flex items-center gap-0.5 text-yellow-600">
+                          <Sparkles className="h-3 w-3" />
+                          {room.hkTaskStatus === "in_progress" ? "Limpiando" : "Limpieza pend."}
+                        </span>
+                      )}
+                      {!room.hasPendingCleaning && room.checkInAt && (
                         <span>{format(new Date(room.checkInAt), "dd/MM", { locale: es })}</span>
                       )}
                     </div>
@@ -361,12 +434,12 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
               <TableHead>Tipo</TableHead>
               <TableHead>Piso</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead>Limpieza</TableHead>
               <TableHead>Huésped</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Ocupantes</TableHead>
               <TableHead>Check-in</TableHead>
-              <TableHead>Salida Est.</TableHead>
-              <TableHead className="w-20">Acciones</TableHead>
+              <TableHead className="w-24">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -382,6 +455,16 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                       <StatusDot status={room.status} />{cfg.label}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {room.hasPendingCleaning ? (
+                      <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-300">
+                        <Sparkles className="h-3 w-3" />
+                        {room.hkTaskStatus === "in_progress" ? "En progreso" : "Pendiente"}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{room.primaryGuestName || "—"}</TableCell>
                   <TableCell>{room.companyName || "—"}</TableCell>
                   <TableCell>{room.status === "occupied" ? room.guestCount : "—"}</TableCell>
@@ -389,12 +472,14 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                     {room.checkInAt ? format(new Date(room.checkInAt), "dd/MM HH:mm", { locale: es }) : "—"}
                   </TableCell>
                   <TableCell>
-                    {room.expectedCheckOut ? format(new Date(room.expectedCheckOut), "dd/MM", { locale: es }) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => setDetailRoom(room)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setDetailRoom(room)} title="Detalle">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setHistoryRoom(room)} title="Historial">
+                        <History className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -439,6 +524,16 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                   <p className="font-medium">{detailRoom.room_types?.max_occupancy} personas</p>
                 </div>
               </div>
+
+              {/* Cleaning status on occupied rooms */}
+              {detailRoom.status === "occupied" && detailRoom.hasPendingCleaning && (
+                <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 p-2 flex items-center gap-2 text-sm">
+                  <Sparkles className="h-4 w-4 text-yellow-600 shrink-0" />
+                  <span className="text-yellow-700 dark:text-yellow-400">
+                    Limpieza {detailRoom.hkTaskStatus === "in_progress" ? "en progreso" : "pendiente"}
+                  </span>
+                </div>
+              )}
 
               {detailRoom.status === "occupied" && detailRoom.stay && (
                 <>
@@ -487,7 +582,6 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                       )}
                     </div>
 
-                    {/* All guests list */}
                     {detailRoom.stay.stay_guests?.length > 1 && (
                       <div>
                         <span className="text-muted-foreground text-xs">Todos los huéspedes:</span>
@@ -514,15 +608,15 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                     <p className="text-muted-foreground">
                       Estado: {detailRoom.hkTask.status === "in_progress" ? "En progreso" : "Pendiente"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Use la pestaña Housekeeping para gestionar el checklist.
-                    </p>
                   </div>
                 </>
               )}
 
               {/* Quick actions */}
               <div className="flex flex-wrap gap-2 pt-2">
+                <Button size="sm" variant="outline" onClick={() => { setDetailRoom(null); setHistoryRoom(detailRoom); }}>
+                  <History className="h-4 w-4 mr-1" />Historial
+                </Button>
                 {detailRoom.status === "available" && onCheckIn && (
                   <Button size="sm" onClick={() => { setDetailRoom(null); onCheckIn(detailRoom.id); }}>
                     <LogIn className="h-4 w-4 mr-1" />Check-in
@@ -541,6 +635,113 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Room History Dialog ── */}
+      <Dialog open={!!historyRoom} onOpenChange={() => setHistoryRoom(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Historial — Hab #{historyRoom?.room_number}
+              <span className="text-sm font-normal text-muted-foreground">({historyRoom?.room_types?.name})</span>
+            </DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="stays" className="mt-2">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="stays" className="gap-1"><CalendarCheck className="h-3.5 w-3.5" />Estancias</TabsTrigger>
+              <TabsTrigger value="housekeeping" className="gap-1"><ClipboardList className="h-3.5 w-3.5" />Aseo</TabsTrigger>
+              <TabsTrigger value="laundry" className="gap-1"><Shirt className="h-3.5 w-3.5" />Lavandería</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="stays">
+              <ScrollArea className="h-[400px]">
+                {!roomStays || roomStays.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Sin estancias registradas</p>
+                ) : (
+                  <div className="space-y-2">
+                    {roomStays.map((s: any) => {
+                      const primaryGuest = s.stay_guests?.find((sg: any) => sg.is_primary);
+                      const guestName = primaryGuest ? `${primaryGuest.hotel_guests?.first_name} ${primaryGuest.hotel_guests?.last_name}` : "—";
+                      return (
+                        <div key={s.id} className="rounded-lg border p-3 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{guestName}</span>
+                            <Badge variant={s.status === "checked_in" ? "default" : "outline"}>
+                              {s.status === "checked_in" ? "Activa" : s.status === "checked_out" ? "Finalizada" : s.status}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-4 text-xs text-muted-foreground">
+                            <span>Check-in: {format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</span>
+                            <span>Check-out: {s.check_out_at ? format(new Date(s.check_out_at), "dd/MM/yy HH:mm") : "—"}</span>
+                            {s.hotel_companies?.name && <span>Empresa: {s.hotel_companies.name}</span>}
+                            {s.rate_per_night != null && <span>Tarifa: ${Number(s.rate_per_night).toLocaleString()}/noche</span>}
+                            {s.checkout_type && <span>Tipo salida: {s.checkout_type}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="housekeeping">
+              <ScrollArea className="h-[400px]">
+                {!roomHkTasks || roomHkTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Sin tareas de aseo registradas</p>
+                ) : (
+                  <div className="space-y-2">
+                    {roomHkTasks.map((t: any) => (
+                      <div key={t.id} className="rounded-lg border p-3 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            {TASK_TYPE_LABELS[t.task_type] || t.task_type}
+                          </span>
+                          <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                            <span>Creada: {format(new Date(t.created_at), "dd/MM/yy HH:mm")}</span>
+                            {t.completed_at && <span>Completada: {format(new Date(t.completed_at), "dd/MM/yy HH:mm")}</span>}
+                            <span>Resp: {getStaffNameHist(t.assigned_to)}</span>
+                          </div>
+                        </div>
+                        <Badge variant={t.status === "done" ? "default" : t.status === "in_progress" ? "secondary" : "outline"}>
+                          {t.status === "done" ? "Completada" : t.status === "in_progress" ? "En progreso" : "Pendiente"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="laundry">
+              <ScrollArea className="h-[400px]">
+                {!roomLaundry || roomLaundry.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Sin órdenes de lavandería</p>
+                ) : (
+                  <div className="space-y-2">
+                    {roomLaundry.map((lo: any) => (
+                      <div key={lo.id} className="rounded-lg border p-3 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            {lo.laundry_type === "hotel_linen" ? "Lencería Hotel" : "Ropa Personal"} — {lo.total_pieces} pzas
+                          </span>
+                          <div className="text-xs text-muted-foreground">
+                            <span>{format(new Date(lo.created_at), "dd/MM/yy HH:mm")}</span>
+                            {lo.completed_at && <span className="ml-3">Entregada: {format(new Date(lo.completed_at), "dd/MM/yy HH:mm")}</span>}
+                          </div>
+                        </div>
+                        <Badge variant={lo.status === "delivered" || lo.status === "completed" ? "default" : "outline"}>
+                          {lo.status === "pending" ? "Pendiente" : lo.status === "in_progress" ? "En proceso" : lo.status === "delivered" ? "Entregada" : lo.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
