@@ -628,7 +628,7 @@ export default function SmartInvoices() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <KioskTextInput className="pl-10" placeholder="Buscar…" value={search} onChange={setSearch} keyboardLabel="Buscar" inputType="search" />
+                <KioskTextInput className="pl-10" placeholder="Buscar…" value={search} onChange={(v) => { setSearch(v); setPage(1); }} keyboardLabel="Buscar" inputType="search" />
               </div>
               <div className="flex gap-2 flex-wrap">
                 {["all", "pending", "processing", "draft", "validated", "posted", "rejected"].map((s) => (
