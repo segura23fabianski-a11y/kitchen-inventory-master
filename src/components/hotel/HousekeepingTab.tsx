@@ -54,6 +54,7 @@ export default function HousekeepingTab() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateType, setNewTemplateType] = useState("daily_clean");
   const [laundryCollectionItems, setLaundryCollectionItems] = useState<Record<string, number>>({});
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   // Check if current user has 'camarera' role
   const { data: currentUserRoles } = useQuery({
     queryKey: ["my-user-roles", user?.id],
