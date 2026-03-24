@@ -722,7 +722,7 @@ export default function SmartInvoices() {
                             </Button>
                           )}
                           {["pending", "processing", "draft", "rejected"].includes(inv.status) && (
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(inv.id)} title="Eliminar">
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteConfirmId(inv.id)} title="Eliminar">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
