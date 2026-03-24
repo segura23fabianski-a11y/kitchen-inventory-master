@@ -701,16 +701,30 @@ export default function SmartInvoices() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
                 ) : !filtered.length ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No hay facturas inteligentes. Sube un PDF para comenzar.
                   </TableCell></TableRow>
                 ) : paginatedList.map((inv) => {
                   const st = STATUS_MAP[inv.status] || { label: inv.status, variant: "outline" as const };
+                  const canDelete = ["pending", "processing", "draft", "rejected"].includes(inv.status);
                   return (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
+                    <TableRow key={inv.id} data-state={selectedIds.has(inv.id) ? "selected" : undefined}>
+                      <TableCell>
+                        {canDelete ? (
+                          <Checkbox
+                            checked={selectedIds.has(inv.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                checked ? next.add(inv.id) : next.delete(inv.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        ) : null}
+                      </TableCell>
                       <TableCell>{inv.supplier_name || "—"}</TableCell>
                       <TableCell>
                         <div className="flex gap-1 items-center">
