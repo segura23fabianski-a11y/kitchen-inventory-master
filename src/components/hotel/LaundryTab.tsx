@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, X, Shirt, Bed, Beaker } from "lucide-react";
+import { Plus, X, Shirt, Bed, Beaker, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const TYPE_LABELS: Record<string, string> = { hotel_linen: "Ropa de Cama/Hotel", guest_personal: "Ropa Personal Huésped" };
 const STATUS_LABELS: Record<string, string> = { pending: "Pendiente", washing: "Lavando", ready: "Lista", delivered: "Entregada" };
@@ -38,6 +39,20 @@ export default function LaundryTab() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [consumptionDialog, setConsumptionDialog] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Check admin role
+  const { data: currentUserRoles } = useQuery({
+    queryKey: ["my-user-roles-laundry", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      if (error) throw error;
+      return (data as any[]).map((r: any) => r.role);
+    },
+    enabled: !!user,
+  });
+  const isAdmin = currentUserRoles?.includes("admin");
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["laundry-orders", filterStatus, filterType],
@@ -198,6 +213,19 @@ export default function LaundryTab() {
     onError: (e: any) => toast({ title: "Error al registrar consumo", description: e.message, variant: "destructive" }),
   });
 
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase.from("laundry_orders" as any).delete().eq("id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["laundry-orders"] });
+      setDeleteConfirmId(null);
+      toast({ title: "Orden de lavandería eliminada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const suggestedItems = form.laundry_type === "hotel_linen" ? LINEN_ITEMS : PERSONAL_ITEMS;
 
   return (
@@ -279,6 +307,12 @@ export default function LaundryTab() {
                       <Button variant="default" size="sm" onClick={() => updateStatusMutation.mutate({ orderId: o.id, newStatus: "delivered" })}>Entregar</Button>
                     )}
                     {o.status === "delivered" && <span className="text-xs text-muted-foreground">Entregada</span>}
+                    {isAdmin && (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                        onClick={() => setDeleteConfirmId(o.id)} title="Eliminar orden">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -442,6 +476,25 @@ export default function LaundryTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete Confirm Dialog ── */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar orden de lavandería?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará esta orden permanentemente. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmId && deleteOrderMutation.mutate(deleteConfirmId)}>
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

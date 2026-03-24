@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw } from "lucide-react";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw, AlertTriangle, Bed } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -53,6 +54,7 @@ export default function HousekeepingTab() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateType, setNewTemplateType] = useState("daily_clean");
   const [laundryCollectionItems, setLaundryCollectionItems] = useState<Record<string, number>>({});
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   // Check if current user has 'camarera' role
   const { data: currentUserRoles } = useQuery({
     queryKey: ["my-user-roles", user?.id],
@@ -434,15 +436,6 @@ export default function HousekeepingTab() {
 
       const defaultItems = ["Cama tendida", "Baño limpio", "Amenities repuestos", "Basura retirada", "Piso limpio", "Toallas verificadas"];
 
-      // Check existing laundry orders today to avoid duplicates
-      const { data: existingLaundry } = await supabase
-        .from("laundry_orders" as any)
-        .select("room_id")
-        .eq("laundry_type", "hotel_linen")
-        .gte("created_at", `${today}T00:00:00`)
-        .lte("created_at", `${today}T23:59:59`);
-      const existingLaundryRoomIds = new Set((existingLaundry as any[] || []).map((l: any) => l.room_id));
-
       let created = 0;
       for (const room of roomsToCreate) {
         const { data: hTask, error: tErr } = await supabase.from("housekeeping_tasks" as any).insert({
@@ -468,34 +461,78 @@ export default function HousekeepingTab() {
             }));
         await supabase.from("housekeeping_task_items" as any).insert(items as any);
 
-        // Auto-generate laundry collection order for this room if not already created today
-        if (!existingLaundryRoomIds.has(room.id)) {
-          const { data: stay } = await supabase.from("stays" as any)
-            .select("id, company_id").eq("room_id", room.id).eq("status", "checked_in").limit(1).single();
-          await supabase.from("laundry_orders" as any).insert({
-            restaurant_id: restaurantId,
-            room_id: room.id,
-            stay_id: stay ? (stay as any).id : null,
-            company_id: stay ? (stay as any).company_id : null,
-            laundry_type: "hotel_linen",
-            items: [],
-            total_pieces: 0,
-            status: "pending",
-            created_by: user.id,
-            notes: `Recolección diaria generada automáticamente — ${format(new Date(), "dd/MM/yyyy")}`,
-          } as any);
-        }
-
         created++;
       }
       return created;
     },
     onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
-      qc.invalidateQueries({ queryKey: ["laundry-orders"] });
-      toast({ title: `${count} tarea(s) de limpieza + lavandería creada(s)`, description: "Para todas las habitaciones ocupadas" });
+      toast({ title: `${count} tarea(s) de limpieza creada(s)`, description: "Para todas las habitaciones ocupadas (sin lavandería de ropa de cama)" });
     },
     onError: (e: any) => toast({ title: "Info", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Linen change suggestions: stays active 3+ days without linen wash ──
+  const { data: linenSuggestions } = useQuery({
+    queryKey: ["linen-change-suggestions", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      // Get active stays with check-in date
+      const { data: activeStaysData, error: sErr } = await supabase.from("stays" as any)
+        .select("id, room_id, check_in_at, rooms(room_number, room_types(name))")
+        .eq("status", "checked_in");
+      if (sErr) throw sErr;
+      if (!activeStaysData || (activeStaysData as any[]).length === 0) return [];
+
+      const suggestions: any[] = [];
+      for (const stay of activeStaysData as any[]) {
+        const daysSinceCheckIn = differenceInDays(new Date(), new Date((stay as any).check_in_at));
+        if (daysSinceCheckIn < 3) continue;
+
+        // Check last hotel_linen laundry order for this room
+        const { data: lastLaundry } = await supabase.from("laundry_orders" as any)
+          .select("created_at")
+          .eq("room_id", (stay as any).room_id)
+          .eq("laundry_type", "hotel_linen")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const lastWashDate = lastLaundry ? new Date((lastLaundry as any).created_at) : new Date((stay as any).check_in_at);
+        const daysSinceLastWash = differenceInDays(new Date(), lastWashDate);
+
+        if (daysSinceLastWash >= 3) {
+          suggestions.push({
+            stayId: (stay as any).id,
+            roomId: (stay as any).room_id,
+            roomNumber: (stay as any).rooms?.room_number,
+            roomType: (stay as any).rooms?.room_types?.name,
+            daysSinceCheckIn,
+            daysSinceLastWash,
+          });
+        }
+      }
+      return suggestions;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // ── Delete task (admin) ──
+  const isAdmin = currentUserRoles?.includes("admin");
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      // Delete checklist items first
+      await supabase.from("housekeeping_task_items" as any).delete().eq("housekeeping_task_id", taskId);
+      const { error } = await supabase.from("housekeeping_tasks" as any).delete().eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+      setDeleteConfirmId(null);
+      toast({ title: "Tarea eliminada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   // ── Export PDF report ──
@@ -710,6 +747,27 @@ export default function HousekeepingTab() {
         </CollapsibleContent>
       </Collapsible>
 
+      {/* ── Linen Change Suggestions ── */}
+      {linenSuggestions && linenSuggestions.length > 0 && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-50 dark:bg-yellow-950/20 p-4 space-y-2">
+          <p className="text-sm font-medium flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+            <AlertTriangle className="h-4 w-4" />
+            Sugerencia: Cambio de ropa de cama pendiente
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Las siguientes habitaciones llevan 3+ días sin cambio de sábanas. Registre la lavandería manualmente desde el checklist o el módulo de Lavandería.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {linenSuggestions.map((s: any) => (
+              <Badge key={s.roomId} variant="outline" className="gap-1 border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
+                <Bed className="h-3 w-3" />
+                Hab #{s.roomNumber} — {s.daysSinceLastWash} días sin lavado
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -767,6 +825,12 @@ export default function HousekeepingTab() {
                     )}
                     {t.status === "done" && (
                       <span className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Hecho</span>
+                    )}
+                    {isAdmin && (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                        onClick={() => setDeleteConfirmId(t.id)} title="Eliminar tarea">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                 </TableCell>
@@ -1031,6 +1095,25 @@ export default function HousekeepingTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete Confirm Dialog ── */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar tarea de housekeeping?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará la tarea y su checklist asociado. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmId && deleteTaskMutation.mutate(deleteConfirmId)}>
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
