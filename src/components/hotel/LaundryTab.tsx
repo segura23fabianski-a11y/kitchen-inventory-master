@@ -476,6 +476,25 @@ export default function LaundryTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete Confirm Dialog ── */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar orden de lavandería?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará esta orden permanentemente. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmId && deleteOrderMutation.mutate(deleteConfirmId)}>
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
