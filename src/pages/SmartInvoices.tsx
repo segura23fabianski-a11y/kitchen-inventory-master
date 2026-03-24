@@ -511,8 +511,23 @@ export default function SmartInvoices() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["smart-invoices"] });
+      setSelectedIds((prev) => { const next = new Set(prev); next.forEach((id) => next.delete(id)); return new Set(); });
       toast({ title: "Factura eliminada" });
     },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("smart_invoices" as any).delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["smart-invoices"] });
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+      toast({ title: "Facturas eliminadas" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   // ─── Helpers ───────────────────────────────────────────────
