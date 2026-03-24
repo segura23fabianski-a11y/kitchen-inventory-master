@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -102,6 +103,8 @@ export default function SmartInvoices() {
   const [editingInvoice, setEditingInvoice] = useState<SmartInvoice | null>(null);
   const [convertConfirmId, setConvertConfirmId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -508,8 +511,23 @@ export default function SmartInvoices() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["smart-invoices"] });
+      setSelectedIds((prev) => { const next = new Set(prev); next.forEach((id) => next.delete(id)); return new Set(); });
       toast({ title: "Factura eliminada" });
     },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("smart_invoices" as any).delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["smart-invoices"] });
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+      toast({ title: "Facturas eliminadas" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   // ─── Helpers ───────────────────────────────────────────────
@@ -641,12 +659,36 @@ export default function SmartInvoices() {
           </CardContent>
         </Card>
 
+        {/* Bulk actions */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-1">
+            <span className="text-sm text-muted-foreground">{selectedIds.size} seleccionada(s)</span>
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteConfirm(true)} disabled={bulkDeleteMutation.isPending}>
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar seleccionadas
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>Deseleccionar</Button>
+          </div>
+        )}
+
         {/* List */}
         <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={paginatedList.length > 0 && paginatedList.filter((i) => ["pending", "processing", "draft", "rejected"].includes(i.status)).every((i) => selectedIds.has(i.id))}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          const deletable = paginatedList.filter((i) => ["pending", "processing", "draft", "rejected"].includes(i.status));
+                          deletable.forEach((i) => checked ? next.add(i.id) : next.delete(i.id));
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableHead>
                   <TableHead>Nº Factura</TableHead>
                   <TableHead>Proveedor</TableHead>
                   <TableHead>Origen</TableHead>
@@ -659,15 +701,30 @@ export default function SmartInvoices() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
                 ) : !filtered.length ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No hay facturas inteligentes. Sube un PDF para comenzar.
                   </TableCell></TableRow>
                 ) : paginatedList.map((inv) => {
                   const st = STATUS_MAP[inv.status] || { label: inv.status, variant: "outline" as const };
+                  const canDelete = ["pending", "processing", "draft", "rejected"].includes(inv.status);
                   return (
-                    <TableRow key={inv.id}>
+                    <TableRow key={inv.id} data-state={selectedIds.has(inv.id) ? "selected" : undefined}>
+                      <TableCell>
+                        {canDelete ? (
+                          <Checkbox
+                            checked={selectedIds.has(inv.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                checked ? next.add(inv.id) : next.delete(inv.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        ) : null}
+                      </TableCell>
                       <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
                       <TableCell>{inv.supplier_name || "—"}</TableCell>
                       <TableCell>
@@ -768,7 +825,25 @@ export default function SmartInvoices() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── Draft Editor Dialog ──────────────────────────────── */}
+      {/* ─── Bulk Delete Confirm Dialog ────────────────────────── */}
+      <AlertDialog open={bulkDeleteConfirm} onOpenChange={(v) => !v && setBulkDeleteConfirm(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {selectedIds.size} factura(s)?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Se eliminarán las facturas seleccionadas y sus líneas asociadas.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+            >
+              Eliminar {selectedIds.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!editingInvoice} onOpenChange={(v) => !v && setEditingInvoice(null)}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
