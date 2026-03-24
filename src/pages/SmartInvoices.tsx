@@ -664,7 +664,7 @@ export default function SmartInvoices() {
                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay facturas inteligentes. Sube un PDF para comenzar.
                   </TableCell></TableRow>
-                ) : filtered.map((inv) => {
+                ) : paginatedList.map((inv) => {
                   const st = STATUS_MAP[inv.status] || { label: inv.status, variant: "outline" as const };
                   return (
                     <TableRow key={inv.id}>
