@@ -825,7 +825,25 @@ export default function SmartInvoices() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── Draft Editor Dialog ──────────────────────────────── */}
+      {/* ─── Bulk Delete Confirm Dialog ────────────────────────── */}
+      <AlertDialog open={bulkDeleteConfirm} onOpenChange={(v) => !v && setBulkDeleteConfirm(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {selectedIds.size} factura(s)?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Se eliminarán las facturas seleccionadas y sus líneas asociadas.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+            >
+              Eliminar {selectedIds.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!editingInvoice} onOpenChange={(v) => !v && setEditingInvoice(null)}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
