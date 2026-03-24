@@ -435,15 +435,6 @@ export default function HousekeepingTab() {
 
       const defaultItems = ["Cama tendida", "Baño limpio", "Amenities repuestos", "Basura retirada", "Piso limpio", "Toallas verificadas"];
 
-      // Check existing laundry orders today to avoid duplicates
-      const { data: existingLaundry } = await supabase
-        .from("laundry_orders" as any)
-        .select("room_id")
-        .eq("laundry_type", "hotel_linen")
-        .gte("created_at", `${today}T00:00:00`)
-        .lte("created_at", `${today}T23:59:59`);
-      const existingLaundryRoomIds = new Set((existingLaundry as any[] || []).map((l: any) => l.room_id));
-
       let created = 0;
       for (const room of roomsToCreate) {
         const { data: hTask, error: tErr } = await supabase.from("housekeeping_tasks" as any).insert({
@@ -469,34 +460,79 @@ export default function HousekeepingTab() {
             }));
         await supabase.from("housekeeping_task_items" as any).insert(items as any);
 
-        // Auto-generate laundry collection order for this room if not already created today
-        if (!existingLaundryRoomIds.has(room.id)) {
-          const { data: stay } = await supabase.from("stays" as any)
-            .select("id, company_id").eq("room_id", room.id).eq("status", "checked_in").limit(1).single();
-          await supabase.from("laundry_orders" as any).insert({
-            restaurant_id: restaurantId,
-            room_id: room.id,
-            stay_id: stay ? (stay as any).id : null,
-            company_id: stay ? (stay as any).company_id : null,
-            laundry_type: "hotel_linen",
-            items: [],
-            total_pieces: 0,
-            status: "pending",
-            created_by: user.id,
-            notes: `Recolección diaria generada automáticamente — ${format(new Date(), "dd/MM/yyyy")}`,
-          } as any);
-        }
-
         created++;
       }
       return created;
     },
     onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
-      qc.invalidateQueries({ queryKey: ["laundry-orders"] });
-      toast({ title: `${count} tarea(s) de limpieza + lavandería creada(s)`, description: "Para todas las habitaciones ocupadas" });
+      toast({ title: `${count} tarea(s) de limpieza creada(s)`, description: "Para todas las habitaciones ocupadas (sin lavandería de ropa de cama)" });
     },
     onError: (e: any) => toast({ title: "Info", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Linen change suggestions: stays active 3+ days without linen wash ──
+  const { data: linenSuggestions } = useQuery({
+    queryKey: ["linen-change-suggestions", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      // Get active stays with check-in date
+      const { data: activeStaysData, error: sErr } = await supabase.from("stays" as any)
+        .select("id, room_id, check_in_at, rooms(room_number, room_types(name))")
+        .eq("status", "checked_in");
+      if (sErr) throw sErr;
+      if (!activeStaysData || (activeStaysData as any[]).length === 0) return [];
+
+      const suggestions: any[] = [];
+      for (const stay of activeStaysData as any[]) {
+        const daysSinceCheckIn = differenceInDays(new Date(), new Date((stay as any).check_in_at));
+        if (daysSinceCheckIn < 3) continue;
+
+        // Check last hotel_linen laundry order for this room
+        const { data: lastLaundry } = await supabase.from("laundry_orders" as any)
+          .select("created_at")
+          .eq("room_id", (stay as any).room_id)
+          .eq("laundry_type", "hotel_linen")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const lastWashDate = lastLaundry ? new Date((lastLaundry as any).created_at) : new Date((stay as any).check_in_at);
+        const daysSinceLastWash = differenceInDays(new Date(), lastWashDate);
+
+        if (daysSinceLastWash >= 3) {
+          suggestions.push({
+            stayId: (stay as any).id,
+            roomId: (stay as any).room_id,
+            roomNumber: (stay as any).rooms?.room_number,
+            roomType: (stay as any).rooms?.room_types?.name,
+            daysSinceCheckIn,
+            daysSinceLastWash,
+          });
+        }
+      }
+      return suggestions;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // ── Delete task (admin) ──
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const isAdmin = currentUserRoles?.includes("admin");
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      // Delete checklist items first
+      await supabase.from("housekeeping_task_items" as any).delete().eq("housekeeping_task_id", taskId);
+      const { error } = await supabase.from("housekeeping_tasks" as any).delete().eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["housekeeping-tasks"] });
+      setDeleteConfirmId(null);
+      toast({ title: "Tarea eliminada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   // ── Export PDF report ──
