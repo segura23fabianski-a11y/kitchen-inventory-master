@@ -747,6 +747,27 @@ export default function HousekeepingTab() {
         </CollapsibleContent>
       </Collapsible>
 
+      {/* ── Linen Change Suggestions ── */}
+      {linenSuggestions && linenSuggestions.length > 0 && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-50 dark:bg-yellow-950/20 p-4 space-y-2">
+          <p className="text-sm font-medium flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+            <AlertTriangle className="h-4 w-4" />
+            Sugerencia: Cambio de ropa de cama pendiente
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Las siguientes habitaciones llevan 3+ días sin cambio de sábanas. Registre la lavandería manualmente desde el checklist o el módulo de Lavandería.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {linenSuggestions.map((s: any) => (
+              <Badge key={s.roomId} variant="outline" className="gap-1 border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
+                <Bed className="h-3 w-3" />
+                Hab #{s.roomNumber} — {s.daysSinceLastWash} días sin lavado
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Table>
         <TableHeader>
           <TableRow>
