@@ -192,6 +192,11 @@ export default function SmartInvoices() {
     return matchSearch && matchStatus;
   });
 
+  const paginatedList = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
   // ─── Upload File (PDF, XML, ZIP) ────────────────────────────
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
