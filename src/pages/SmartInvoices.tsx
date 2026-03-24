@@ -101,6 +101,9 @@ export default function SmartInvoices() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingInvoice, setEditingInvoice] = useState<SmartInvoice | null>(null);
   const [convertConfirmId, setConvertConfirmId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const canView = hasPermission("purchases");
   const canCreate = hasPermission("purchases_create");
