@@ -826,6 +826,12 @@ export default function HousekeepingTab() {
                     {t.status === "done" && (
                       <span className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Hecho</span>
                     )}
+                    {isAdmin && (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                        onClick={() => setDeleteConfirmId(t.id)} title="Eliminar tarea">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
