@@ -102,6 +102,8 @@ export default function SmartInvoices() {
   const [editingInvoice, setEditingInvoice] = useState<SmartInvoice | null>(null);
   const [convertConfirmId, setConvertConfirmId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
