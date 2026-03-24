@@ -518,7 +518,6 @@ export default function HousekeepingTab() {
   });
 
   // ── Delete task (admin) ──
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const isAdmin = currentUserRoles?.includes("admin");
 
   const deleteTaskMutation = useMutation({
