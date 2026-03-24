@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw } from "lucide-react";
+import { Plus, CheckCircle, PlayCircle, Clock, ClipboardList, Beaker, UserCircle, Wand2, FileDown, Settings2, Trash2, GripVertical, Shirt, RefreshCw, AlertTriangle, Bed } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
