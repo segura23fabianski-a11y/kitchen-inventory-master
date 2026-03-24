@@ -725,6 +725,7 @@ export default function SmartInvoices() {
                           />
                         ) : null}
                       </TableCell>
+                      <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
                       <TableCell>{inv.supplier_name || "—"}</TableCell>
                       <TableCell>
                         <div className="flex gap-1 items-center">
