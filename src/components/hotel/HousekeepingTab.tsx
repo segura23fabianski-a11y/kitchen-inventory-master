@@ -1095,6 +1095,25 @@ export default function HousekeepingTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete Confirm Dialog ── */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar tarea de housekeeping?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará la tarea y su checklist asociado. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmId && deleteTaskMutation.mutate(deleteConfirmId)}>
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
