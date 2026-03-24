@@ -733,9 +733,40 @@ export default function SmartInvoices() {
                 })}
               </TableBody>
             </Table>
+            {filtered.length > 0 && (
+              <PaginationControls
+                page={page}
+                pageSize={pageSize}
+                totalCount={filtered.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── Delete Confirm Dialog ─────────────────────────────── */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(v) => !v && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar factura?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Se eliminará la factura y sus líneas asociadas.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmId) deleteMutation.mutate(deleteConfirmId);
+                setDeleteConfirmId(null);
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Draft Editor Dialog ──────────────────────────────── */}
       <Dialog open={!!editingInvoice} onOpenChange={(v) => !v && setEditingInvoice(null)}>
