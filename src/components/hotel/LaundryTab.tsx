@@ -213,6 +213,19 @@ export default function LaundryTab() {
     onError: (e: any) => toast({ title: "Error al registrar consumo", description: e.message, variant: "destructive" }),
   });
 
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase.from("laundry_orders" as any).delete().eq("id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["laundry-orders"] });
+      setDeleteConfirmId(null);
+      toast({ title: "Orden de lavandería eliminada" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const suggestedItems = form.laundry_type === "hotel_linen" ? LINEN_ITEMS : PERSONAL_ITEMS;
 
   return (
