@@ -39,6 +39,20 @@ export default function LaundryTab() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [consumptionDialog, setConsumptionDialog] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Check admin role
+  const { data: currentUserRoles } = useQuery({
+    queryKey: ["my-user-roles-laundry", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      if (error) throw error;
+      return (data as any[]).map((r: any) => r.role);
+    },
+    enabled: !!user,
+  });
+  const isAdmin = currentUserRoles?.includes("admin");
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["laundry-orders", filterStatus, filterType],
