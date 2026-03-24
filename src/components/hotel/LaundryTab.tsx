@@ -307,6 +307,12 @@ export default function LaundryTab() {
                       <Button variant="default" size="sm" onClick={() => updateStatusMutation.mutate({ orderId: o.id, newStatus: "delivered" })}>Entregar</Button>
                     )}
                     {o.status === "delivered" && <span className="text-xs text-muted-foreground">Entregada</span>}
+                    {isAdmin && (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                        onClick={() => setDeleteConfirmId(o.id)} title="Eliminar orden">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
