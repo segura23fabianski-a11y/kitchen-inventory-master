@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, X, Shirt, Bed, Beaker } from "lucide-react";
+import { Plus, X, Shirt, Bed, Beaker, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const TYPE_LABELS: Record<string, string> = { hotel_linen: "Ropa de Cama/Hotel", guest_personal: "Ropa Personal Huésped" };
 const STATUS_LABELS: Record<string, string> = { pending: "Pendiente", washing: "Lavando", ready: "Lista", delivered: "Entregada" };
