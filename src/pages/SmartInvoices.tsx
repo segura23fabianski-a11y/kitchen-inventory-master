@@ -632,7 +632,7 @@ export default function SmartInvoices() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 {["all", "pending", "processing", "draft", "validated", "posted", "rejected"].map((s) => (
-                  <Button key={s} variant={statusFilter === s ? "default" : "outline"} size="sm" onClick={() => setStatusFilter(s)}>
+                  <Button key={s} variant={statusFilter === s ? "default" : "outline"} size="sm" onClick={() => { setStatusFilter(s); setPage(1); }}>
                     {s === "all" ? "Todos" : STATUS_MAP[s]?.label ?? s}
                   </Button>
                 ))}
