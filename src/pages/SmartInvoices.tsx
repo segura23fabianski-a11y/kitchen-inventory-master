@@ -659,12 +659,36 @@ export default function SmartInvoices() {
           </CardContent>
         </Card>
 
+        {/* Bulk actions */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-1">
+            <span className="text-sm text-muted-foreground">{selectedIds.size} seleccionada(s)</span>
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteConfirm(true)} disabled={bulkDeleteMutation.isPending}>
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar seleccionadas
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>Deseleccionar</Button>
+          </div>
+        )}
+
         {/* List */}
         <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={paginatedList.length > 0 && paginatedList.filter((i) => ["pending", "processing", "draft", "rejected"].includes(i.status)).every((i) => selectedIds.has(i.id))}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          const deletable = paginatedList.filter((i) => ["pending", "processing", "draft", "rejected"].includes(i.status));
+                          deletable.forEach((i) => checked ? next.add(i.id) : next.delete(i.id));
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableHead>
                   <TableHead>Nº Factura</TableHead>
                   <TableHead>Proveedor</TableHead>
                   <TableHead>Origen</TableHead>
