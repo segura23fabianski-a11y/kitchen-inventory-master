@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 
 type SmartInvoice = {
@@ -757,7 +757,7 @@ export default function SmartInvoices() {
                       </TableCell>
                       <TableCell>{inv.invoice_date ? format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {inv.total_detected != null ? `$${Number(inv.total_detected).toFixed(2)}` : "—"}
+                        {inv.total_detected != null ? `{formatCOP(Number(inv.total_detected), 2)}` : "—"}
                       </TableCell>
                       <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{profileMap.get(inv.created_by) || "—"}</TableCell>
@@ -899,7 +899,7 @@ export default function SmartInvoices() {
                 <div className="space-y-1">
                   <Label className="text-xs">Total Detectado</Label>
                   <div className="h-9 flex items-center font-mono font-bold text-lg">
-                    ${Number(editingInvoice.total_detected || 0).toFixed(2)}
+                    {formatCOP(editingInvoice.total_detected || 0, 2)}
                   </div>
                 </div>
               </div>
@@ -1023,7 +1023,7 @@ export default function SmartInvoices() {
                               <div className="space-y-1">
                                 <Label className="text-xs">Costo/{prod?.unit || "unit"}</Label>
                                 <div className="h-8 flex items-center text-sm font-mono bg-muted/50 rounded px-2">
-                                  ${Number(item.unit_cost_per_base || 0).toFixed(4)}
+                                  {formatCOP(item.unit_cost_per_base || 0, 4)}
                                 </div>
                               </div>
                             </div>

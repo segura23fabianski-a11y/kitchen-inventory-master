@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown, ArrowLeft, CalendarIcon, Download, FileSpreadsheet } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -291,7 +291,7 @@ export default function Kardex() {
               <CardContent className="pt-4 pb-4">
                 <p className="text-xs text-muted-foreground">Costo Promedio</p>
                 <p className="font-heading text-lg font-bold text-foreground">
-                  ${Number(selectedProduct.average_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })}
+                  {formatCOP(selectedProduct.average_cost)}
                 </p>
               </CardContent>
             </Card>
@@ -299,7 +299,7 @@ export default function Kardex() {
               <CardContent className="pt-4 pb-4">
                 <p className="text-xs text-muted-foreground">Último Costo</p>
                 <p className="font-heading text-lg font-bold text-foreground">
-                  ${Number(selectedProduct.last_unit_cost ?? 0).toLocaleString("es-CO", { minimumFractionDigits: 2 })}
+                  {formatCOP(selectedProduct.last_unit_cost ?? 0)}
                 </p>
               </CardContent>
             </Card>
@@ -418,10 +418,10 @@ export default function Kardex() {
                             {row.ajuste !== null ? row.ajuste.toLocaleString("es-CO") : ""}
                           </TableCell>
                           <TableCell className="text-right text-xs">
-                            {row.costoUnitario > 0 ? `$${row.costoUnitario.toLocaleString("es-CO", { minimumFractionDigits: 2 })}` : "—"}
+                            {row.costoUnitario > 0 ? `{formatCOP(row.costoUnitario)}` : "—"}
                           </TableCell>
                           <TableCell className="text-right text-xs">
-                            {row.costoTotal > 0 ? `$${row.costoTotal.toLocaleString("es-CO", { minimumFractionDigits: 2 })}` : "—"}
+                            {row.costoTotal > 0 ? `{formatCOP(row.costoTotal)}` : "—"}
                           </TableCell>
                           <TableCell className="text-right font-heading font-semibold">
                             {row.saldo.toLocaleString("es-CO")}

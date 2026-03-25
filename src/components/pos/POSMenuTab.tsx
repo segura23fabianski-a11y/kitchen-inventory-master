@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, PackagePlus } from "lucide-react";
+import { Plus, Pencil, Trash2, PackagePlus, Zap } from "lucide-react";
 import BulkImportMenuDialog from "./BulkImportMenuDialog";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +15,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { fuzzyMatch } from "@/lib/search-utils";
+import { formatCOP } from "@/lib/utils";
+import { Slider } from "@/components/ui/slider";
+import { Card, CardContent } from "@/components/ui/card";
 
 const MENU_CATEGORIES = ["Desayuno", "Almuerzo", "Cena", "Lonches", "Bebidas", "Snacks", "A la carta", "Postres", "General"];
 
@@ -48,6 +51,7 @@ export default function POSMenuTab() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
   const [importOpen, setImportOpen] = useState(false);
+  const [profitMargin, setProfitMargin] = useState(20);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["menu-items", restaurantId],
@@ -69,7 +73,7 @@ export default function POSMenuTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, barcode")
+        .select("id, name, barcode, average_cost")
         .eq("restaurant_id", restaurantId!)
         .order("name");
       if (error) throw error;
@@ -83,7 +87,7 @@ export default function POSMenuTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, recipe_type")
+        .select("id, name, recipe_type, recipe_ingredients(quantity, products(average_cost))")
         .eq("restaurant_id", restaurantId!)
         .order("name");
       if (error) throw error;
@@ -91,6 +95,47 @@ export default function POSMenuTab() {
     },
     enabled: !!restaurantId,
   });
+
+  const getRecipeCost = (recipeId: string) => {
+    const recipe = recipes.find((r: any) => r.id === recipeId);
+    if (!recipe || !recipe.recipe_ingredients) return 0;
+    return (recipe.recipe_ingredients as any[]).reduce((sum: number, ri: any) => {
+      const cost = Number(ri.products?.average_cost ?? 0);
+      return sum + Number(ri.quantity) * cost;
+    }, 0);
+  };
+
+  const getItemCost = (item: any) => {
+    if (item.linked_product_id) {
+      const p = products.find((pr: any) => pr.id === item.linked_product_id);
+      return Number(p?.average_cost ?? 0);
+    }
+    if (item.linked_recipe_id) return getRecipeCost(item.linked_recipe_id);
+    return 0;
+  };
+
+  const suggestedPrice = useMemo(() => {
+    let cost = 0;
+    if (itemType === "direct_product" && linkedProductId) {
+      const p = products.find((pr: any) => pr.id === linkedProductId);
+      cost = Number(p?.average_cost ?? 0);
+    } else if ((itemType === "recipe" || itemType === "combo_variable") && linkedRecipeId) {
+      cost = getRecipeCost(linkedRecipeId);
+    }
+    if (cost <= 0 || profitMargin >= 100) return 0;
+    return cost / (1 - profitMargin / 100);
+  }, [linkedProductId, linkedRecipeId, itemType, profitMargin, products, recipes]);
+
+  const linkedCost = useMemo(() => {
+    if (itemType === "direct_product" && linkedProductId) {
+      const p = products.find((pr: any) => pr.id === linkedProductId);
+      return Number(p?.average_cost ?? 0);
+    }
+    if ((itemType === "recipe" || itemType === "combo_variable") && linkedRecipeId) {
+      return getRecipeCost(linkedRecipeId);
+    }
+    return 0;
+  }, [linkedProductId, linkedRecipeId, itemType, products, recipes]);
 
   const filtered = items.filter((item: any) => {
     if (filterCat !== "all" && item.category !== filterCat) return false;
@@ -199,6 +244,7 @@ export default function POSMenuTab() {
             <TableHead>Tipo</TableHead>
             <TableHead>Código</TableHead>
             <TableHead className="text-right">Precio</TableHead>
+            <TableHead className="text-right">% Margen</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="w-20" />
           </TableRow>
@@ -214,7 +260,19 @@ export default function POSMenuTab() {
                 </Badge>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground font-mono">{item.barcode || "—"}</TableCell>
-              <TableCell className="text-right">${Number(item.price).toLocaleString()}</TableCell>
+              <TableCell className="text-right">{formatCOP(item.price)}</TableCell>
+              <TableCell className="text-right">
+                {(() => {
+                  const cost = getItemCost(item);
+                  if (cost <= 0 || Number(item.price) <= 0) return <span className="text-muted-foreground">—</span>;
+                  const margin = ((Number(item.price) - cost) / Number(item.price) * 100);
+                  return (
+                    <Badge variant="outline" className={margin >= 20 ? "text-emerald-600 border-emerald-300" : margin >= 10 ? "text-amber-600 border-amber-300" : "text-destructive border-destructive/30"}>
+                      {margin.toFixed(1)}%
+                    </Badge>
+                  );
+                })()}
+              </TableCell>
               <TableCell>
                 <Badge variant={item.active ? "default" : "secondary"}>
                   {item.active ? "Activo" : "Inactivo"}
@@ -229,7 +287,7 @@ export default function POSMenuTab() {
             </TableRow>
           ))}
           {!isLoading && filtered.length === 0 && (
-            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No hay ítems</TableCell></TableRow>
+            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No hay ítems</TableCell></TableRow>
           )}
         </TableBody>
       </Table>
@@ -298,6 +356,44 @@ export default function POSMenuTab() {
                   options={filteredRecipes.map((r: any) => ({ value: r.id, label: r.name }))}
                 />
               </div>
+            )}
+
+            {/* Suggested price card */}
+            {linkedCost > 0 && (
+              <Card className="bg-muted/50">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">% Utilidad</Label>
+                    <span className="text-xs font-mono font-bold text-primary">{profitMargin}%</span>
+                  </div>
+                  <Slider
+                    value={[profitMargin]}
+                    onValueChange={([v]) => setProfitMargin(v)}
+                    min={5} max={80} step={1}
+                    className="my-1"
+                  />
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Costo</p>
+                      <p className="font-mono font-semibold">{formatCOP(linkedCost)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Utilidad</p>
+                      <p className="font-mono font-semibold text-emerald-600">{formatCOP(suggestedPrice - linkedCost)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Sugerido</p>
+                      <p className="font-mono font-bold text-primary">{formatCOP(suggestedPrice)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button" variant="outline" size="sm" className="w-full gap-1"
+                    onClick={() => setPrice(String(Math.round(suggestedPrice)))}
+                  >
+                    <Zap className="h-3.5 w-3.5" /> Aplicar precio sugerido
+                  </Button>
+                </CardContent>
+              </Card>
             )}
 
             <div className="flex items-center gap-2">

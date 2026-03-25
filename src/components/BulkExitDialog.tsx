@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { CalendarIcon, Plus, Trash2, PackageMinus, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCOP } from "@/lib/utils";
 
 interface BulkExitDialogProps {
   open: boolean;
@@ -193,7 +194,7 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
       qc.invalidateQueries({ queryKey: ["products"] });
       toast({
         title: "Salidas registradas",
-        description: `${validLines.length} producto(s) — Total: $${totalCost.toFixed(2)}`,
+        description: `${validLines.length} producto(s) — Total: {formatCOP(totalCost, 2)}`,
       });
       resetForm();
       onOpenChange(false);
@@ -398,7 +399,7 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
                 </div>
                 <div className="flex justify-between text-sm font-semibold">
                   <span>Costo total estimado</span>
-                  <span>${totalCost.toFixed(2)}</span>
+                  <span>{formatCOP(totalCost, 2)}</span>
                 </div>
                 {isBackdating && movementDate && (
                   <div className="flex justify-between text-xs text-warning">

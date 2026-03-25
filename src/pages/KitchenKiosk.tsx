@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { formatCOP } from "@/lib/utils";
 import { fuzzyMatch, buildHaystack } from "@/lib/search-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -925,7 +926,7 @@ export default function KitchenKiosk() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{prod.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                Stock: {stock} {prod.unit} · CPP: ${unitCost.toFixed(2)}
+                                Stock: {stock} {prod.unit} · CPP: {formatCOP(unitCost, 2)}
                               </p>
                             </div>
                             <NumericKeypadInput
@@ -1031,11 +1032,11 @@ export default function KitchenKiosk() {
                           </p>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Costo unitario real</span>
-                            <span className="font-semibold">${comp.productionRunUnitCost.toFixed(2)} / unidad</span>
+                            <span className="font-semibold">{formatCOP(comp.productionRunUnitCost, 2)} / unidad</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Costo total ({comp.quantityPerService} × {comboExecution.servings})</span>
-                            <span className="font-semibold">${runCostTotal.toFixed(2)}</span>
+                            <span className="font-semibold">{formatCOP(runCostTotal, 2)}</span>
                           </div>
                           <p className="text-[10px] text-muted-foreground">Inventario ya descontado en la producción</p>
                         </div>
@@ -1072,7 +1073,7 @@ export default function KitchenKiosk() {
                           </div>
                           <div className="flex justify-between text-xs pt-1 border-t">
                             <span className="text-muted-foreground">Costo ingredientes (teórico)</span>
-                            <span className="font-medium">${compIngCost.toFixed(2)}</span>
+                            <span className="font-medium">{formatCOP(compIngCost, 2)}</span>
                           </div>
                         </div>
                       )}
@@ -1094,13 +1095,13 @@ export default function KitchenKiosk() {
                     <span className="text-xs text-muted-foreground ml-2">({comp.source})</span>
                     {comp.lotTotal !== undefined && comp.lotQty !== undefined && (
                       <p className="text-xs text-muted-foreground">
-                        Lote: ${comp.lotTotal.toLocaleString("es-CO", { maximumFractionDigits: 0 })} / {comp.lotQty} unidades = ${(comp.lotTotal / comp.lotQty).toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u
+                        Lote: {formatCOP(comp.lotTotal)} / {comp.lotQty} unidades = {formatCOP((comp.lotTotal / comp.lotQty))}/u
                       </p>
                     )}
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <p className="font-mono text-sm">${comp.unitCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u</p>
-                    <p className="font-mono text-xs text-muted-foreground">${comp.totalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })} total</p>
+                    <p className="font-mono text-sm">{formatCOP(comp.unitCost)}/u</p>
+                    <p className="font-mono text-xs text-muted-foreground">{formatCOP(comp.totalCost)} total</p>
                   </div>
                 </div>
               ))}
@@ -1110,9 +1111,9 @@ export default function KitchenKiosk() {
                   <p className="text-xs text-muted-foreground">{comboExecution.servings} servicios</p>
                 </div>
                 <div className="text-right">
-                  <span className="font-heading font-bold text-2xl">${comboTotalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</span>
+                  <span className="font-heading font-bold text-2xl">{formatCOP(comboTotalCost)}</span>
                   <p className="text-sm font-semibold text-primary">
-                    ${(comboTotalCost / comboExecution.servings).toLocaleString("es-CO", { maximumFractionDigits: 0 })} / servicio
+                    {formatCOP((comboTotalCost / comboExecution.servings))} / servicio
                   </p>
                 </div>
               </div>
@@ -1460,7 +1461,7 @@ export default function KitchenKiosk() {
 
                 <div className="rounded-md bg-muted p-4 flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">Costo total estimado</span>
-                  <span className="font-heading font-bold text-2xl">${grandTotal.toFixed(2)}</span>
+                  <span className="font-heading font-bold text-2xl">{formatCOP(grandTotal, 2)}</span>
                 </div>
 
                 <Button

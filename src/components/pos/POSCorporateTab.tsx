@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { printKitchenComanda } from "@/lib/pos-printing";
 import { fuzzyMatch } from "@/lib/search-utils";
+import { formatCOP } from "@/lib/utils";
 
 const SERVICE_OPTIONS = [
   { value: "breakfast", label: "Desayuno" },
@@ -403,7 +404,7 @@ export default function POSCorporateTab() {
                     {SERVICE_OPTIONS.find(s => s.value === order.service_period)?.label || order.service_period}
                   </Badge>
                   <span>·</span>
-                  <span className="font-mono font-semibold">${Number(order.total).toLocaleString()}</span>
+                  <span className="font-mono font-semibold">{formatCOP(order.total)}</span>
                 </div>
                 {((order as any).contracts?.name || (order as any).contract_groups?.name) && (
                   <div className="text-xs text-muted-foreground">
@@ -513,7 +514,7 @@ export default function POSCorporateTab() {
                             )}
                             <span className="font-medium">
                               {resolvedRate.found
-                                ? `${serviceLabel}: $${resolvedRate.rate.toLocaleString()} / servicio`
+                                ? `${serviceLabel}: {formatCOP(resolvedRate.rate)} / servicio`
                                 : `Sin tarifa para ${serviceLabel}`}
                             </span>
                           </div>

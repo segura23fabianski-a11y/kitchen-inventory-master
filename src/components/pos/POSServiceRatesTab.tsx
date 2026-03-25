@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatCOP } from "@/lib/utils";
 
 const CONSUMPTION_MODE_LABELS: Record<string, string> = {
   dine_in: "En mesa",
@@ -185,7 +186,7 @@ export default function POSServiceRatesTab() {
               <TableCell>
                 <Badge variant="secondary">{CONSUMPTION_MODE_LABELS[rate.consumption_mode] || rate.consumption_mode}</Badge>
               </TableCell>
-              <TableCell className="text-right font-mono">${Number(rate.price).toLocaleString()}</TableCell>
+              <TableCell className="text-right font-mono">{formatCOP(rate.price)}</TableCell>
               <TableCell className="text-xs text-muted-foreground">
                 {rate.effective_from || rate.effective_to
                   ? `${rate.effective_from || "—"} → ${rate.effective_to || "—"}`
@@ -231,7 +232,7 @@ export default function POSServiceRatesTab() {
                 <SelectContent>
                   {menuItems.map(item => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name} ({item.category}) — Base: ${Number(item.price).toLocaleString()}
+                      {item.name} ({item.category}) — Base: {formatCOP(item.price)}
                     </SelectItem>
                   ))}
                 </SelectContent>

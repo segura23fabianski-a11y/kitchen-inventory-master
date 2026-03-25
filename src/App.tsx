@@ -45,6 +45,8 @@ import CorporateMasters from "./pages/CorporateMasters";
 import InventoryValue from "./pages/InventoryValue";
 import BusinessAI from "./pages/BusinessAI";
 import SmartInvoices from "./pages/SmartInvoices";
+import ReportTemplates from "./pages/ReportTemplates";
+import CustomReports from "./pages/CustomReports";
 
 import NotFound from "./pages/NotFound";
 
@@ -161,6 +163,8 @@ const AppRoutes = () => (
         <Route path="/inventory-value" element={<ProtectedRoute permKey="reports"><InventoryValue /></ProtectedRoute>} />
         <Route path="/business-ai" element={<ProtectedRoute permKey="business_ai"><BusinessAI /></ProtectedRoute>} />
         <Route path="/smart-invoices" element={<ProtectedRoute permKey="purchases"><SmartInvoices /></ProtectedRoute>} />
+        <Route path="/report-templates" element={<ProtectedRoute permKey="reports"><ReportTemplates /></ProtectedRoute>} />
+        <Route path="/custom-reports" element={<ProtectedRoute permKey="reports"><CustomReports /></ProtectedRoute>} />
         
     <Route path="*" element={<NotFound />} />
   </Routes>

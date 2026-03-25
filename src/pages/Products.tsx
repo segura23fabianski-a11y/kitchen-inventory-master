@@ -24,6 +24,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import * as XLSX from "xlsx";
+import { formatCOP } from "@/lib/utils";
 
 const UNITS = ["unidad", "kg", "g", "litro", "ml", "caja", "bolsa", "paquete"];
 
@@ -647,7 +648,7 @@ export default function Products() {
                               <TableCell className="font-medium">{r.nombre}</TableCell>
                               <TableCell>{r.unidad || "unidad"}</TableCell>
                               <TableCell>{r.stock_minimo || 0}</TableCell>
-                              <TableCell>${Number(r.costo_promedio || 0).toFixed(2)}</TableCell>
+                              <TableCell>{formatCOP(r.costo_promedio || 0, 2)}</TableCell>
                               <TableCell>
                                 {r.categoria ? (
                                   catFound ? <span>{r.categoria}</span> : <span className="text-destructive">{r.categoria} ⚠️</span>
@@ -782,8 +783,8 @@ export default function Products() {
                         <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
                         <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
                         <TableCell className="text-muted-foreground">{p.unit}</TableCell>
-                        <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `$${Number((p as any).last_unit_cost).toFixed(2)}` : "—"}</TableCell>
-                        <TableCell>${Number(p.average_cost).toFixed(2)}</TableCell>
+                        <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `{formatCOP(Number((p as any).last_unit_cost), 2)}` : "—"}</TableCell>
+                        <TableCell>{formatCOP(p.average_cost, 2)}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {Number(p.current_stock) <= Number(p.min_stock) ? (

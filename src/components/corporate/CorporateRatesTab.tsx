@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Pencil, Trash2, BedDouble, Utensils, DollarSign } from "lucide-react";
 import { toast } from "sonner";
+import { formatCOP } from "@/lib/utils";
 
 /* ── Hotel Rate Form ── */
 interface HotelRateForm { company_id: string; room_type_id: string; rate_per_night: number; includes_laundry: boolean; includes_housekeeping: boolean; includes_breakfast: boolean; notes: string; active: boolean; }
@@ -300,7 +301,7 @@ export default function CorporateRatesTab() {
                   )}
                 </TableCell>
                 <TableCell><Badge variant="secondary">{SERVICE_TYPE_LABELS[r.service_type] || r.service_type}</Badge></TableCell>
-                <TableCell className="text-right font-mono font-semibold">${Number(r.rate).toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono font-semibold">{formatCOP(r.rate)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{r.notes || "—"}</TableCell>
                 <TableCell><Badge variant={r.active ? "default" : "secondary"}>{r.active ? "Activa" : "Inactiva"}</Badge></TableCell>
                 <TableCell>
@@ -410,7 +411,7 @@ export default function CorporateRatesTab() {
                 <TableCell className="font-medium">{rate.menu_items?.name || "—"}</TableCell>
                 <TableCell>{rate.hotel_companies?.name ? <Badge variant="outline">{rate.hotel_companies.name}</Badge> : <span className="text-muted-foreground text-xs">General</span>}</TableCell>
                 <TableCell><Badge variant="secondary">{CONSUMPTION_MODE_LABELS[rate.consumption_mode] || rate.consumption_mode}</Badge></TableCell>
-                <TableCell className="text-right font-mono">${Number(rate.price).toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono">{formatCOP(rate.price)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{rate.effective_from || rate.effective_to ? `${rate.effective_from || "—"} → ${rate.effective_to || "—"}` : "Permanente"}</TableCell>
                 <TableCell><Badge variant={rate.active ? "default" : "secondary"}>{rate.active ? "Activa" : "Inactiva"}</Badge></TableCell>
                 <TableCell>
@@ -475,7 +476,7 @@ export default function CorporateRatesTab() {
               <Label>Ítem del menú</Label>
               <Select value={foodMenuItemId} onValueChange={setFoodMenuItemId}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar ítem..." /></SelectTrigger>
-                <SelectContent>{menuItems.map((item: any) => <SelectItem key={item.id} value={item.id}>{item.name} ({item.category}) — Base: ${Number(item.price).toLocaleString()}</SelectItem>)}</SelectContent>
+                <SelectContent>{menuItems.map((item: any) => <SelectItem key={item.id} value={item.id}>{item.name} ({item.category}) — Base: {formatCOP(item.price)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>

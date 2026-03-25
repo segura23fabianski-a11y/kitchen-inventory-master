@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { printKitchenComanda, printTicket } from "@/lib/pos-printing";
 import { openCashDrawer } from "@/lib/pos-hardware";
 import { fuzzyMatch } from "@/lib/search-utils";
+import { formatCOP } from "@/lib/utils";
 
 const SERVICE_OPTIONS = [
   { value: "breakfast", label: "Desayuno" },
@@ -626,7 +627,7 @@ export default function POSRestaurantTab() {
                             </span>
                           )}
                           <span className="font-semibold text-sm leading-tight">{item.name}</span>
-                          <span className="text-xs text-muted-foreground mt-1">${Number(item.price).toLocaleString()}</span>
+                          <span className="text-xs text-muted-foreground mt-1">{formatCOP(item.price)}</span>
                         </button>
                       );
                     })}

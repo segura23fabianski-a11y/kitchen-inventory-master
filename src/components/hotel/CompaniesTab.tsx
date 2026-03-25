@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { Plus, Pencil, Trash2, Search, DollarSign, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { formatCOP } from "@/lib/utils";
 
 interface CompanyForm { name: string; nit: string; contact_name: string; phone: string; email: string; address: string; active: boolean; }
 const emptyForm: CompanyForm = { name: "", nit: "", contact_name: "", phone: "", email: "", address: "", active: true };
@@ -223,7 +224,7 @@ export default function CompaniesTab() {
             </Table>
             {companyRates && companyRates.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Tarifa base de referencia: {roomTypes?.map((rt: any) => `${rt.name}: $${rt.base_rate?.toLocaleString()}`).join(" · ")}
+                Tarifa base de referencia: {roomTypes?.map((rt: any) => `${rt.name}: {formatCOP(rt.base_rate?)}`).join(" · ")}
               </p>
             )}
           </div>

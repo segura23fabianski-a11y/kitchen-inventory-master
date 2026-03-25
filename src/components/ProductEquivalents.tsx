@@ -8,6 +8,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 import { X, Plus, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
+import { formatCOP } from "@/lib/utils";
 
 interface Props {
   productId: string;
@@ -164,7 +165,7 @@ export default function ProductEquivalents({ productId, productName }: Props) {
             placeholder="Buscar producto equivalente..."
             options={availableProducts.map((p) => ({
               value: p.id,
-              label: `${p.name} (${p.unit}) — Stock: ${Number(p.current_stock ?? 0).toLocaleString()}`,
+              label: `${p.name} (${p.unit}) — Stock: {formatCOP(p.current_stock ?? 0)}`,
             }))}
           />
         </div>

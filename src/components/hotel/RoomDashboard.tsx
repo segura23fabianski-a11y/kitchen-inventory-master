@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCOP } from "@/lib/utils";
 import {
   LayoutGrid, List, LogIn, LogOut, Sparkles, Wrench, Eye,
   AlertTriangle, Users, Building2, Search, BedDouble, CalendarPlus,
@@ -577,7 +578,7 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                       {detailRoom.stay.rate_per_night != null && (
                         <div>
                           <span className="text-muted-foreground">Tarifa/noche:</span>
-                          <p className="font-medium">${Number(detailRoom.stay.rate_per_night).toLocaleString()}</p>
+                          <p className="font-medium">{formatCOP(detailRoom.stay.rate_per_night)}</p>
                         </div>
                       )}
                     </div>
@@ -676,7 +677,7 @@ export default function RoomDashboard({ onCheckIn, onCheckOut }: RoomDashboardPr
                             <span>Check-in: {format(new Date(s.check_in_at), "dd/MM/yy HH:mm")}</span>
                             <span>Check-out: {s.check_out_at ? format(new Date(s.check_out_at), "dd/MM/yy HH:mm") : "—"}</span>
                             {s.hotel_companies?.name && <span>Empresa: {s.hotel_companies.name}</span>}
-                            {s.rate_per_night != null && <span>Tarifa: ${Number(s.rate_per_night).toLocaleString()}/noche</span>}
+                            {s.rate_per_night != null && <span>Tarifa: {formatCOP(s.rate_per_night)}/noche</span>}
                             {s.checkout_type && <span>Tipo salida: {s.checkout_type}</span>}
                           </div>
                         </div>

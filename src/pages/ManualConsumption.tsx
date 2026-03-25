@@ -19,6 +19,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
+import { formatCOP } from "@/lib/utils";
 import {
   ChevronLeft,
   CheckCircle2,
@@ -133,7 +134,7 @@ export default function ManualConsumption() {
         total_cost: totalCost,
         service_id: selectedServiceId!,
         notes: effectiveUnit !== selectedProduct?.unit
-          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → ${convertedQty.toFixed(4)} ${selectedProduct?.unit}`
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → {formatCOP(convertedQty, 4)} ${selectedProduct?.unit}`
           : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${convertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
@@ -160,7 +161,7 @@ export default function ManualConsumption() {
       qc.invalidateQueries({ queryKey: ["manual-consumption-history"] });
       toast({
         title: "✅ Consumo registrado",
-        description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — $${estimatedCost.toFixed(2)}`,
+        description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — {formatCOP(estimatedCost, 2)}`,
       });
       resetAll();
     },
@@ -387,7 +388,7 @@ export default function ManualConsumption() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cantidad</span>
                   <span className="font-medium">
-                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` (${convertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}
+                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` ({formatCOP(convertedQty, 4)} ${selectedProduct.unit})` : ""}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -401,7 +402,7 @@ export default function ManualConsumption() {
                     Costo estimado
                   </span>
                   <span className="font-heading text-2xl font-bold">
-                    ${estimatedCost.toFixed(2)}
+                    {formatCOP(estimatedCost, 2)}
                   </span>
                 </div>
               </div>
@@ -502,7 +503,7 @@ export default function ManualConsumption() {
                           </p>
                         </div>
                         <span className="font-heading font-bold text-sm">
-                          ${Number(h.total_cost).toFixed(2)}
+                          {formatCOP(h.total_cost, 2)}
                         </span>
                       </div>
                     );

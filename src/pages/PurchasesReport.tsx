@@ -14,6 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { format, parseISO, startOfMonth, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import { DollarSign, Package, Truck, Tag, TrendingUp, Search } from "lucide-react";
+import { formatCOP } from "@/lib/utils";
 
 type ViewTab = "suppliers" | "products" | "categories" | "evolution";
 
@@ -145,7 +146,7 @@ export default function PurchasesReport() {
       }));
   }, [filtered]);
 
-  const fmt = (v: number) => `$${v.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmt = (v: number) => `{formatCOP(v)}`;
 
   const pieData = byCategory.slice(0, 8).map((c) => ({ name: c.name, value: Math.round(c.total) }));
 
@@ -335,7 +336,7 @@ export default function PurchasesReport() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
                         {pieData.map((_, i) => (
                           <Cell key={i} fill={COLORS[i % COLORS.length]} />
                         ))}

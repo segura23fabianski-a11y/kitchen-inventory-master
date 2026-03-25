@@ -13,6 +13,7 @@ import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AlertTriangle, CheckCircle2, ChefHat } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
+import { formatCOP } from "@/lib/utils";
 
 interface ProductionRunDialogProps {
   open: boolean;
@@ -181,7 +182,7 @@ export function ProductionRunDialog({
         fixedRecipes.find((r) => r.id === selectedRecipeId)?.name ?? "Receta";
       toast({
         title: "Producción registrada",
-        description: `${recipeName} × ${quantity} — Costo real: $${actualTotalCost.toFixed(2)}`,
+        description: `${recipeName} × ${quantity} — Costo real: {formatCOP(actualTotalCost, 2)}`,
       });
       setSelectedRecipeId("");
       setQuantity(1);
@@ -306,16 +307,16 @@ export function ProductionRunDialog({
                     <div className="border-t pt-2 space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">Costo teórico total</span>
-                        <span>${theoreticalTotalCost.toFixed(2)}</span>
+                        <span>{formatCOP(theoreticalTotalCost, 2)}</span>
                       </div>
                       <div className="flex justify-between text-sm font-semibold">
                         <span>Costo real total</span>
-                        <span>${actualTotalCost.toFixed(2)}</span>
+                        <span>{formatCOP(actualTotalCost, 2)}</span>
                       </div>
                       {quantity > 0 && (
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Costo unitario real</span>
-                          <span>${(actualTotalCost / quantity).toFixed(2)} / unidad</span>
+                          <span>{formatCOP((actualTotalCost / quantity), 2)} / unidad</span>
                         </div>
                       )}
                     </div>

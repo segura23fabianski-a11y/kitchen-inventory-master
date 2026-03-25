@@ -10,6 +10,7 @@ import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAudit } from "@/hooks/use-audit";
 import { DollarSign, ArrowRight, AlertTriangle } from "lucide-react";
+import { formatCOP } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -96,7 +97,7 @@ export default function CostRevaluationDialog({ product, open, onOpenChange }: P
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       handleClose(false);
-      toast({ title: "Costo actualizado", description: `${product?.name}: $${oldCost.toFixed(2)} → $${newCostNum.toFixed(2)}` });
+      toast({ title: "Costo actualizado", description: `${product?.name}: {formatCOP(oldCost, 2)} → {formatCOP(newCostNum, 2)}` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });

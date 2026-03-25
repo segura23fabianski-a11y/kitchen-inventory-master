@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCOP } from "@/lib/utils";
 import {
   DollarSign, TrendingUp, TrendingDown, Utensils, Coffee, Sun, Moon, Cookie,
   Activity, AlertCircle, CheckCircle, MinusCircle,
@@ -261,7 +262,7 @@ export default function CasinoDashboard() {
     return map;
   }, [todayOrders]);
 
-  const fmt = (v: number) => `$${v.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmt = (v: number) => `{formatCOP(v)}`;
 
   const serviceConfig = [
     { key: "desayuno", label: "Desayunos", icon: Coffee, color: "text-amber-600" },

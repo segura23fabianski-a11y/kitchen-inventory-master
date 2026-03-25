@@ -20,7 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ChevronsUpDown, CalendarIcon, Plus, AlertTriangle, TrendingDown, DollarSign, Package, Upload, Trash2, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -227,7 +227,7 @@ export default function WasteControl() {
         },
       });
 
-      toast({ title: "Pérdida registrada", description: `${product.name}: ${qty} ${product.unit} — Pérdida: $${lossValue.toFixed(2)}` });
+      toast({ title: "Pérdida registrada", description: `${product.name}: ${qty} ${product.unit} — Pérdida: {formatCOP(lossValue, 2)}` });
 
       // Reset
       setSelectedProductId("");
@@ -391,7 +391,7 @@ export default function WasteControl() {
                   </div>
                   {selectedProduct && quantity && parseFloat(quantity) > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Pérdida estimada: <strong>${(parseFloat(quantity) * getUnitCost(selectedProduct)).toFixed(2)}</strong>
+                      Pérdida estimada: <strong>{formatCOP((parseFloat(quantity) * getUnitCost(selectedProduct)), 2)}</strong>
                     </p>
                   )}
                 </div>
@@ -521,7 +521,7 @@ export default function WasteControl() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Valor Total Perdido</p>
-                      <p className="text-2xl font-bold text-foreground">${totalLoss.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-foreground">{formatCOP(totalLoss, 2)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -562,12 +562,12 @@ export default function WasteControl() {
                   {byTypeData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <PieChart>
-                        <Pie data={byTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                        <Pie data={byTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
                           {byTypeData.map((entry, i) => (
                             <Cell key={i} fill={entry.fill} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                        <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -583,7 +583,7 @@ export default function WasteControl() {
                       <BarChart data={topProducts} layout="vertical" margin={{ left: 80 }}>
                         <XAxis type="number" tickFormatter={(v) => `$${v}`} />
                         <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                        <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
                         <Bar dataKey="value" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -656,7 +656,7 @@ export default function WasteControl() {
             {/* Summary row */}
             <div className="flex items-center gap-4 text-sm">
               <span className="text-muted-foreground">{filteredMovements.length} registros</span>
-              <span className="font-medium text-destructive">Pérdida total: ${totalLoss.toFixed(2)}</span>
+              <span className="font-medium text-destructive">Pérdida total: {formatCOP(totalLoss, 2)}</span>
             </div>
 
             {/* Table */}
@@ -694,8 +694,8 @@ export default function WasteControl() {
                           </TableCell>
                           <TableCell className="text-xs max-w-[200px] truncate">{m.waste_reason ?? m.notes ?? "—"}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{m.quantity} {prod?.unit}</TableCell>
-                          <TableCell className="text-right font-mono text-sm">${(m.unit_cost ?? 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm font-medium text-destructive">${(m.loss_value ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCOP((m.unit_cost ?? 0), 2)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm font-medium text-destructive">{formatCOP((m.loss_value ?? 0), 2)}</TableCell>
                           <TableCell className="text-xs">{profileMap.get(m.user_id) ?? "—"}</TableCell>
                           <TableCell>
                             {m.evidence_url ? (

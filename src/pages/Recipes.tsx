@@ -25,6 +25,7 @@ import RecipeCostAnalysis from "@/components/RecipeCostAnalysis";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
+import { formatCOP } from "@/lib/utils";
 
 type RecipeType = "food" | "laundry" | "housekeeping";
 type RecipeMode = "fixed" | "variable_combo";
@@ -242,8 +243,8 @@ export default function Recipes() {
 
   const formatCost = (cost: number) => {
     if (cost === 0) return "$0.00";
-    if (cost < 0.01) return `$${cost.toFixed(4)}`;
-    return `$${cost.toFixed(2)}`;
+    if (cost < 0.01) return `{formatCOP(cost, 4)}`;
+    return `{formatCOP(cost, 2)}`;
   };
 
   const productHasCost = (productId: string) => {
@@ -717,7 +718,7 @@ export default function Recipes() {
               <div className="flex-1 space-y-1">
                 {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
                 <SearchableSelect
-                  options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — $${getProductCost(p.id).toFixed(2)}/${p.unit}`, searchTerms: p.name })) ?? []}
+                  options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — {formatCOP(getProductCost(p.id), 2)}/${p.unit}`, searchTerms: p.name })) ?? []}
                   value={ing.product_id}
                   onValueChange={(v) => updateFn(i, "product_id", v)}
                   placeholder="Seleccionar..."
@@ -759,7 +760,7 @@ export default function Recipes() {
             </div>
             {prod && (
               <p className="text-xs text-muted-foreground ml-1">
-                Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
+                Costo: {formatCOP(getProductCost(prod.id), 4)}/{prod.unit}
                 {currentInputMode === "batch" && ing.quantity > 0 && currentPortions > 0 && (
                   <> · Por porción: {perPortionQty.toFixed(4)} {ing.unit}</>
                 )}
@@ -1175,17 +1176,17 @@ export default function Recipes() {
                         <div className="grid grid-cols-3 gap-2">
                           <div className="rounded-md border p-3 text-center">
                             <p className="text-xs text-muted-foreground mb-1">Promedio</p>
-                            <p className="font-heading font-bold text-lg">${stats.avg.toFixed(2)}</p>
+                            <p className="font-heading font-bold text-lg">{formatCOP(stats.avg, 2)}</p>
                             <p className="text-xs text-muted-foreground">por servicio</p>
                           </div>
                           <div className="rounded-md border p-3 text-center">
                             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Mínimo</p>
-                            <p className="font-heading font-bold text-lg text-primary">${stats.min.toFixed(2)}</p>
+                            <p className="font-heading font-bold text-lg text-primary">{formatCOP(stats.min, 2)}</p>
                             <p className="text-xs text-muted-foreground">por servicio</p>
                           </div>
                           <div className="rounded-md border p-3 text-center">
                             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Máximo</p>
-                            <p className="font-heading font-bold text-lg">${stats.max.toFixed(2)}</p>
+                            <p className="font-heading font-bold text-lg">{formatCOP(stats.max, 2)}</p>
                             <p className="text-xs text-muted-foreground">por servicio</p>
                           </div>
                         </div>
@@ -1208,11 +1209,11 @@ export default function Recipes() {
                                 </div>
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground">Costo unitario</span>
-                                  <span className="font-semibold">${Number(log.unit_cost).toFixed(2)}</span>
+                                  <span className="font-semibold">{formatCOP(log.unit_cost, 2)}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground">Costo total</span>
-                                  <span className="font-semibold">${Number(log.total_cost).toFixed(2)}</span>
+                                  <span className="font-semibold">{formatCOP(log.total_cost, 2)}</span>
                                 </div>
                                 {items.length > 0 && (
                                   <div className="pt-1 border-t space-y-0.5">
@@ -1221,7 +1222,7 @@ export default function Recipes() {
                                       return (
                                         <div key={item.id} className="flex items-center justify-between text-xs text-muted-foreground">
                                           <span><span className="capitalize font-medium">{item.component_name}</span> → {prod?.name ?? "?"}</span>
-                                          <span>${Number(item.line_cost).toFixed(2)}</span>
+                                          <span>{formatCOP(item.line_cost, 2)}</span>
                                         </div>
                                       );
                                     })}
@@ -1308,7 +1309,7 @@ export default function Recipes() {
                                 )}
                               </TableCell>
                               <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
-                                {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `$${getProductCost(ing.product_id).toFixed(4)}/${prod?.unit}`}
+                                {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `{formatCOP(getProductCost(ing.product_id), 4)}/${prod?.unit}`}
                               </TableCell>
                               <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
                             </TableRow>

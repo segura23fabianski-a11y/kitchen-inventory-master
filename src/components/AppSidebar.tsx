@@ -4,7 +4,8 @@ import {
   Trash2, FileText, Truck, ShoppingCart, SprayCan, BookOpen, ClipboardCheck,
   AlertTriangle, Layers, TrendingUp, TrendingDown, ChevronDown, Settings, Receipt, Utensils, CalendarDays, Paintbrush,
   HelpCircle, Calculator, FlaskConical, Hotel, BedDouble, CalendarCheck, CalendarPlus,
-  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign, Bot
+  Sparkles, Shirt, Building2, Users as UsersIcon, List, LayoutGrid, Activity, DollarSign, Bot,
+  FileBarChart, BarChart2
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -112,6 +113,8 @@ const navGroups: NavGroup[] = [
       { to: "/operational-reports", icon: Layers, label: "Operativos", permKey: "operational_reports" },
       { to: "/inventory-value", icon: DollarSign, label: "Valor Inventario", permKey: "reports" },
       { to: "/hotel", icon: BarChart3, label: "Hotel Corp.", permKey: "hotel_corporate_reports_view", tabParam: "reports" },
+      { to: "/report-templates", icon: FileBarChart, label: "Plantillas", permKey: "reports" },
+      { to: "/custom-reports", icon: BarChart2, label: "Informes Personalizados", permKey: "reports" },
     ],
   },
   {

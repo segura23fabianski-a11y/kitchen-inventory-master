@@ -16,7 +16,7 @@ import {
   Check, ChevronsUpDown, CalendarIcon, Download, TrendingUp, TrendingDown,
   DollarSign, AlertTriangle, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -370,7 +370,7 @@ export default function PriceHistory() {
                 <Card>
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs text-muted-foreground mb-1">Último Precio</p>
-                    <p className="text-xl font-bold text-foreground">${stats.last.toFixed(2)}</p>
+                    <p className="text-xl font-bold text-foreground">{formatCOP(stats.last, 2)}</p>
                     {priceAlert && (
                       <Badge variant="destructive" className="mt-1 text-xs">
                         <AlertTriangle className="mr-1 h-3 w-3" /> Precio elevado
@@ -381,20 +381,20 @@ export default function PriceHistory() {
                 <Card>
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs text-muted-foreground mb-1">Promedio Histórico</p>
-                    <p className="text-xl font-bold text-foreground">${stats.avg.toFixed(2)}</p>
+                    <p className="text-xl font-bold text-foreground">{formatCOP(stats.avg, 2)}</p>
                     <p className="text-xs text-muted-foreground">{stats.count} compras</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs text-muted-foreground mb-1">Mínimo</p>
-                    <p className="text-xl font-bold text-success">${stats.min.toFixed(2)}</p>
+                    <p className="text-xl font-bold text-success">{formatCOP(stats.min, 2)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs text-muted-foreground mb-1">Máximo</p>
-                    <p className="text-xl font-bold text-destructive">${stats.max.toFixed(2)}</p>
+                    <p className="text-xl font-bold text-destructive">{formatCOP(stats.max, 2)}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -440,7 +440,7 @@ export default function PriceHistory() {
                           <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                           <YAxis tickFormatter={(v) => `$${v}`} tick={{ fontSize: 11 }} />
                           <Tooltip
-                            formatter={(v: number) => `$${v.toFixed(2)}`}
+                            formatter={(v: number) => `{formatCOP(v, 2)}`}
                             labelFormatter={(label) => `Fecha: ${label}`}
                             contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))" }}
                           />
@@ -483,7 +483,7 @@ export default function PriceHistory() {
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                           <YAxis tickFormatter={(v) => `$${v}`} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                          <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
                           <Legend />
                           <Bar dataKey="Último" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Promedio" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
@@ -522,10 +522,10 @@ export default function PriceHistory() {
                                   {isBest && <Badge variant="outline" className="text-xs text-success border-success">Mejor precio</Badge>}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-right font-mono">${s.lastCost.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-mono">${s.avgCost.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-mono text-success">${s.minCost.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-mono text-destructive">${s.maxCost.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono">{formatCOP(s.lastCost, 2)}</TableCell>
+                              <TableCell className="text-right font-mono">{formatCOP(s.avgCost, 2)}</TableCell>
+                              <TableCell className="text-right font-mono text-success">{formatCOP(s.minCost, 2)}</TableCell>
+                              <TableCell className="text-right font-mono text-destructive">{formatCOP(s.maxCost, 2)}</TableCell>
                               <TableCell className="text-right">{s.purchases}</TableCell>
                               <TableCell className="text-xs">{s.lastDate}</TableCell>
                             </TableRow>
@@ -566,8 +566,8 @@ export default function PriceHistory() {
                               <TableCell className="font-medium text-sm">{item.invoice.invoice_number}</TableCell>
                               <TableCell className="text-sm">{item.invoice.supplier_name ?? "—"}</TableCell>
                               <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                              <TableCell className="text-right font-mono font-medium">${item.unit_cost.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-mono">${item.line_total.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono font-medium">{formatCOP(item.unit_cost, 2)}</TableCell>
+                              <TableCell className="text-right font-mono">{formatCOP(item.line_total, 2)}</TableCell>
                               <TableCell>
                                 {idx === 0 ? (
                                   <span className="text-xs text-muted-foreground">—</span>

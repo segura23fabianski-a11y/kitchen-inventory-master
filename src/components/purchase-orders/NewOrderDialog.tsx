@@ -14,6 +14,7 @@ import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
 import { Plus, Trash2, Save } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCOP } from "@/lib/utils";
 
 interface OrderLine {
   product_id: string;
@@ -262,13 +263,13 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
                         />
                         {line.unit_cost != null && (
                           <span className="text-[10px] text-muted-foreground mt-0.5 block text-right">
-                            ${Number(line.unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })}
+                            {formatCOP(line.unit_cost)}
                           </span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {line.unit_cost != null && line.quantity > 0
-                          ? `$${(line.quantity * line.unit_cost).toLocaleString("es-CO", { minimumFractionDigits: 2 })}`
+                          ? `{formatCOP((line.quantity * line.unit_cost))}`
                           : "—"}
                       </TableCell>
                       <TableCell>
@@ -285,7 +286,7 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
 
           {lines.length > 0 && (
             <div className="text-right text-sm font-semibold">
-              Total estimado: <span className="text-primary">${estimatedTotal.toFixed(2)}</span>
+              Total estimado: <span className="text-primary">{formatCOP(estimatedTotal, 2)}</span>
             </div>
           )}
 
