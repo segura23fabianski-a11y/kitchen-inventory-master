@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/use-restaurant";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, PackagePlus } from "lucide-react";
+import { Plus, Pencil, Trash2, PackagePlus, Zap } from "lucide-react";
 import BulkImportMenuDialog from "./BulkImportMenuDialog";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { fuzzyMatch } from "@/lib/search-utils";
 import { formatCOP } from "@/lib/utils";
+import { Slider } from "@/components/ui/slider";
+import { Card, CardContent } from "@/components/ui/card";
 
 const MENU_CATEGORIES = ["Desayuno", "Almuerzo", "Cena", "Lonches", "Bebidas", "Snacks", "A la carta", "Postres", "General"];
 
