@@ -695,6 +695,66 @@ export type Database = {
           },
         ]
       }
+      custom_reports: {
+        Row: {
+          active: boolean | null
+          columns_config: Json
+          created_at: string | null
+          created_by: string | null
+          data_source: string
+          filters_config: Json
+          id: string
+          name: string
+          restaurant_id: string
+          sort_direction: string | null
+          sort_field: string | null
+          template_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          columns_config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          data_source: string
+          filters_config?: Json
+          id?: string
+          name: string
+          restaurant_id: string
+          sort_direction?: string | null
+          sort_field?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          columns_config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          data_source?: string
+          filters_config?: Json
+          id?: string
+          name?: string
+          restaurant_id?: string
+          sort_direction?: string | null
+          sort_field?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_reports_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_signatures: {
         Row: {
           created_at: string
@@ -3041,6 +3101,98 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "recipes_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          active: boolean | null
+          approved_by: string | null
+          company_address: string | null
+          company_email: string | null
+          company_name: string | null
+          company_nit: string | null
+          company_phone: string | null
+          created_at: string | null
+          document_code: string | null
+          elaborated_by: string | null
+          footer_text: string | null
+          id: string
+          is_default: boolean | null
+          legal_text: string | null
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          report_type: string
+          restaurant_id: string
+          show_page_number: boolean | null
+          show_print_date: boolean | null
+          signature_name: string | null
+          signature_role: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          approved_by?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_nit?: string | null
+          company_phone?: string | null
+          created_at?: string | null
+          document_code?: string | null
+          elaborated_by?: string | null
+          footer_text?: string | null
+          id?: string
+          is_default?: boolean | null
+          legal_text?: string | null
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          report_type?: string
+          restaurant_id: string
+          show_page_number?: boolean | null
+          show_print_date?: boolean | null
+          signature_name?: string | null
+          signature_role?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          approved_by?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_nit?: string | null
+          company_phone?: string | null
+          created_at?: string | null
+          document_code?: string | null
+          elaborated_by?: string | null
+          footer_text?: string | null
+          id?: string
+          is_default?: boolean | null
+          legal_text?: string | null
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          report_type?: string
+          restaurant_id?: string
+          show_page_number?: boolean | null
+          show_print_date?: boolean | null
+          signature_name?: string | null
+          signature_role?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
