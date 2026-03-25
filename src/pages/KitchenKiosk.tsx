@@ -1094,13 +1094,13 @@ export default function KitchenKiosk() {
                     <span className="text-xs text-muted-foreground ml-2">({comp.source})</span>
                     {comp.lotTotal !== undefined && comp.lotQty !== undefined && (
                       <p className="text-xs text-muted-foreground">
-                        Lote: ${comp.lotTotal.toLocaleString("es-CO", { maximumFractionDigits: 0 })} / {comp.lotQty} unidades = ${(comp.lotTotal / comp.lotQty).toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u
+                        Lote: {formatCOP(comp.lotTotal)} / {comp.lotQty} unidades = {formatCOP((comp.lotTotal / comp.lotQty))}/u
                       </p>
                     )}
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <p className="font-mono text-sm">${comp.unitCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}/u</p>
-                    <p className="font-mono text-xs text-muted-foreground">${comp.totalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })} total</p>
+                    <p className="font-mono text-sm">{formatCOP(comp.unitCost)}/u</p>
+                    <p className="font-mono text-xs text-muted-foreground">{formatCOP(comp.totalCost)} total</p>
                   </div>
                 </div>
               ))}
@@ -1110,9 +1110,9 @@ export default function KitchenKiosk() {
                   <p className="text-xs text-muted-foreground">{comboExecution.servings} servicios</p>
                 </div>
                 <div className="text-right">
-                  <span className="font-heading font-bold text-2xl">${comboTotalCost.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</span>
+                  <span className="font-heading font-bold text-2xl">{formatCOP(comboTotalCost)}</span>
                   <p className="text-sm font-semibold text-primary">
-                    ${(comboTotalCost / comboExecution.servings).toLocaleString("es-CO", { maximumFractionDigits: 0 })} / servicio
+                    {formatCOP((comboTotalCost / comboExecution.servings))} / servicio
                   </p>
                 </div>
               </div>

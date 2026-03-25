@@ -19,6 +19,7 @@ import { Plus, ClipboardCheck, Eye, Trash2, CheckCircle2, ArrowLeft, Search } fr
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
+import { formatNumber } from "@/lib/utils";
 
 const statusLabels: Record<string, string> = { draft: "Borrador", review: "En revisión", approved: "Aprobado" };
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = { draft: "secondary", review: "outline", approved: "default" };
@@ -311,7 +312,7 @@ export default function PhysicalInventory() {
                     <TableRow key={item.id} className={item.difference && item.difference !== 0 ? (item.difference > 0 ? "bg-emerald-50/50" : "bg-destructive/5") : ""}>
                       <TableCell className="font-medium">{(item as any).products?.name ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{(item as any).products?.unit ?? "—"}</TableCell>
-                      <TableCell className="text-right">{Number(item.system_stock).toLocaleString("es-CO")}</TableCell>
+                      <TableCell className="text-right">{formatNumber(Number(item.system_stock), 2)}</TableCell>
                       <TableCell className="text-right">
                         {isDraft ? (
                           <Input

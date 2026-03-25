@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Search, Download, Filter, X, Package } from "lucide-react";
 import * as XLSX from "xlsx";
+import { formatCOP, formatNumber } from "@/lib/utils";
 
 type SortField = "name" | "stock" | "cost" | "value";
 type SortDir = "asc" | "desc";
@@ -158,7 +159,7 @@ export default function InventoryValue() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-heading text-2xl font-bold">${totalValue.toLocaleString("es-CO", { maximumFractionDigits: 0 })}</p>
+              <p className="font-heading text-2xl font-bold">{formatCOP(totalValue)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -272,24 +273,24 @@ export default function InventoryValue() {
                       <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{p.warehouseName}</TableCell>
                       <TableCell>
                         <span className={p.isZero ? "text-destructive" : p.isLow ? "text-warning" : ""}>
-                          {p.stock.toLocaleString("es-CO", { maximumFractionDigits: 2 })}
+                          {formatNumber(p.stock, 2)}
                         </span>
                         <span className="text-xs text-muted-foreground ml-1">{p.unit}</span>
                         {p.isLow && <Badge variant="destructive" className="ml-1 text-[10px] px-1">Bajo</Badge>}
                         {p.isZero && <Badge variant="outline" className="ml-1 text-[10px] px-1">Sin stock</Badge>}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        ${p.cost.toLocaleString("es-CO", { maximumFractionDigits: 2 })}
+                        {formatCOP(p.cost)}
                       </TableCell>
                       <TableCell className="font-mono font-semibold text-sm">
-                        ${p.value.toLocaleString("es-CO", { maximumFractionDigits: 0 })}
+                        {formatCOP(p.value)}
                       </TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={5} className="text-right">TOTAL</TableCell>
                     <TableCell className="font-mono text-sm">
-                      ${totalValue.toLocaleString("es-CO", { maximumFractionDigits: 0 })}
+                      {formatCOP(totalValue)}
                     </TableCell>
                   </TableRow>
                 </>
