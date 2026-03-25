@@ -51,6 +51,7 @@ export default function POSMenuTab() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
   const [importOpen, setImportOpen] = useState(false);
+  const [profitMargin, setProfitMargin] = useState(20);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["menu-items", restaurantId],
