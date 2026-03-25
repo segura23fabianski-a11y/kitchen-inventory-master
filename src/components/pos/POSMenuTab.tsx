@@ -73,7 +73,7 @@ export default function POSMenuTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, barcode")
+        .select("id, name, barcode, average_cost")
         .eq("restaurant_id", restaurantId!)
         .order("name");
       if (error) throw error;
@@ -87,7 +87,7 @@ export default function POSMenuTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, recipe_type")
+        .select("id, name, recipe_type, recipe_ingredients(quantity, products(average_cost))")
         .eq("restaurant_id", restaurantId!)
         .order("name");
       if (error) throw error;
