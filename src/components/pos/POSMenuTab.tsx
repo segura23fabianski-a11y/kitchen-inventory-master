@@ -244,6 +244,7 @@ export default function POSMenuTab() {
             <TableHead>Tipo</TableHead>
             <TableHead>Código</TableHead>
             <TableHead className="text-right">Precio</TableHead>
+            <TableHead className="text-right">% Margen</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="w-20" />
           </TableRow>
