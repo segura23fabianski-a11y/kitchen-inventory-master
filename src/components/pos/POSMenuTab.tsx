@@ -96,7 +96,48 @@ export default function POSMenuTab() {
     enabled: !!restaurantId,
   });
 
-  const filtered = items.filter((item: any) => {
+  const getRecipeCost = (recipeId: string) => {
+    const recipe = recipes.find((r: any) => r.id === recipeId);
+    if (!recipe || !recipe.recipe_ingredients) return 0;
+    return (recipe.recipe_ingredients as any[]).reduce((sum: number, ri: any) => {
+      const cost = Number(ri.products?.average_cost ?? 0);
+      return sum + Number(ri.quantity) * cost;
+    }, 0);
+  };
+
+  const getItemCost = (item: any) => {
+    if (item.linked_product_id) {
+      const p = products.find((pr: any) => pr.id === item.linked_product_id);
+      return Number(p?.average_cost ?? 0);
+    }
+    if (item.linked_recipe_id) return getRecipeCost(item.linked_recipe_id);
+    return 0;
+  };
+
+  const suggestedPrice = useMemo(() => {
+    let cost = 0;
+    if (itemType === "direct_product" && linkedProductId) {
+      const p = products.find((pr: any) => pr.id === linkedProductId);
+      cost = Number(p?.average_cost ?? 0);
+    } else if ((itemType === "recipe" || itemType === "combo_variable") && linkedRecipeId) {
+      cost = getRecipeCost(linkedRecipeId);
+    }
+    if (cost <= 0 || profitMargin >= 100) return 0;
+    return cost / (1 - profitMargin / 100);
+  }, [linkedProductId, linkedRecipeId, itemType, profitMargin, products, recipes]);
+
+  const linkedCost = useMemo(() => {
+    if (itemType === "direct_product" && linkedProductId) {
+      const p = products.find((pr: any) => pr.id === linkedProductId);
+      return Number(p?.average_cost ?? 0);
+    }
+    if ((itemType === "recipe" || itemType === "combo_variable") && linkedRecipeId) {
+      return getRecipeCost(linkedRecipeId);
+    }
+    return 0;
+  }, [linkedProductId, linkedRecipeId, itemType, products, recipes]);
+
+
     if (filterCat !== "all" && item.category !== filterCat) return false;
     if (search && !fuzzyMatch(`${item.name} ${item.barcode || ""} ${item.category}`, search)) return false;
     return true;
