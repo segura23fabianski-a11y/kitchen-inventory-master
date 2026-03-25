@@ -358,6 +358,44 @@ export default function POSMenuTab() {
               </div>
             )}
 
+            {/* Suggested price card */}
+            {linkedCost > 0 && (
+              <Card className="bg-muted/50">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">% Utilidad</Label>
+                    <span className="text-xs font-mono font-bold text-primary">{profitMargin}%</span>
+                  </div>
+                  <Slider
+                    value={[profitMargin]}
+                    onValueChange={([v]) => setProfitMargin(v)}
+                    min={5} max={80} step={1}
+                    className="my-1"
+                  />
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Costo</p>
+                      <p className="font-mono font-semibold">{formatCOP(linkedCost)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Utilidad</p>
+                      <p className="font-mono font-semibold text-emerald-600">{formatCOP(suggestedPrice - linkedCost)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Sugerido</p>
+                      <p className="font-mono font-bold text-primary">{formatCOP(suggestedPrice)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button" variant="outline" size="sm" className="w-full gap-1"
+                    onClick={() => setPrice(String(Math.round(suggestedPrice)))}
+                  >
+                    <Zap className="h-3.5 w-3.5" /> Aplicar precio sugerido
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="flex items-center gap-2">
               <Switch checked={active} onCheckedChange={setActive} />
               <Label>Activo</Label>
