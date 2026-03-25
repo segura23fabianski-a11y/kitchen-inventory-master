@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
 import { formatCOP } from "@/lib/utils";
+import {
   DollarSign, TrendingUp, TrendingDown, Utensils, Coffee, Sun, Moon, Cookie,
   Activity, AlertCircle, CheckCircle, MinusCircle,
 } from "lucide-react";

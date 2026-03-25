@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
 import { formatCOP } from "@/lib/utils";
+import {
   DollarSign, TrendingUp, TrendingDown, ArrowUpDown, Search, ChefHat, Layers,
   Calendar, AlertTriangle, CheckCircle, ArrowLeft,
 } from "lucide-react";

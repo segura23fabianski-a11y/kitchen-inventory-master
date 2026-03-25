@@ -19,8 +19,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
-import {
 import { formatCOP } from "@/lib/utils";
+import {
   ChevronLeft,
   CheckCircle2,
   History,

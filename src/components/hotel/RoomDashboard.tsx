@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
 import { formatCOP } from "@/lib/utils";
+import {
   LayoutGrid, List, LogIn, LogOut, Sparkles, Wrench, Eye,
   AlertTriangle, Users, Building2, Search, BedDouble, CalendarPlus,
   History, ClipboardList, Shirt, CalendarCheck
