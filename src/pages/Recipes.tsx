@@ -760,7 +760,7 @@ export default function Recipes() {
             </div>
             {prod && (
               <p className="text-xs text-muted-foreground ml-1">
-                Costo: ${getProductCost(prod.id).toFixed(4)}/{prod.unit}
+                Costo: {formatCOP(getProductCost(prod.id), 4)}/{prod.unit}
                 {currentInputMode === "batch" && ing.quantity > 0 && currentPortions > 0 && (
                   <> · Por porción: {perPortionQty.toFixed(4)} {ing.unit}</>
                 )}
@@ -1176,17 +1176,17 @@ export default function Recipes() {
                         <div className="grid grid-cols-3 gap-2">
                           <div className="rounded-md border p-3 text-center">
                             <p className="text-xs text-muted-foreground mb-1">Promedio</p>
-                            <p className="font-heading font-bold text-lg">${stats.avg.toFixed(2)}</p>
+                            <p className="font-heading font-bold text-lg">{formatCOP(stats.avg, 2)}</p>
                             <p className="text-xs text-muted-foreground">por servicio</p>
                           </div>
                           <div className="rounded-md border p-3 text-center">
                             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Mínimo</p>
-                            <p className="font-heading font-bold text-lg text-primary">${stats.min.toFixed(2)}</p>
+                            <p className="font-heading font-bold text-lg text-primary">{formatCOP(stats.min, 2)}</p>
                             <p className="text-xs text-muted-foreground">por servicio</p>
                           </div>
                           <div className="rounded-md border p-3 text-center">
                             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Máximo</p>
-                            <p className="font-heading font-bold text-lg">${stats.max.toFixed(2)}</p>
+                            <p className="font-heading font-bold text-lg">{formatCOP(stats.max, 2)}</p>
                             <p className="text-xs text-muted-foreground">por servicio</p>
                           </div>
                         </div>

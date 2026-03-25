@@ -399,7 +399,7 @@ export function BulkExitDialog({ open, onOpenChange, products }: BulkExitDialogP
                 </div>
                 <div className="flex justify-between text-sm font-semibold">
                   <span>Costo total estimado</span>
-                  <span>${totalCost.toFixed(2)}</span>
+                  <span>{formatCOP(totalCost, 2)}</span>
                 </div>
                 {isBackdating && movementDate && (
                   <div className="flex justify-between text-xs text-warning">

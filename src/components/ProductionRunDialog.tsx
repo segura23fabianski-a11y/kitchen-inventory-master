@@ -307,16 +307,16 @@ export function ProductionRunDialog({
                     <div className="border-t pt-2 space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">Costo teórico total</span>
-                        <span>${theoreticalTotalCost.toFixed(2)}</span>
+                        <span>{formatCOP(theoreticalTotalCost, 2)}</span>
                       </div>
                       <div className="flex justify-between text-sm font-semibold">
                         <span>Costo real total</span>
-                        <span>${actualTotalCost.toFixed(2)}</span>
+                        <span>{formatCOP(actualTotalCost, 2)}</span>
                       </div>
                       {quantity > 0 && (
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Costo unitario real</span>
-                          <span>${(actualTotalCost / quantity).toFixed(2)} / unidad</span>
+                          <span>{formatCOP((actualTotalCost / quantity), 2)} / unidad</span>
                         </div>
                       )}
                     </div>

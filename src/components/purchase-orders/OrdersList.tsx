@@ -449,7 +449,7 @@ export default function OrdersList() {
           {orderItems && orderItems.length > 0 && (
             <div className="text-right text-sm font-semibold mt-2">
               Total: <span className="text-primary">
-                ${orderItems.reduce((acc: number, item: any) => acc + (Number(item.quantity) * (item.unit_cost ? Number(item.unit_cost) : 0)), 0).toFixed(2)}
+                {formatCOP(orderItems.reduce((acc: number, item: any) => acc + (Number(item.quantity) * (item.unit_cost ? Number(item.unit_cost) : 0)), 0), 2)}
               </span>
             </div>
           )}
@@ -556,7 +556,7 @@ export default function OrdersList() {
                           />
                         </TableCell>
                         <TableCell className="text-right font-medium p-2">
-                          ${subtotal.toFixed(2)}
+                          {formatCOP(subtotal, 2)}
                         </TableCell>
                         <TableCell className="p-2">
                           <Button
@@ -583,7 +583,7 @@ export default function OrdersList() {
 
               {/* Total */}
               <div className="text-right text-sm font-semibold border-t pt-2">
-                Total Factura: <span className="text-primary text-base">${invoiceTotal.toFixed(2)}</span>
+                Total Factura: <span className="text-primary text-base">{formatCOP(invoiceTotal, 2)}</span>
               </div>
 
               <DialogFooter>

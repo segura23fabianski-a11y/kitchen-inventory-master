@@ -134,7 +134,7 @@ export default function ManualConsumption() {
         total_cost: totalCost,
         service_id: selectedServiceId!,
         notes: effectiveUnit !== selectedProduct?.unit
-          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → ${convertedQty.toFixed(4)} ${selectedProduct?.unit}`
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → {formatCOP(convertedQty, 4)} ${selectedProduct?.unit}`
           : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${convertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
@@ -388,7 +388,7 @@ export default function ManualConsumption() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cantidad</span>
                   <span className="font-medium">
-                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` (${convertedQty.toFixed(4)} ${selectedProduct.unit})` : ""}
+                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` ({formatCOP(convertedQty, 4)} ${selectedProduct.unit})` : ""}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -402,7 +402,7 @@ export default function ManualConsumption() {
                     Costo estimado
                   </span>
                   <span className="font-heading text-2xl font-bold">
-                    ${estimatedCost.toFixed(2)}
+                    {formatCOP(estimatedCost, 2)}
                   </span>
                 </div>
               </div>

@@ -286,7 +286,7 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
 
           {lines.length > 0 && (
             <div className="text-right text-sm font-semibold">
-              Total estimado: <span className="text-primary">${estimatedTotal.toFixed(2)}</span>
+              Total estimado: <span className="text-primary">{formatCOP(estimatedTotal, 2)}</span>
             </div>
           )}
 

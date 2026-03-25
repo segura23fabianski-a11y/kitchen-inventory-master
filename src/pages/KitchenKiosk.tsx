@@ -925,7 +925,7 @@ export default function KitchenKiosk() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{prod.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                Stock: {stock} {prod.unit} · CPP: ${unitCost.toFixed(2)}
+                                Stock: {stock} {prod.unit} · CPP: {formatCOP(unitCost, 2)}
                               </p>
                             </div>
                             <NumericKeypadInput
@@ -1031,11 +1031,11 @@ export default function KitchenKiosk() {
                           </p>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Costo unitario real</span>
-                            <span className="font-semibold">${comp.productionRunUnitCost.toFixed(2)} / unidad</span>
+                            <span className="font-semibold">{formatCOP(comp.productionRunUnitCost, 2)} / unidad</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Costo total ({comp.quantityPerService} × {comboExecution.servings})</span>
-                            <span className="font-semibold">${runCostTotal.toFixed(2)}</span>
+                            <span className="font-semibold">{formatCOP(runCostTotal, 2)}</span>
                           </div>
                           <p className="text-[10px] text-muted-foreground">Inventario ya descontado en la producción</p>
                         </div>
@@ -1072,7 +1072,7 @@ export default function KitchenKiosk() {
                           </div>
                           <div className="flex justify-between text-xs pt-1 border-t">
                             <span className="text-muted-foreground">Costo ingredientes (teórico)</span>
-                            <span className="font-medium">${compIngCost.toFixed(2)}</span>
+                            <span className="font-medium">{formatCOP(compIngCost, 2)}</span>
                           </div>
                         </div>
                       )}
@@ -1460,7 +1460,7 @@ export default function KitchenKiosk() {
 
                 <div className="rounded-md bg-muted p-4 flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">Costo total estimado</span>
-                  <span className="font-heading font-bold text-2xl">${grandTotal.toFixed(2)}</span>
+                  <span className="font-heading font-bold text-2xl">{formatCOP(grandTotal, 2)}</span>
                 </div>
 
                 <Button

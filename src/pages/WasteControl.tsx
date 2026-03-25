@@ -391,7 +391,7 @@ export default function WasteControl() {
                   </div>
                   {selectedProduct && quantity && parseFloat(quantity) > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Pérdida estimada: <strong>${(parseFloat(quantity) * getUnitCost(selectedProduct)).toFixed(2)}</strong>
+                      Pérdida estimada: <strong>{formatCOP((parseFloat(quantity) * getUnitCost(selectedProduct)), 2)}</strong>
                     </p>
                   )}
                 </div>
@@ -521,7 +521,7 @@ export default function WasteControl() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Valor Total Perdido</p>
-                      <p className="text-2xl font-bold text-foreground">${totalLoss.toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-foreground">{formatCOP(totalLoss, 2)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -562,7 +562,7 @@ export default function WasteControl() {
                   {byTypeData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <PieChart>
-                        <Pie data={byTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                        <Pie data={byTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
                           {byTypeData.map((entry, i) => (
                             <Cell key={i} fill={entry.fill} />
                           ))}
@@ -656,7 +656,7 @@ export default function WasteControl() {
             {/* Summary row */}
             <div className="flex items-center gap-4 text-sm">
               <span className="text-muted-foreground">{filteredMovements.length} registros</span>
-              <span className="font-medium text-destructive">Pérdida total: ${totalLoss.toFixed(2)}</span>
+              <span className="font-medium text-destructive">Pérdida total: {formatCOP(totalLoss, 2)}</span>
             </div>
 
             {/* Table */}
@@ -694,8 +694,8 @@ export default function WasteControl() {
                           </TableCell>
                           <TableCell className="text-xs max-w-[200px] truncate">{m.waste_reason ?? m.notes ?? "—"}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{m.quantity} {prod?.unit}</TableCell>
-                          <TableCell className="text-right font-mono text-sm">${(m.unit_cost ?? 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm font-medium text-destructive">${(m.loss_value ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCOP((m.unit_cost ?? 0), 2)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm font-medium text-destructive">{formatCOP((m.loss_value ?? 0), 2)}</TableCell>
                           <TableCell className="text-xs">{profileMap.get(m.user_id) ?? "—"}</TableCell>
                           <TableCell>
                             {m.evidence_url ? (

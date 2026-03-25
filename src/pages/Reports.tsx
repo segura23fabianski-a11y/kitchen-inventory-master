@@ -399,7 +399,7 @@ export default function Reports() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-heading text-2xl font-bold">${totalConsumed.toFixed(2)}</p>
+              <p className="font-heading text-2xl font-bold">{formatCOP(totalConsumed, 2)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -409,7 +409,7 @@ export default function Reports() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-heading text-2xl font-bold">${avgDaily.toFixed(2)}</p>
+              <p className="font-heading text-2xl font-bold">{formatCOP(avgDaily, 2)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -430,7 +430,7 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <p className="font-heading text-2xl font-bold">{wastePct.toFixed(1)}%</p>
-              <p className="text-xs text-muted-foreground">${wasteTotal.toFixed(2)} en mermas</p>
+              <p className="text-xs text-muted-foreground">{formatCOP(wasteTotal, 2)} en mermas</p>
             </CardContent>
           </Card>
         </div>
@@ -578,7 +578,7 @@ export default function Reports() {
                   ) : (
                     <ResponsiveContainer width="100%" height={350}>
                       <PieChart>
-                        <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                        <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
                           {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                         </Pie>
                         <Tooltip formatter={(v: number) => `{formatCOP(v)}`} />
@@ -622,7 +622,7 @@ export default function Reports() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Total Desperdicios</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="font-heading text-2xl font-bold text-destructive">${wasteTotal.toFixed(2)}</p>
+                    <p className="font-heading text-2xl font-bold text-destructive">{formatCOP(wasteTotal, 2)}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -710,7 +710,7 @@ export default function Reports() {
                       ) : filteredRecipeData.map((r) => (
                         <TableRow key={r.id}>
                           <TableCell className="font-medium">{r.name}</TableCell>
-                          <TableCell className="text-right">${r.theoretical.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{formatCOP(r.theoretical, 2)}</TableCell>
                           <TableCell className="text-right">
                             {r.count > 0 ? `{formatCOP(r.avgReal, 2)}` : <span className="text-muted-foreground">—</span>}
                           </TableCell>

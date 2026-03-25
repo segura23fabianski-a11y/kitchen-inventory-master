@@ -164,7 +164,7 @@ export default function Movements() {
         unit_cost: uc,
         total_cost: qty * uc,
         notes: effectiveUnit !== prod?.unit
-          ? `${notes ? notes + " | " : ""}Ingresado: ${rawQty} ${effectiveUnit} → ${qty.toFixed(4)} ${prod?.unit}`
+          ? `${notes ? notes + " | " : ""}Ingresado: ${rawQty} ${effectiveUnit} → {formatCOP(qty, 4)} ${prod?.unit}`
           : notes,
         restaurant_id: restaurantId!,
       };
@@ -364,7 +364,7 @@ export default function Movements() {
                 {computedTotal > 0 && (
                   <div className="rounded-md bg-muted p-3 text-sm">
                     <span className="text-muted-foreground">Costo total:</span>{" "}
-                    <span className="font-semibold">${computedTotal.toFixed(2)}</span>
+                    <span className="font-semibold">{formatCOP(computedTotal, 2)}</span>
                   </div>
                 )}
 

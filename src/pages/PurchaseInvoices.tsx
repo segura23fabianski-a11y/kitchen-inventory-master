@@ -941,7 +941,7 @@ export default function PurchaseInvoices() {
                               className="h-8 w-28 ml-auto text-right font-mono"
                             />
                           </TableCell>
-                          <TableCell className="text-right font-mono font-medium">${lineTotal.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono font-medium">{formatCOP(lineTotal, 2)}</TableCell>
                           <TableCell>
                             <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.tempId)}>
                               <X className="h-3 w-3" />
@@ -952,7 +952,7 @@ export default function PurchaseInvoices() {
                     })}
                     <TableRow>
                       <TableCell colSpan={3} className="text-right font-semibold">Total Factura:</TableCell>
-                      <TableCell className="text-right font-mono text-lg font-bold">${formTotal.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono text-lg font-bold">{formatCOP(formTotal, 2)}</TableCell>
                       <TableCell />
                     </TableRow>
                   </TableBody>

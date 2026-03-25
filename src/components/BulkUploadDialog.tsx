@@ -207,7 +207,7 @@ export default function BulkUploadDialog({ products }: BulkUploadDialogProps) {
                   </Badge>
                 )}
                 <span className="ml-auto text-muted-foreground">
-                  Costo total: <strong>${totalCost.toFixed(2)}</strong>
+                  Costo total: <strong>{formatCOP(totalCost, 2)}</strong>
                 </span>
               </div>
 
@@ -229,9 +229,9 @@ export default function BulkUploadDialog({ products }: BulkUploadDialogProps) {
                           {r.matchedProductName || r.producto}
                         </TableCell>
                         <TableCell>{r.cantidad}</TableCell>
-                        <TableCell>${r.costo_unitario.toFixed(2)}</TableCell>
+                        <TableCell>{formatCOP(r.costo_unitario, 2)}</TableCell>
                         <TableCell className="font-semibold">
-                          ${(r.cantidad * r.costo_unitario).toFixed(2)}
+                          {formatCOP((r.cantidad * r.costo_unitario), 2)}
                         </TableCell>
                         <TableCell>
                           {r.error ? (
