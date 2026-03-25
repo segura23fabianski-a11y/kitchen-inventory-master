@@ -261,6 +261,18 @@ export default function POSMenuTab() {
               </TableCell>
               <TableCell className="text-xs text-muted-foreground font-mono">{item.barcode || "—"}</TableCell>
               <TableCell className="text-right">{formatCOP(item.price)}</TableCell>
+              <TableCell className="text-right">
+                {(() => {
+                  const cost = getItemCost(item);
+                  if (cost <= 0 || Number(item.price) <= 0) return <span className="text-muted-foreground">—</span>;
+                  const margin = ((Number(item.price) - cost) / Number(item.price) * 100);
+                  return (
+                    <Badge variant="outline" className={margin >= 20 ? "text-emerald-600 border-emerald-300" : margin >= 10 ? "text-amber-600 border-amber-300" : "text-destructive border-destructive/30"}>
+                      {margin.toFixed(1)}%
+                    </Badge>
+                  );
+                })()}
+              </TableCell>
               <TableCell>
                 <Badge variant={item.active ? "default" : "secondary"}>
                   {item.active ? "Activo" : "Inactivo"}
