@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { formatCOP } from "@/lib/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
