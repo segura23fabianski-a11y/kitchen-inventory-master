@@ -137,7 +137,7 @@ export default function POSMenuTab() {
     return 0;
   }, [linkedProductId, linkedRecipeId, itemType, products, recipes]);
 
-
+  const filtered = items.filter((item: any) => {
     if (filterCat !== "all" && item.category !== filterCat) return false;
     if (search && !fuzzyMatch(`${item.name} ${item.barcode || ""} ${item.category}`, search)) return false;
     return true;
