@@ -287,7 +287,7 @@ export default function POSMenuTab() {
             </TableRow>
           ))}
           {!isLoading && filtered.length === 0 && (
-            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No hay ítems</TableCell></TableRow>
+            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No hay ítems</TableCell></TableRow>
           )}
         </TableBody>
       </Table>
