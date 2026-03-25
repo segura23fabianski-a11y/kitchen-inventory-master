@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import {
+import { formatCOP } from "@/lib/utils";
   ChevronLeft,
   CheckCircle2,
   History,
@@ -160,7 +161,7 @@ export default function ManualConsumption() {
       qc.invalidateQueries({ queryKey: ["manual-consumption-history"] });
       toast({
         title: "✅ Consumo registrado",
-        description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — $${estimatedCost.toFixed(2)}`,
+        description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — {formatCOP(estimatedCost, 2)}`,
       });
       resetAll();
     },
@@ -502,7 +503,7 @@ export default function ManualConsumption() {
                           </p>
                         </div>
                         <span className="font-heading font-bold text-sm">
-                          ${Number(h.total_cost).toFixed(2)}
+                          {formatCOP(h.total_cost, 2)}
                         </span>
                       </div>
                     );

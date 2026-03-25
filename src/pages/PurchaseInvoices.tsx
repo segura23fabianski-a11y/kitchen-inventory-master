@@ -22,7 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Check, ChevronsUpDown, Search, CalendarIcon, FileText, Trash2, Send, Eye, X, UserPlus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { KioskTextInput } from "@/components/ui/kiosk-text-input";
 import { format } from "date-fns";
@@ -722,7 +722,7 @@ export default function PurchaseInvoices() {
                       <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                       <TableCell>{getSupplierDisplay(inv)}</TableCell>
                       <TableCell>{format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
-                      <TableCell className="text-right font-mono">${Number(inv.total_amount).toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCOP(inv.total_amount, 2)}</TableCell>
                       <TableCell>
                         {inv.status === "draft" ? (
                           <Badge variant="secondary">Borrador</Badge>
@@ -774,7 +774,7 @@ export default function PurchaseInvoices() {
                 <div><span className="text-muted-foreground">Proveedor:</span> {getSupplierDisplay(viewingInvoice)}</div>
                 <div><span className="text-muted-foreground">Fecha:</span> {format(new Date(viewingInvoice.invoice_date + "T12:00:00"), "dd/MM/yyyy")}</div>
                 <div><span className="text-muted-foreground">Estado:</span> {viewingInvoice.status === "posted" ? "Posteada" : "Borrador"}</div>
-                <div><span className="text-muted-foreground">Total:</span> <span className="font-mono font-bold">${Number(viewingInvoice.total_amount).toFixed(2)}</span></div>
+                <div><span className="text-muted-foreground">Total:</span> <span className="font-mono font-bold">{formatCOP(viewingInvoice.total_amount, 2)}</span></div>
                 {viewingInvoice.posted_at && (
                   <div><span className="text-muted-foreground">Posteada:</span> {format(new Date(viewingInvoice.posted_at), "dd/MM/yyyy HH:mm")}</div>
                 )}
@@ -804,8 +804,8 @@ export default function PurchaseInvoices() {
                       <TableRow key={item.id}>
                         <TableCell>{prod?.name ?? "?"} <span className="text-xs text-muted-foreground">({prod?.unit})</span></TableCell>
                         <TableCell className="text-right font-mono">{Number(item.quantity)}</TableCell>
-                        <TableCell className="text-right font-mono">${Number(item.unit_cost).toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium">${Number(item.line_total).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCOP(item.unit_cost, 2)}</TableCell>
+                        <TableCell className="text-right font-mono font-medium">{formatCOP(item.line_total, 2)}</TableCell>
                       </TableRow>
                     );
                   })}

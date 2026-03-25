@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import NewOrderDialog from "./NewOrderDialog";
+import { formatCOP } from "@/lib/utils";
 
 export default function OrdersList() {
   const { toast } = useToast();
@@ -350,7 +351,7 @@ export default function OrdersList() {
                     <TableCell>{statusBadge(o.status)}</TableCell>
                     <TableCell className="text-right">{stats?.count ?? "—"}</TableCell>
                     <TableCell className="text-right font-medium">
-                      {stats?.total != null ? `$${stats.total.toFixed(2)}` : "—"}
+                      {stats?.total != null ? `{formatCOP(stats.total, 2)}` : "—"}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -435,9 +436,9 @@ export default function OrdersList() {
                 <TableRow key={item.id}>
                   <TableCell>{item.products?.name} <span className="text-muted-foreground text-xs">({item.products?.unit})</span></TableCell>
                   <TableCell className="text-right">{Number(item.quantity)}</TableCell>
-                  <TableCell className="text-right">{item.unit_cost != null ? `$${Number(item.unit_cost).toFixed(2)}` : "—"}</TableCell>
+                  <TableCell className="text-right">{item.unit_cost != null ? `{formatCOP(Number(item.unit_cost), 2)}` : "—"}</TableCell>
                   <TableCell className="text-right font-medium">
-                    {item.unit_cost != null ? `$${(Number(item.quantity) * Number(item.unit_cost)).toFixed(2)}` : "—"}
+                    {item.unit_cost != null ? `{formatCOP((Number(item.quantity) * Number(item.unit_cost)), 2)}` : "—"}
                   </TableCell>
                 </TableRow>
               )) || (

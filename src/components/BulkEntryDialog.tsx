@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { CalendarIcon, Plus, Trash2, PackagePlus, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCOP } from "@/lib/utils";
 
 interface BulkEntryDialogProps {
   open: boolean;
@@ -196,7 +197,7 @@ export function BulkEntryDialog({ open, onOpenChange, products }: BulkEntryDialo
       qc.invalidateQueries({ queryKey: ["products"] });
       toast({
         title: "Entradas registradas",
-        description: `${validLines.length} producto(s) — Total: $${totalCost.toFixed(2)}`,
+        description: `${validLines.length} producto(s) — Total: {formatCOP(totalCost, 2)}`,
       });
       resetForm();
       onOpenChange(false);

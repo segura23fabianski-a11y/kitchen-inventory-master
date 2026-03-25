@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import QuickCompanyDialog from "./QuickCompanyDialog";
+import { formatCOP } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -331,7 +332,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                   <TableCell>
                     {(res.reservation_items || []).map((item: any, idx: number) => (
                       <div key={idx} className="text-sm">
-                        {item.quantity}x {item.room_types?.name || "?"}{item.rate_applied ? ` ($${Number(item.rate_applied).toLocaleString()})` : ""}
+                        {item.quantity}x {item.room_types?.name || "?"}{item.rate_applied ? ` ({formatCOP(Number(item.rate_applied))})` : ""}
                       </div>
                     ))}
                   </TableCell>
@@ -390,7 +391,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                 {(detailRes.reservation_items || []).map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between py-1 border-b last:border-b-0">
                     <span>{item.quantity}x {item.room_types?.name}</span>
-                    <span>{item.rate_applied ? `$${Number(item.rate_applied).toLocaleString()} / noche` : "Sin tarifa"}</span>
+                    <span>{item.rate_applied ? `{formatCOP(Number(item.rate_applied))} / noche` : "Sin tarifa"}</span>
                   </div>
                 ))}
               </div>
@@ -494,7 +495,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                           <SelectItem value="placeholder" disabled>Seleccionar...</SelectItem>
                           {roomTypes?.map(rt => (
                             <SelectItem key={rt.id} value={rt.id}>
-                              {rt.name} (Base: ${Number(rt.base_rate).toLocaleString()})
+                              {rt.name} (Base: {formatCOP(rt.base_rate)})
                             </SelectItem>
                           ))}
                         </SelectContent>

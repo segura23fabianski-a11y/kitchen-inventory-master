@@ -15,6 +15,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRestaurantId } from "@/hooks/use-restaurant";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, ShoppingCart, PackageCheck, Info } from "lucide-react";
+import { formatCOP } from "@/lib/utils";
 
 export interface SuggestedItem {
   product_id: string;
@@ -365,7 +366,7 @@ export default function SuggestedPurchases() {
                           options={[
                             ...supplierOptions.map((sup) => ({
                               value: sup.id,
-                              label: `${sup.name}${sup.last_unit_cost != null ? ` ($${sup.last_unit_cost.toFixed(2)})` : ""}`,
+                              label: `${sup.name}${sup.last_unit_cost != null ? ` ({formatCOP(sup.last_unit_cost, 2)})` : ""}`,
                             })),
                             ...(allSuppliers
                               ?.filter((s) => !supplierOptions.some((so) => so.id === s.id))
@@ -384,7 +385,7 @@ export default function SuggestedPurchases() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.last_unit_cost != null ? `$${item.last_unit_cost.toFixed(2)}` : "—"}
+                      {item.last_unit_cost != null ? `{formatCOP(item.last_unit_cost, 2)}` : "—"}
                     </TableCell>
                   </TableRow>
                 );

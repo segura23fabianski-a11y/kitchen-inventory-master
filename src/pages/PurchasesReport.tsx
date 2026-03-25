@@ -14,6 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { format, parseISO, startOfMonth, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import { DollarSign, Package, Truck, Tag, TrendingUp, Search } from "lucide-react";
+import { formatCOP } from "@/lib/utils";
 
 type ViewTab = "suppliers" | "products" | "categories" | "evolution";
 
@@ -145,7 +146,7 @@ export default function PurchasesReport() {
       }));
   }, [filtered]);
 
-  const fmt = (v: number) => `$${v.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const fmt = (v: number) => `{formatCOP(v)}`;
 
   const pieData = byCategory.slice(0, 8).map((c) => ({ name: c.name, value: Math.round(c.total) }));
 

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { formatCOP } from "@/lib/utils";
 
 const DENOMINATIONS = [
   { value: 100000, label: "$100.000" },
@@ -253,7 +254,7 @@ export default function POSCashRegisterTab() {
               </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">Base inicial: </span>
-                <span className="font-mono font-semibold">${Number(activeSession.opening_total).toLocaleString()}</span>
+                <span className="font-mono font-semibold">{formatCOP(activeSession.opening_total)}</span>
               </div>
               <div className="flex gap-2">
                 {canClose && (
@@ -314,11 +315,11 @@ export default function POSCashRegisterTab() {
                       <TableCell className="text-sm">{format(new Date(s.opened_at), "dd/MM/yyyy")}</TableCell>
                       <TableCell className="text-sm font-mono">{format(new Date(s.opened_at), "HH:mm")}</TableCell>
                       <TableCell className="text-sm font-mono">{s.closed_at ? format(new Date(s.closed_at), "HH:mm") : "—"}</TableCell>
-                      <TableCell className="text-right font-mono">${Number(s.opening_total).toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono">{s.closing_total != null ? `$${Number(s.closing_total).toLocaleString()}` : "—"}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCOP(s.opening_total)}</TableCell>
+                      <TableCell className="text-right font-mono">{s.closing_total != null ? `{formatCOP(Number(s.closing_total))}` : "—"}</TableCell>
                       {canViewReconciliation && (
                         <>
-                          <TableCell className="text-right font-mono">{s.expected_cash != null ? `$${Number(s.expected_cash).toLocaleString()}` : "—"}</TableCell>
+                          <TableCell className="text-right font-mono">{s.expected_cash != null ? `{formatCOP(Number(s.expected_cash))}` : "—"}</TableCell>
                           <TableCell className="text-right">
                             {diff != null ? (
                               <span className={`font-mono font-semibold ${diff < 0 ? "text-destructive" : diff > 0 ? "text-green-600" : "text-muted-foreground"}`}>
@@ -454,7 +455,7 @@ export default function POSCashRegisterTab() {
                 <div>
                   <p className="text-sm font-semibold mb-1">Conteo de apertura</p>
                   {renderDenomSummary(detailSession.opening_count)}
-                  <p className="text-right font-mono font-bold mt-1">Total: ${Number(detailSession.opening_total).toLocaleString()}</p>
+                  <p className="text-right font-mono font-bold mt-1">Total: {formatCOP(detailSession.opening_total)}</p>
                 </div>
 
                 {detailSession.closing_count && (
@@ -463,7 +464,7 @@ export default function POSCashRegisterTab() {
                     <div>
                       <p className="text-sm font-semibold mb-1">Conteo de cierre</p>
                       {renderDenomSummary(detailSession.closing_count)}
-                      <p className="text-right font-mono font-bold mt-1">Total: ${Number(detailSession.closing_total).toLocaleString()}</p>
+                      <p className="text-right font-mono font-bold mt-1">Total: {formatCOP(detailSession.closing_total)}</p>
                     </div>
                   </>
                 )}
@@ -474,11 +475,11 @@ export default function POSCashRegisterTab() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Base siguiente:</span>
-                        <p className="font-mono font-semibold">${Number(detailSession.next_base).toLocaleString()}</p>
+                        <p className="font-mono font-semibold">{formatCOP(detailSession.next_base)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Retiro:</span>
-                        <p className="font-mono font-semibold">${Number(detailSession.withdrawal || 0).toLocaleString()}</p>
+                        <p className="font-mono font-semibold">{formatCOP(detailSession.withdrawal || 0)}</p>
                       </div>
                     </div>
                   </>
@@ -493,11 +494,11 @@ export default function POSCashRegisterTab() {
                       </p>
                       <div className="flex justify-between text-sm">
                         <span>Esperado en efectivo</span>
-                        <span className="font-mono">${Number(detailSession.expected_cash).toLocaleString()}</span>
+                        <span className="font-mono">{formatCOP(detailSession.expected_cash)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Contado</span>
-                        <span className="font-mono">${Number(detailSession.closing_total).toLocaleString()}</span>
+                        <span className="font-mono">{formatCOP(detailSession.closing_total)}</span>
                       </div>
                       <div className="flex justify-between text-sm font-bold border-t pt-1">
                         <span>Diferencia</span>

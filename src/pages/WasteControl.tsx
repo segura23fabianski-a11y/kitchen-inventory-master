@@ -20,7 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ChevronsUpDown, CalendarIcon, Plus, AlertTriangle, TrendingDown, DollarSign, Package, Upload, Trash2, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -227,7 +227,7 @@ export default function WasteControl() {
         },
       });
 
-      toast({ title: "Pérdida registrada", description: `${product.name}: ${qty} ${product.unit} — Pérdida: $${lossValue.toFixed(2)}` });
+      toast({ title: "Pérdida registrada", description: `${product.name}: ${qty} ${product.unit} — Pérdida: {formatCOP(lossValue, 2)}` });
 
       // Reset
       setSelectedProductId("");
@@ -567,7 +567,7 @@ export default function WasteControl() {
                             <Cell key={i} fill={entry.fill} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                        <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -583,7 +583,7 @@ export default function WasteControl() {
                       <BarChart data={topProducts} layout="vertical" margin={{ left: 80 }}>
                         <XAxis type="number" tickFormatter={(v) => `$${v}`} />
                         <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                        <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
                         <Bar dataKey="value" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>

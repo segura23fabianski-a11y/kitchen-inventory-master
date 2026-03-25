@@ -13,6 +13,7 @@ import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AlertTriangle, CheckCircle2, ChefHat } from "lucide-react";
 import { convertToProductUnit } from "@/lib/unit-conversion";
+import { formatCOP } from "@/lib/utils";
 
 interface ProductionRunDialogProps {
   open: boolean;
@@ -181,7 +182,7 @@ export function ProductionRunDialog({
         fixedRecipes.find((r) => r.id === selectedRecipeId)?.name ?? "Receta";
       toast({
         title: "Producción registrada",
-        description: `${recipeName} × ${quantity} — Costo real: $${actualTotalCost.toFixed(2)}`,
+        description: `${recipeName} × ${quantity} — Costo real: {formatCOP(actualTotalCost, 2)}`,
       });
       setSelectedRecipeId("");
       setQuantity(1);

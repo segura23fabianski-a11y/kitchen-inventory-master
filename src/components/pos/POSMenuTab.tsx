@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { fuzzyMatch } from "@/lib/search-utils";
+import { formatCOP } from "@/lib/utils";
 
 const MENU_CATEGORIES = ["Desayuno", "Almuerzo", "Cena", "Lonches", "Bebidas", "Snacks", "A la carta", "Postres", "General"];
 
@@ -214,7 +215,7 @@ export default function POSMenuTab() {
                 </Badge>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground font-mono">{item.barcode || "—"}</TableCell>
-              <TableCell className="text-right">${Number(item.price).toLocaleString()}</TableCell>
+              <TableCell className="text-right">{formatCOP(item.price)}</TableCell>
               <TableCell>
                 <Badge variant={item.active ? "default" : "secondary"}>
                   {item.active ? "Activo" : "Inactivo"}

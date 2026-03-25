@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
+import { formatCOP } from "@/lib/utils";
   DollarSign, TrendingUp, TrendingDown, ArrowUpDown, Search, ChefHat, Layers,
   Calendar, AlertTriangle, CheckCircle, ArrowLeft,
 } from "lucide-react";
@@ -207,7 +208,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
   const formatCost = (cost: number | null) => {
     if (cost === null) return "—";
     if (cost === 0) return "$0";
-    return `$${cost.toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `{formatCOP(cost)}`;
   };
 
   const selectedRow = summaryRows.find((r) => r.id === selectedRecipeId);
@@ -424,7 +425,7 @@ function RecipeDetailDialog({
 
   const formatCost = (cost: number | null) => {
     if (cost === null || cost === undefined) return "—";
-    return `$${Number(cost).toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `{formatCOP(Number(cost))}`;
   };
 
   const historyEntries = isCombo

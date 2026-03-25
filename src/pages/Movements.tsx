@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCOP } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -501,8 +501,8 @@ export default function Movements() {
                           </TableCell>
                           <TableCell>{typeBadge(m.type)}</TableCell>
                           <TableCell className="font-semibold">{Number(m.quantity)}</TableCell>
-                          <TableCell>${Number(m.unit_cost).toFixed(2)}</TableCell>
-                          <TableCell className="font-semibold">${Number(m.total_cost).toFixed(2)}</TableCell>
+                          <TableCell>{formatCOP(m.unit_cost, 2)}</TableCell>
+                          <TableCell className="font-semibold">{formatCOP(m.total_cost, 2)}</TableCell>
                           <TableCell className="text-muted-foreground">{profileMap.get(m.user_id) || "—"}</TableCell>
                           <TableCell className="text-sm">
                             <span className={isBackdated ? "text-warning font-medium" : "text-muted-foreground"}>

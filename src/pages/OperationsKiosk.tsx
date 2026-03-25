@@ -25,6 +25,7 @@ import {
   Plus, Settings, Trash2, Tag, Pencil,
 } from "lucide-react";
 import { useProductEquivalents } from "@/hooks/use-product-equivalents";
+import { formatCOP } from "@/lib/utils";
 
 // ── Types ──
 type MainMode = "home" | "recipes" | "services";
@@ -229,7 +230,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
-      toast({ title: "✅ Servicio registrado", description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — $${recipeTotalCost.toFixed(2)}` });
+      toast({ title: "✅ Servicio registrado", description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — {formatCOP(recipeTotalCost, 2)}` });
       goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -269,7 +270,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
       const count = svcLines.filter((l) => l.inputQty > 0).length;
-      toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — $${svcGrandTotal.toFixed(2)}` });
+      toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — {formatCOP(svcGrandTotal, 2)}` });
       goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -497,7 +498,7 @@ export default function OperationsKiosk() {
                         <Badge variant="outline" className="text-xs shrink-0">
                           {isRecipe ? "Receta" : "Manual"}
                         </Badge>
-                        <span className="font-heading font-bold text-sm">${Number(h.total_cost).toFixed(2)}</span>
+                        <span className="font-heading font-bold text-sm">{formatCOP(h.total_cost, 2)}</span>
                       </div>
                     );
                   })}
@@ -637,7 +638,7 @@ export default function OperationsKiosk() {
                               </TableCell>
                               <TableCell className="text-right">{ing.totalQty.toFixed(2)} {ing.unit}</TableCell>
                               <TableCell className={`text-right ${!ing.hasStock ? "text-destructive font-semibold" : ""}`}>
-                                {ing.prod ? `${Number(ing.prod.current_stock).toFixed(2)} ${ing.prod.unit}` : "—"}
+                                {ing.prod ? `{formatCOP(ing.prod.current_stock, 2)} ${ing.prod.unit}` : "—"}
                               </TableCell>
                               <TableCell className="text-right">${ing.cost.toFixed(2)}</TableCell>
                             </TableRow>
