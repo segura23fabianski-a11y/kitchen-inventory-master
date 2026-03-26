@@ -316,10 +316,10 @@ export default function POSCashRegisterTab() {
                       <TableCell className="text-sm font-mono">{format(new Date(s.opened_at), "HH:mm")}</TableCell>
                       <TableCell className="text-sm font-mono">{s.closed_at ? format(new Date(s.closed_at), "HH:mm") : "—"}</TableCell>
                       <TableCell className="text-right font-mono">{formatCOP(s.opening_total)}</TableCell>
-                      <TableCell className="text-right font-mono">{s.closing_total != null ? `{formatCOP(Number(s.closing_total))}` : "—"}</TableCell>
+                      <TableCell className="text-right font-mono">{s.closing_total != null ? formatCOP(Number(s.closing_total)) : "—"}</TableCell>
                       {canViewReconciliation && (
                         <>
-                          <TableCell className="text-right font-mono">{s.expected_cash != null ? `{formatCOP(Number(s.expected_cash))}` : "—"}</TableCell>
+                          <TableCell className="text-right font-mono">{s.expected_cash != null ? formatCOP(Number(s.expected_cash)) : "—"}</TableCell>
                           <TableCell className="text-right">
                             {diff != null ? (
                               <span className={`font-mono font-semibold ${diff < 0 ? "text-destructive" : diff > 0 ? "text-green-600" : "text-muted-foreground"}`}>

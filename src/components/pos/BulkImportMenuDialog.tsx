@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Search, PackagePlus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search, PackagePlus, Zap, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { fuzzyMatch } from "@/lib/search-utils";
+import { formatCOP } from "@/lib/utils";
 
 const MENU_CATEGORIES = ["Desayuno", "Almuerzo", "Cena", "Lonches", "Bebidas", "Snacks", "A la carta", "Postres", "General"];
 
@@ -22,6 +24,18 @@ interface SelectedProduct {
   barcode: string | null;
   category: string;
   price: string;
+  cost: number;
+}
+
+function calcSuggestedPrice(cost: number, marginPct: number): number {
+  if (cost <= 0 || marginPct >= 100) return 0;
+  return Math.ceil(cost / (1 - marginPct / 100));
+}
+
+function getProductCost(p: any): number {
+  const avg = Number(p.average_cost ?? 0);
+  const last = Number(p.last_unit_cost ?? 0);
+  return avg > 0 ? avg : last;
 }
 
 interface Props {
@@ -36,13 +50,14 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
   const [filterCat, setFilterCat] = useState("all");
   const [defaultCategory, setDefaultCategory] = useState("General");
   const [selected, setSelected] = useState<Map<string, SelectedProduct>>(new Map());
+  const [marginPct, setMarginPct] = useState(20);
 
   const { data: products = [] } = useQuery({
     queryKey: ["products-for-bulk-import", restaurantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, barcode, category_id, categories(name)")
+        .select("id, name, barcode, category_id, average_cost, last_unit_cost, categories(name)")
         .eq("restaurant_id", restaurantId!)
         .order("name");
       if (error) throw error;
@@ -90,12 +105,15 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
       if (next.has(p.id)) {
         next.delete(p.id);
       } else {
+        const cost = getProductCost(p);
+        const suggested = calcSuggestedPrice(cost, marginPct);
         next.set(p.id, {
           productId: p.id,
           name: p.name,
           barcode: p.barcode,
           category: defaultCategory,
-          price: "",
+          price: suggested > 0 ? String(suggested) : "",
+          cost,
         });
       }
       return next;
@@ -108,16 +126,30 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
     } else {
       const next = new Map<string, SelectedProduct>();
       filteredProducts.forEach((p: any) => {
+        const cost = getProductCost(p);
+        const suggested = calcSuggestedPrice(cost, marginPct);
         next.set(p.id, selected.get(p.id) || {
           productId: p.id,
           name: p.name,
           barcode: p.barcode,
           category: defaultCategory,
-          price: "",
+          price: suggested > 0 ? String(suggested) : "",
+          cost,
         });
       });
       setSelected(next);
     }
+  };
+
+  const recalculateAllPrices = () => {
+    setSelected(prev => {
+      const next = new Map(prev);
+      next.forEach((item, id) => {
+        const suggested = calcSuggestedPrice(item.cost, marginPct);
+        if (suggested > 0) next.set(id, { ...item, price: String(suggested) });
+      });
+      return next;
+    });
   };
 
   const updatePrice = (productId: string, price: string) => {
@@ -173,11 +205,9 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
     setSelected(new Map());
   };
 
-  const selectedArray = Array.from(selected.values());
-
   return (
     <Dialog open={open} onOpenChange={v => !v && closeDialog()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PackagePlus className="h-5 w-5" />
@@ -190,6 +220,36 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
             )}
           </p>
         </DialogHeader>
+
+        {/* Profit margin panel */}
+        <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+          <CardContent className="p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Percent className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium">% de Utilidad sobre precio de venta</span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm">Utilidad:</span>
+                <Input
+                  type="number"
+                  min={1} max={90}
+                  value={marginPct}
+                  onChange={e => setMarginPct(Math.max(1, Math.min(90, Number(e.target.value))))}
+                  className="w-20 h-8 text-center font-bold"
+                />
+                <span className="text-sm font-bold">%</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Ej: costo {formatCOP(1000)} → precio {formatCOP(calcSuggestedPrice(1000, marginPct))}
+              </span>
+              {selected.size > 0 && (
+                <Button variant="outline" size="sm" onClick={recalculateAllPrices} className="gap-1 ml-auto">
+                  <Zap className="h-3.5 w-3.5" />
+                  Recalcular {selected.size} precios
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[180px]">
@@ -230,31 +290,39 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
                     onCheckedChange={toggleAll}
                   />
                 </TableHead>
-                <TableHead>Producto inventario</TableHead>
+                <TableHead>Producto</TableHead>
                 <TableHead>Código</TableHead>
-                <TableHead>Cat. inventario</TableHead>
-                <TableHead className="w-[130px]">Cat. POS</TableHead>
-                <TableHead className="w-[110px]">Precio venta</TableHead>
+                <TableHead>Cat. inv.</TableHead>
+                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="w-[120px]">Cat. POS</TableHead>
+                <TableHead className="text-right w-[100px]">Sugerido</TableHead>
+                <TableHead className="w-[100px]">Precio venta</TableHead>
+                <TableHead className="w-[70px]">Margen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredProducts.map((p: any) => {
                 const isSelected = selected.has(p.id);
                 const item = selected.get(p.id);
+                const cost = getProductCost(p);
+                const suggested = calcSuggestedPrice(cost, marginPct);
+                const priceNum = parseFloat(item?.price || "0");
+                const realMargin = priceNum > 0 && cost > 0 ? ((priceNum - cost) / priceNum) * 100 : -1;
                 return (
                   <TableRow key={p.id} className={isSelected ? "bg-primary/5" : ""}>
                     <TableCell>
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleProduct(p)} />
                     </TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="font-medium text-sm">{p.name}</TableCell>
                     <TableCell className="text-xs font-mono text-muted-foreground">{p.barcode || "—"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">{p.categories?.name || "—"}</Badge>
                     </TableCell>
+                    <TableCell className="text-right text-xs">{cost > 0 ? formatCOP(cost) : "—"}</TableCell>
                     <TableCell>
                       {isSelected ? (
                         <Select value={item?.category || defaultCategory} onValueChange={v => updateCategory(p.id, v)}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {MENU_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                           </SelectContent>
@@ -262,6 +330,9 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
                       ) : (
                         <span className="text-xs text-muted-foreground">{defaultCategory}</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-amber-600 font-medium">
+                      {suggested > 0 ? formatCOP(suggested) : "—"}
                     </TableCell>
                     <TableCell>
                       {isSelected ? (
@@ -271,8 +342,17 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
                           value={item?.price || ""}
                           onChange={e => updatePrice(p.id, e.target.value)}
                           placeholder="0"
-                          className="h-8 text-xs w-full"
+                          className="h-7 text-xs w-full"
                         />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isSelected && realMargin >= 0 ? (
+                        <Badge variant="outline" className={`text-xs ${realMargin >= 20 ? "text-emerald-600 border-emerald-300" : realMargin >= 10 ? "text-amber-600 border-amber-300" : "text-destructive border-destructive/30"}`}>
+                          {realMargin.toFixed(0)}%
+                        </Badge>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -282,7 +362,7 @@ export default function BulkImportMenuDialog({ open, onOpenChange }: Props) {
               })}
               {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     {products.length === 0 ? "No hay productos en inventario" : "No hay productos disponibles para importar"}
                   </TableCell>
                 </TableRow>

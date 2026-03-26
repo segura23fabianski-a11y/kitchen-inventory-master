@@ -111,7 +111,7 @@ export default function RoomTypesTab() {
               <TableCell className="font-medium">{t.name}</TableCell>
               <TableCell>${(t.rate_single || 0).toLocaleString()}</TableCell>
               <TableCell>${(t.rate_double || 0).toLocaleString()}</TableCell>
-              <TableCell>{t.max_occupancy >= 3 ? `{formatCOP((t.rate_triple || 0))}` : "—"}</TableCell>
+              <TableCell>{t.max_occupancy >= 3 ? formatCOP((t.rate_triple || 0)) : "—"}</TableCell>
               <TableCell>{t.max_occupancy} personas</TableCell>
               <TableCell><Badge variant={t.active ? "default" : "secondary"}>{t.active ? "Activo" : "Inactivo"}</Badge></TableCell>
               <TableCell>

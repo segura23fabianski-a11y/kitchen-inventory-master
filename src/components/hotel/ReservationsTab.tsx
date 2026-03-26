@@ -391,7 +391,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                 {(detailRes.reservation_items || []).map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between py-1 border-b last:border-b-0">
                     <span>{item.quantity}x {item.room_types?.name}</span>
-                    <span>{item.rate_applied ? `{formatCOP(Number(item.rate_applied))} / noche` : "Sin tarifa"}</span>
+                    <span>{item.rate_applied ? `${formatCOP(Number(item.rate_applied))} / noche` : "Sin tarifa"}</span>
                   </div>
                 ))}
               </div>

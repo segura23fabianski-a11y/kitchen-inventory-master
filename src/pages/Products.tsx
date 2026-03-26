@@ -783,7 +783,7 @@ export default function Products() {
                         <TableCell className="text-muted-foreground">{(p as any).warehouses?.name ?? "—"}</TableCell>
                         <TableCell className="font-semibold">{Number(p.current_stock)}</TableCell>
                         <TableCell className="text-muted-foreground">{p.unit}</TableCell>
-                        <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? `{formatCOP(Number((p as any).last_unit_cost), 2)}` : "—"}</TableCell>
+                        <TableCell className={Number((p as any).last_unit_cost ?? 0) > 0 ? "" : "text-muted-foreground"}>{Number((p as any).last_unit_cost ?? 0) > 0 ? formatCOP(Number((p as any).last_unit_cost), 2) : "—"}</TableCell>
                         <TableCell>{formatCOP(p.average_cost, 2)}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
