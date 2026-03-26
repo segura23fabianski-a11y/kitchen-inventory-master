@@ -385,7 +385,7 @@ export default function SuggestedPurchases() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {item.last_unit_cost != null ? `{formatCOP(item.last_unit_cost, 2)}` : "—"}
+                      {item.last_unit_cost != null ? formatCOP(item.last_unit_cost, 2) : "—"}
                     </TableCell>
                   </TableRow>
                 );

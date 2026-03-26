@@ -269,7 +269,7 @@ export default function NewOrderDialog({ open, onOpenChange }: NewOrderDialogPro
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {line.unit_cost != null && line.quantity > 0
-                          ? `{formatCOP((line.quantity * line.unit_cost))}`
+                          ? formatCOP((line.quantity * line.unit_cost))
                           : "—"}
                       </TableCell>
                       <TableCell>

@@ -243,8 +243,8 @@ export default function Recipes() {
 
   const formatCost = (cost: number) => {
     if (cost === 0) return "$0.00";
-    if (cost < 0.01) return `{formatCOP(cost, 4)}`;
-    return `{formatCOP(cost, 2)}`;
+    if (cost < 0.01) return formatCOP(cost, 4);
+    return formatCOP(cost, 2);
   };
 
   const productHasCost = (productId: string) => {

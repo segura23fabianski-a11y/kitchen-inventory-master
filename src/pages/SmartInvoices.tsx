@@ -757,7 +757,7 @@ export default function SmartInvoices() {
                       </TableCell>
                       <TableCell>{inv.invoice_date ? format(new Date(inv.invoice_date + "T12:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {inv.total_detected != null ? `{formatCOP(Number(inv.total_detected), 2)}` : "—"}
+                        {inv.total_detected != null ? formatCOP(Number(inv.total_detected), 2) : "—"}
                       </TableCell>
                       <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{profileMap.get(inv.created_by) || "—"}</TableCell>

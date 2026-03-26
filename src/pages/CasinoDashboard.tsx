@@ -262,7 +262,7 @@ export default function CasinoDashboard() {
     return map;
   }, [todayOrders]);
 
-  const fmt = (v: number) => `{formatCOP(v)}`;
+  const fmt = (v: number) => formatCOP(v);
 
   const serviceConfig = [
     { key: "desayuno", label: "Desayunos", icon: Coffee, color: "text-amber-600" },

@@ -146,7 +146,7 @@ export default function PurchasesReport() {
       }));
   }, [filtered]);
 
-  const fmt = (v: number) => `{formatCOP(v)}`;
+  const fmt = (v: number) => formatCOP(v);
 
   const pieData = byCategory.slice(0, 8).map((c) => ({ name: c.name, value: Math.round(c.total) }));
 

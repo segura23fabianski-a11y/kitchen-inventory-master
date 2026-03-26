@@ -567,7 +567,7 @@ export default function WasteControl() {
                             <Cell key={i} fill={entry.fill} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
+                        <Tooltip formatter={(v: number) => formatCOP(v, 2)} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -583,7 +583,7 @@ export default function WasteControl() {
                       <BarChart data={topProducts} layout="vertical" margin={{ left: 80 }}>
                         <XAxis type="number" tickFormatter={(v) => `$${v}`} />
                         <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
+                        <Tooltip formatter={(v: number) => formatCOP(v, 2)} />
                         <Bar dataKey="value" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>

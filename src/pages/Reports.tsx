@@ -472,7 +472,7 @@ export default function Reports() {
                       <XAxis dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                       <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v) => `$${v}`} />
                       <Tooltip
-                        formatter={(value: number) => [`{formatCOP(value, 2)}`, "Consumo"]}
+                        formatter={(value: number) => [formatCOP(value, 2), "Consumo"]}
                         contentStyle={{ borderRadius: "var(--radius)", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
                         labelStyle={{ color: "hsl(var(--foreground))" }}
                       />
@@ -581,7 +581,7 @@ export default function Reports() {
                         <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
                           {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                         </Pie>
-                        <Tooltip formatter={(v: number) => `{formatCOP(v)}`} />
+                        <Tooltip formatter={(v: number) => formatCOP(v)} />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
@@ -712,7 +712,7 @@ export default function Reports() {
                           <TableCell className="font-medium">{r.name}</TableCell>
                           <TableCell className="text-right">{formatCOP(r.theoretical, 2)}</TableCell>
                           <TableCell className="text-right">
-                            {r.count > 0 ? `{formatCOP(r.avgReal, 2)}` : <span className="text-muted-foreground">—</span>}
+                            {r.count > 0 ? formatCOP(r.avgReal, 2) : <span className="text-muted-foreground">—</span>}
                           </TableCell>
                           <TableCell className="text-right">
                             {r.count > 0 ? (
@@ -723,7 +723,7 @@ export default function Reports() {
                           </TableCell>
                           <TableCell className="text-right text-muted-foreground">{r.count}</TableCell>
                           <TableCell className="text-right font-semibold">
-                            {r.count > 0 ? `{formatCOP(r.totalReal, 2)}` : <span className="text-muted-foreground">—</span>}
+                            {r.count > 0 ? formatCOP(r.totalReal, 2) : <span className="text-muted-foreground">—</span>}
                           </TableCell>
                         </TableRow>
                       ))}

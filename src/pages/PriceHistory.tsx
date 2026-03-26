@@ -440,7 +440,7 @@ export default function PriceHistory() {
                           <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                           <YAxis tickFormatter={(v) => `$${v}`} tick={{ fontSize: 11 }} />
                           <Tooltip
-                            formatter={(v: number) => `{formatCOP(v, 2)}`}
+                            formatter={(v: number) => formatCOP(v, 2)}
                             labelFormatter={(label) => `Fecha: ${label}`}
                             contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))" }}
                           />
@@ -483,7 +483,7 @@ export default function PriceHistory() {
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                           <YAxis tickFormatter={(v) => `$${v}`} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(v: number) => `{formatCOP(v, 2)}`} />
+                          <Tooltip formatter={(v: number) => formatCOP(v, 2)} />
                           <Legend />
                           <Bar dataKey="Último" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Promedio" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />

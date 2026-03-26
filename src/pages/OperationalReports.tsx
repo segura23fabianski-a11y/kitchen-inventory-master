@@ -413,7 +413,7 @@ export default function OperationalReports() {
                       <BarChart data={byArea} layout="vertical" margin={{ left: 100 }}>
                         <XAxis type="number" tickFormatter={(v) => `{formatCOP((v / 1000), 0)}k`} />
                         <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => `{formatCOP(v)}`} />
+                        <Tooltip formatter={(v: number) => formatCOP(v)} />
                         <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Costo" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -443,7 +443,7 @@ export default function OperationalReports() {
                             <Cell key={i} fill={entry.fill} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: number) => `{formatCOP(v)}`} />
+                        <Tooltip formatter={(v: number) => formatCOP(v)} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -555,7 +555,7 @@ export default function OperationalReports() {
                     <BarChart data={topProducts} layout="vertical" margin={{ left: 120 }}>
                       <XAxis type="number" tickFormatter={(v) => `{formatCOP((v / 1000), 0)}k`} />
                       <YAxis type="category" dataKey="name" width={115} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v: number) => `{formatCOP(v)}`} />
+                      <Tooltip formatter={(v: number) => formatCOP(v)} />
                       <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Costo" />
                     </BarChart>
                   </ResponsiveContainer>

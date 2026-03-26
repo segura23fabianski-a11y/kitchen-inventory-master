@@ -388,8 +388,8 @@ export default function ExecutiveDashboard() {
                       <BarChart data={costByPeriod}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                         <XAxis dataKey="label" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                        <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={(v) => `{formatCOP(v)}`} />
-                        <Tooltip formatter={(value: number) => [`{formatCOP(value)}`, "Costo"]}
+                        <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={(v) => formatCOP(v)} />
+                        <Tooltip formatter={(value: number) => [formatCOP(value), "Costo"]}
                           contentStyle={{ borderRadius: "var(--radius)", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                         <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       </BarChart>
@@ -458,9 +458,9 @@ export default function ExecutiveDashboard() {
                       <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={deviationData.slice(0, 10).map((d) => ({ name: d.name, Teórico: d.theoretical, Real: d.avgReal }))} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                          <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={(v) => `{formatCOP(v)}`} />
+                          <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={(v) => formatCOP(v)} />
                           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" width={120} />
-                          <Tooltip formatter={(value: number) => `{formatCOP(value)}`}
+                          <Tooltip formatter={(value: number) => formatCOP(value)}
                             contentStyle={{ borderRadius: "var(--radius)", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                           <Legend />
                           <Bar dataKey="Teórico" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />

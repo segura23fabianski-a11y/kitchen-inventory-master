@@ -208,7 +208,7 @@ export default function RecipeCostAnalysis({ restaurantId }: Props) {
   const formatCost = (cost: number | null) => {
     if (cost === null) return "—";
     if (cost === 0) return "$0";
-    return `{formatCOP(cost)}`;
+    return formatCOP(cost);
   };
 
   const selectedRow = summaryRows.find((r) => r.id === selectedRecipeId);
@@ -425,7 +425,7 @@ function RecipeDetailDialog({
 
   const formatCost = (cost: number | null) => {
     if (cost === null || cost === undefined) return "—";
-    return `{formatCOP(Number(cost))}`;
+    return formatCOP(Number(cost));
   };
 
   const historyEntries = isCombo

@@ -418,10 +418,10 @@ export default function Kardex() {
                             {row.ajuste !== null ? row.ajuste.toLocaleString("es-CO") : ""}
                           </TableCell>
                           <TableCell className="text-right text-xs">
-                            {row.costoUnitario > 0 ? `{formatCOP(row.costoUnitario)}` : "—"}
+                            {row.costoUnitario > 0 ? formatCOP(row.costoUnitario) : "—"}
                           </TableCell>
                           <TableCell className="text-right text-xs">
-                            {row.costoTotal > 0 ? `{formatCOP(row.costoTotal)}` : "—"}
+                            {row.costoTotal > 0 ? formatCOP(row.costoTotal) : "—"}
                           </TableCell>
                           <TableCell className="text-right font-heading font-semibold">
                             {row.saldo.toLocaleString("es-CO")}
