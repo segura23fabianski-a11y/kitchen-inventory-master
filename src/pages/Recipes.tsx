@@ -1309,7 +1309,7 @@ export default function Recipes() {
                                 )}
                               </TableCell>
                               <TableCell className={`text-right ${getProductCost(ing.product_id) === 0 ? "text-amber-600" : ""}`}>
-                                {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `{formatCOP(getProductCost(ing.product_id), 4)}/${prod?.unit}`}
+                                {getProductCost(ing.product_id) === 0 ? "⚠️ Sin costo" : `${formatCOP(getProductCost(ing.product_id), 4)}/${prod?.unit}`}
                               </TableCell>
                               <TableCell className="text-right font-semibold">{formatCost(sub)}</TableCell>
                             </TableRow>

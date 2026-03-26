@@ -638,7 +638,7 @@ export default function OperationsKiosk() {
                               </TableCell>
                               <TableCell className="text-right">{ing.totalQty.toFixed(2)} {ing.unit}</TableCell>
                               <TableCell className={`text-right ${!ing.hasStock ? "text-destructive font-semibold" : ""}`}>
-                                {ing.prod ? `{formatCOP(ing.prod.current_stock, 2)} ${ing.prod.unit}` : "—"}
+                                {ing.prod ? `${formatCOP(ing.prod.current_stock, 2)} ${ing.prod.unit}` : "—"}
                               </TableCell>
                               <TableCell className="text-right">{formatCOP(ing.cost, 2)}</TableCell>
                             </TableRow>
