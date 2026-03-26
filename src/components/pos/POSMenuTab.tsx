@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, PackagePlus, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, PackagePlus, Zap, Download, Upload } from "lucide-react";
 import BulkImportMenuDialog from "./BulkImportMenuDialog";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +18,7 @@ import { fuzzyMatch } from "@/lib/search-utils";
 import { formatCOP } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent } from "@/components/ui/card";
+import * as XLSX from "xlsx";
 
 const MENU_CATEGORIES = ["Desayuno", "Almuerzo", "Cena", "Lonches", "Bebidas", "Snacks", "A la carta", "Postres", "General"];
 
@@ -52,6 +53,9 @@ export default function POSMenuTab() {
   const [filterCat, setFilterCat] = useState("all");
   const [importOpen, setImportOpen] = useState(false);
   const [profitMargin, setProfitMargin] = useState(20);
+  // Excel import state
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
+  const [excelRows, setExcelRows] = useState<any[]>([]);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["menu-items", restaurantId],
@@ -213,12 +217,97 @@ export default function POSMenuTab() {
     ? recipes.filter((r: any) => r.recipe_type === "variable_combo")
     : recipes;
 
+  // Excel export
+  const exportMenuToExcel = async () => {
+    const { data: menuItems } = await supabase
+      .from("menu_items")
+      .select("id, name, category, price, barcode, active, item_type")
+      .eq("restaurant_id", restaurantId!)
+      .order("category").order("name");
+
+    if (!menuItems?.length) {
+      toast.error("No hay items en el menú para exportar");
+      return;
+    }
+
+    const rows = menuItems.map(i => ({
+      "ID (no editar)": i.id,
+      "Nombre": i.name,
+      "Categoría POS": i.category,
+      "Precio de venta": i.price,
+      "Código de barras": i.barcode || "",
+      "Activo (SI/NO)": i.active ? "SI" : "NO",
+      "Tipo": i.item_type,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Menú POS");
+    XLSX.writeFile(wb, "menu_pos_export.xlsx");
+    toast.success("Menú exportado correctamente");
+  };
+
+  // Excel import handler
+  const handleExcelFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet) as any[];
+      setExcelRows(rows);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const importFromExcel = useMutation({
+    mutationFn: async () => {
+      if (!excelRows.length) throw new Error("Sin datos");
+
+      const toProcess = excelRows.map(row => ({
+        restaurant_id: restaurantId!,
+        name: String(row["Nombre"] || row["name"] || "").trim(),
+        category: String(row["Categoría POS"] || row["category"] || "General"),
+        price: Number(row["Precio de venta"] || row["price"] || 0),
+        barcode: String(row["Código de barras"] || row["barcode"] || "").trim() || null,
+        active: String(row["Activo (SI/NO)"] || "SI").toUpperCase() === "SI",
+        item_type: String(row["Tipo"] || row["item_type"] || "direct_product"),
+      }));
+
+      for (let i = 0; i < excelRows.length; i++) {
+        const id = excelRows[i]["ID (no editar)"];
+        if (id && typeof id === "string" && id.length > 10) {
+          const { error } = await supabase.from("menu_items").update(toProcess[i]).eq("id", id).eq("restaurant_id", restaurantId!);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("menu_items").insert(toProcess[i]);
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["menu-items"] });
+      toast.success(`${excelRows.length} items procesados correctamente`);
+      setExcelImportOpen(false);
+      setExcelRows([]);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <div className="h-full min-h-0 flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Menú Comercial</h2>
-        <div className="flex gap-2">
-          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline"><PackagePlus className="h-4 w-4 mr-1" />Importar desde inventario</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={exportMenuToExcel} size="sm" variant="outline" className="gap-1.5">
+            <Download className="h-4 w-4" /> Exportar Excel
+          </Button>
+          <Button onClick={() => setExcelImportOpen(true)} size="sm" variant="outline" className="gap-1.5">
+            <Upload className="h-4 w-4" /> Importar Excel
+          </Button>
+          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline"><PackagePlus className="h-4 w-4 mr-1" />Importar inventario</Button>
           <Button onClick={() => setOpen(true)} size="sm"><Plus className="h-4 w-4 mr-1" />Nuevo Ítem</Button>
         </div>
       </div>
@@ -293,6 +382,7 @@ export default function POSMenuTab() {
       </Table>
       </div>
 
+      {/* Create/Edit dialog */}
       <Dialog open={open} onOpenChange={(v) => !v && closeDialog()}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editId ? "Editar Ítem" : "Nuevo Ítem del Menú"}</DialogTitle></DialogHeader>
@@ -332,7 +422,6 @@ export default function POSMenuTab() {
               </div>
             </div>
 
-            {/* Product linking */}
             {itemType === "direct_product" && (
               <div>
                 <Label>Producto de inventario</Label>
@@ -345,7 +434,6 @@ export default function POSMenuTab() {
               </div>
             )}
 
-            {/* Recipe linking */}
             {(itemType === "recipe" || itemType === "combo_variable") && (
               <div>
                 <Label>{itemType === "combo_variable" ? "Combo / Servicio variable" : "Receta"}</Label>
@@ -358,7 +446,6 @@ export default function POSMenuTab() {
               </div>
             )}
 
-            {/* Suggested price card */}
             {linkedCost > 0 && (
               <Card className="bg-muted/50">
                 <CardContent className="p-3 space-y-2">
@@ -404,6 +491,79 @@ export default function POSMenuTab() {
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
             <Button onClick={() => save.mutate()} disabled={!name.trim()}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Excel import dialog */}
+      <Dialog open={excelImportOpen} onOpenChange={v => { if (!v) { setExcelImportOpen(false); setExcelRows([]); } }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" /> Importar Menú desde Excel
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Sube un archivo .xlsx con columnas: Nombre, Categoría POS, Precio de venta, Código de barras, Activo (SI/NO).
+              Si incluye "ID (no editar)", se actualizarán los ítems existentes.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input type="file" accept=".xlsx,.xls" onChange={handleExcelFile} />
+
+            {excelRows.length > 0 && (
+              <>
+                <p className="text-sm font-medium">{excelRows.length} registros encontrados — Vista previa:</p>
+                <div className="max-h-[300px] overflow-auto border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Categoría</TableHead>
+                        <TableHead className="text-right">Precio</TableHead>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {excelRows.slice(0, 15).map((row, i) => {
+                        const hasId = !!(row["ID (no editar)"] && String(row["ID (no editar)"]).length > 10);
+                        return (
+                          <TableRow key={i}>
+                            <TableCell className="font-medium text-sm">{row["Nombre"] || row["name"] || "—"}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-xs">{row["Categoría POS"] || row["category"] || "General"}</Badge></TableCell>
+                            <TableCell className="text-right">{formatCOP(Number(row["Precio de venta"] || row["price"] || 0))}</TableCell>
+                            <TableCell className="text-xs font-mono">{row["Código de barras"] || row["barcode"] || "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant={hasId ? "secondary" : "default"} className="text-xs">
+                                {hasId ? "Actualizar" : "Nuevo"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {excelRows.length > 15 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground text-xs">
+                            ...y {excelRows.length - 15} registros más
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setExcelImportOpen(false); setExcelRows([]); }}>Cancelar</Button>
+            <Button
+              onClick={() => importFromExcel.mutate()}
+              disabled={excelRows.length === 0 || importFromExcel.isPending}
+            >
+              {importFromExcel.isPending ? "Procesando..." : `Importar ${excelRows.length} items`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
