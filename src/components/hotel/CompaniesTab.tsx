@@ -224,7 +224,7 @@ export default function CompaniesTab() {
             </Table>
             {companyRates && companyRates.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Tarifa base de referencia: {roomTypes?.map((rt: any) => `${rt.name}: {formatCOP(rt.base_rate?)}`).join(" · ")}
+                Tarifa base de referencia: {roomTypes?.map((rt: any) => `${rt.name}: ${formatCOP(rt.base_rate ?? 0)}`).join(" · ")}
               </p>
             )}
           </div>

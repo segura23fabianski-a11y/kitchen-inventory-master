@@ -197,7 +197,7 @@ export function BulkEntryDialog({ open, onOpenChange, products }: BulkEntryDialo
       qc.invalidateQueries({ queryKey: ["products"] });
       toast({
         title: "Entradas registradas",
-        description: `${validLines.length} producto(s) — Total: {formatCOP(totalCost, 2)}`,
+        description: `${validLines.length} producto(s) — Total: ${formatCOP(totalCost, 2)}`,
       });
       resetForm();
       onOpenChange(false);

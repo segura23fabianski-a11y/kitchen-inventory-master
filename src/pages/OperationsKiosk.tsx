@@ -230,7 +230,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
-      toast({ title: "✅ Servicio registrado", description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — {formatCOP(recipeTotalCost, 2)}` });
+      toast({ title: "✅ Servicio registrado", description: `${selectedRecipe?.name} — ${portions} ${portions === 1 ? portionSingular : portionLabel} — ${formatCOP(recipeTotalCost, 2)}` });
       goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -241,7 +241,7 @@ export default function OperationsKiosk() {
       for (const line of svcLines) {
         if (line.inputQty <= 0) continue;
         const noteText = line.inputUnit !== line.product.unit
-          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name}`} | ${line.inputQty} ${line.inputUnit} → {formatCOP(line.convertedQty, 4)} ${line.product.unit}`
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name}`} | ${line.inputQty} ${line.inputUnit} → ${formatCOP(line.convertedQty, 4)} ${line.product.unit}`
           : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${line.product.name} x${line.convertedQty} ${line.product.unit}`;
         const { error } = await supabase.from("inventory_movements").insert({
           product_id: line.product.id,
@@ -270,7 +270,7 @@ export default function OperationsKiosk() {
       qc.invalidateQueries({ queryKey: ["movements"] });
       qc.invalidateQueries({ queryKey: ["operations-history-all"] });
       const count = svcLines.filter((l) => l.inputQty > 0).length;
-      toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — {formatCOP(svcGrandTotal, 2)}` });
+      toast({ title: "✅ Consumo registrado", description: `${count} producto${count !== 1 ? "s" : ""} — ${formatCOP(svcGrandTotal, 2)}` });
       goHome();
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),

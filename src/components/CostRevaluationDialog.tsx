@@ -97,7 +97,7 @@ export default function CostRevaluationDialog({ product, open, onOpenChange }: P
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       handleClose(false);
-      toast({ title: "Costo actualizado", description: `${product?.name}: {formatCOP(oldCost, 2)} → {formatCOP(newCostNum, 2)}` });
+      toast({ title: "Costo actualizado", description: `${product?.name}: ${formatCOP(oldCost, 2)} → ${formatCOP(newCostNum, 2)}` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });

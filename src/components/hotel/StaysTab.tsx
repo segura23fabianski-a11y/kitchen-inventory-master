@@ -221,7 +221,7 @@ export default function StaysTab() {
             if (selectedCorpRate.includes_laundry) includes.push("Lavandería");
             if (selectedCorpRate.includes_housekeeping) includes.push("Housekeeping");
             if (selectedCorpRate.includes_breakfast) includes.push("Desayuno");
-            setRateInfo(`Tarifa corporativa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: {formatCOP(selectedCorpRate.rate_per_night)}/noche. Incluye: ${includes.join(", ") || "nada adicional"}`);
+            setRateInfo(`Tarifa corporativa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: ${formatCOP(selectedCorpRate.rate_per_night)}/noche. Incluye: ${includes.join(", ") || "nada adicional"}`);
           } else {
             setRateInfo("Tarifa corporativa aplicada automáticamente");
           }
@@ -240,7 +240,7 @@ export default function StaysTab() {
     const autoRate = getOccupancyRate(roomType, totalGuests);
     setForm(prev => ({ ...prev, rate_per_night: autoRate, source_rate: "standard" }));
     if (!hasCorporate && autoRate > 0) {
-      setRateInfo(`Tarifa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: {formatCOP(autoRate)}/noche`);
+      setRateInfo(`Tarifa para ${totalGuests} persona${totalGuests > 1 ? "s" : ""}: ${formatCOP(autoRate)}/noche`);
     }
   }, [form.company_id, form.room_id, form.companion_ids.length, allCompanyRates, selectedRoom, totalGuests]);
 
@@ -790,7 +790,7 @@ export default function StaysTab() {
                 .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                 .eq("id", detailStay.id).single();
               setDetailStay(refreshed);
-              toast({ title: "Huésped creado y agregado", description: `Tarifa actualizada a {formatCOP(newRate)}/noche` });
+              toast({ title: "Huésped creado y agregado", description: `Tarifa actualizada a ${formatCOP(newRate)}/noche` });
             } catch (e: any) {
               toast({ title: "Error", description: e.message, variant: "destructive" });
             }
@@ -1053,7 +1053,7 @@ export default function StaysTab() {
                   .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
-                toast({ title: "Huésped agregado", description: `Tarifa actualizada a {formatCOP(newRate)}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
+                toast({ title: "Huésped agregado", description: `Tarifa actualizada a ${formatCOP(newRate)}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
               } catch (e: any) {
                 toast({ title: "Error", description: e.message, variant: "destructive" });
               }
@@ -1110,7 +1110,7 @@ export default function StaysTab() {
                   .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
-                toast({ title: "Huésped retirado", description: `Tarifa actualizada a {formatCOP(newRate)}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
+                toast({ title: "Huésped retirado", description: `Tarifa actualizada a ${formatCOP(newRate)}/noche (${newGuestCount} persona${newGuestCount > 1 ? "s" : ""})` });
               } catch (e: any) {
                 toast({ title: "Error", description: e.message, variant: "destructive" });
               }
@@ -1191,7 +1191,7 @@ export default function StaysTab() {
                   .select("*, rooms(room_number, room_type_id, room_types(name, max_occupancy)), hotel_companies(name), contracts(name, code), stay_guests(*, hotel_guests(first_name, last_name, document_number))")
                   .eq("id", detailStay.id).single();
                 setDetailStay(refreshed);
-                toast({ title: "Habitación cambiada", description: `Movido a habitación #${pendingRoomChange.newRoomNumber}. Tarifa: {formatCOP(newRate)}/noche` });
+                toast({ title: "Habitación cambiada", description: `Movido a habitación #${pendingRoomChange.newRoomNumber}. Tarifa: ${formatCOP(newRate)}/noche` });
               } catch (e: any) {
                 toast({ title: "Error", description: e.message, variant: "destructive" });
               }
@@ -1325,7 +1325,7 @@ export default function StaysTab() {
                   const { error } = await supabase.from("stays" as any).update(updateData).eq("id", editStay.id);
                   if (error) throw error;
                   qc.invalidateQueries({ queryKey: ["stays"] });
-                  toast({ title: "Estancia actualizada", description: `Tarifa: {formatCOP(editForm.rate_per_night)}/noche` });
+                  toast({ title: "Estancia actualizada", description: `Tarifa: ${formatCOP(editForm.rate_per_night)}/noche` });
                   setEditStay(null);
                 } catch (e: any) {
                   toast({ title: "Error", description: e.message, variant: "destructive" });

@@ -165,7 +165,7 @@ export default function ProductEquivalents({ productId, productName }: Props) {
             placeholder="Buscar producto equivalente..."
             options={availableProducts.map((p) => ({
               value: p.id,
-              label: `${p.name} (${p.unit}) — Stock: {formatCOP(p.current_stock ?? 0)}`,
+              label: `${p.name} (${p.unit}) — Stock: ${formatCOP(p.current_stock ?? 0)}`,
             }))}
           />
         </div>
