@@ -164,7 +164,7 @@ export default function Movements() {
         unit_cost: uc,
         total_cost: qty * uc,
         notes: effectiveUnit !== prod?.unit
-          ? `${notes ? notes + " | " : ""}Ingresado: ${rawQty} ${effectiveUnit} → {formatCOP(qty, 4)} ${prod?.unit}`
+          ? `${notes ? notes + " | " : ""}Ingresado: ${rawQty} ${effectiveUnit} → ${formatCOP(qty, 4)} ${prod?.unit}`
           : notes,
         restaurant_id: restaurantId!,
       };

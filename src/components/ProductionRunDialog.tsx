@@ -182,7 +182,7 @@ export function ProductionRunDialog({
         fixedRecipes.find((r) => r.id === selectedRecipeId)?.name ?? "Receta";
       toast({
         title: "Producción registrada",
-        description: `${recipeName} × ${quantity} — Costo real: {formatCOP(actualTotalCost, 2)}`,
+        description: `${recipeName} × ${quantity} — Costo real: ${formatCOP(actualTotalCost, 2)}`,
       });
       setSelectedRecipeId("");
       setQuantity(1);

@@ -332,7 +332,7 @@ export default function ReservationsTab({ onConvertToCheckin }: ReservationsTabP
                   <TableCell>
                     {(res.reservation_items || []).map((item: any, idx: number) => (
                       <div key={idx} className="text-sm">
-                        {item.quantity}x {item.room_types?.name || "?"}{item.rate_applied ? ` ({formatCOP(Number(item.rate_applied))})` : ""}
+                        {item.quantity}x {item.room_types?.name || "?"}{item.rate_applied ? ` (${formatCOP(Number(item.rate_applied))})` : ""}
                       </div>
                     ))}
                   </TableCell>

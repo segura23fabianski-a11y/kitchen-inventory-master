@@ -470,7 +470,7 @@ export default function Reports() {
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                      <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v) => `$${v}`} />
+                      <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v) => formatCOP(v, 0)} />
                       <Tooltip
                         formatter={(value: number) => [formatCOP(value, 2), "Consumo"]}
                         contentStyle={{ borderRadius: "var(--radius)", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
@@ -578,7 +578,7 @@ export default function Reports() {
                   ) : (
                     <ResponsiveContainer width="100%" height={350}>
                       <PieChart>
-                        <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
+                        <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                           {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                         </Pie>
                         <Tooltip formatter={(v: number) => formatCOP(v)} />
@@ -645,8 +645,8 @@ export default function Reports() {
                       <LineChart data={wasteByDay}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                         <XAxis dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                        <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v) => `$${v}`} />
-                        <Tooltip formatter={(v: number) => [`$${v}`, "Desperdicio"]}
+                        <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v) => formatCOP(v, 0)} />
+                        <Tooltip formatter={(v: number) => [formatCOP(v, 2), "Desperdicio"]}
                           contentStyle={{ borderRadius: "var(--radius)", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                         <Line type="monotone" dataKey="value" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 3 }} />
                       </LineChart>

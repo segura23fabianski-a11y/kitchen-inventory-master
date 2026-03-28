@@ -366,7 +366,7 @@ export default function SuggestedPurchases() {
                           options={[
                             ...supplierOptions.map((sup) => ({
                               value: sup.id,
-                              label: `${sup.name}${sup.last_unit_cost != null ? ` ({formatCOP(sup.last_unit_cost, 2)})` : ""}`,
+                              label: `${sup.name}${sup.last_unit_cost != null ? ` (${formatCOP(sup.last_unit_cost, 2)})` : ""}`,
                             })),
                             ...(allSuppliers
                               ?.filter((s) => !supplierOptions.some((so) => so.id === s.id))

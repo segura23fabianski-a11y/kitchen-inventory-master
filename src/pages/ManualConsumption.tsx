@@ -134,7 +134,7 @@ export default function ManualConsumption() {
         total_cost: totalCost,
         service_id: selectedServiceId!,
         notes: effectiveUnit !== selectedProduct?.unit
-          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → {formatCOP(convertedQty, 4)} ${selectedProduct?.unit}`
+          ? `${notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name}`} | ${quantity} ${effectiveUnit} → ${formatCOP(convertedQty, 4)} ${selectedProduct?.unit}`
           : notes.trim() || `Consumo operativo: ${selectedService?.name} — ${selectedProduct?.name} x${convertedQty} ${selectedProduct?.unit}`,
         restaurant_id: restaurantId!,
       } as any);
@@ -161,7 +161,7 @@ export default function ManualConsumption() {
       qc.invalidateQueries({ queryKey: ["manual-consumption-history"] });
       toast({
         title: "✅ Consumo registrado",
-        description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — {formatCOP(estimatedCost, 2)}`,
+        description: `${selectedProduct?.name} — ${quantity} ${selectedProduct?.unit} — ${formatCOP(estimatedCost, 2)}`,
       });
       resetAll();
     },
@@ -388,7 +388,7 @@ export default function ManualConsumption() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cantidad</span>
                   <span className="font-medium">
-                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` ({formatCOP(convertedQty, 4)} ${selectedProduct.unit})` : ""}
+                    {quantity} {effectiveUnit}{effectiveUnit !== selectedProduct.unit ? ` (${formatCOP(convertedQty, 4)} ${selectedProduct.unit})` : ""}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">

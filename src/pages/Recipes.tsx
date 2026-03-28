@@ -718,7 +718,7 @@ export default function Recipes() {
               <div className="flex-1 space-y-1">
                 {i === 0 && <Label className="text-xs text-muted-foreground">Producto</Label>}
                 <SearchableSelect
-                  options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — {formatCOP(getProductCost(p.id), 2)}/${p.unit}`, searchTerms: p.name })) ?? []}
+                  options={products?.map((p) => ({ value: p.id, label: `${p.name} (${p.unit}) — ${formatCOP(getProductCost(p.id), 2)}/${p.unit}`, searchTerms: p.name })) ?? []}
                   value={ing.product_id}
                   onValueChange={(v) => updateFn(i, "product_id", v)}
                   placeholder="Seleccionar..."

@@ -227,7 +227,7 @@ export default function WasteControl() {
         },
       });
 
-      toast({ title: "Pérdida registrada", description: `${product.name}: ${qty} ${product.unit} — Pérdida: {formatCOP(lossValue, 2)}` });
+      toast({ title: "Pérdida registrada", description: `${product.name}: ${qty} ${product.unit} — Pérdida: ${formatCOP(lossValue, 2)}` });
 
       // Reset
       setSelectedProductId("");
@@ -562,7 +562,7 @@ export default function WasteControl() {
                   {byTypeData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <PieChart>
-                        <Pie data={byTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}>
+                        <Pie data={byTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                           {byTypeData.map((entry, i) => (
                             <Cell key={i} fill={entry.fill} />
                           ))}
@@ -581,7 +581,7 @@ export default function WasteControl() {
                   {topProducts.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <BarChart data={topProducts} layout="vertical" margin={{ left: 80 }}>
-                        <XAxis type="number" tickFormatter={(v) => `$${v}`} />
+                        <XAxis type="number" tickFormatter={(v) => formatCOP(v, 0)} />
                         <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
                         <Tooltip formatter={(v: number) => formatCOP(v, 2)} />
                         <Bar dataKey="value" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />

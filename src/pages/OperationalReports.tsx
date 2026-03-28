@@ -411,7 +411,7 @@ export default function OperationalReports() {
                   {byArea.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={byArea} layout="vertical" margin={{ left: 100 }}>
-                        <XAxis type="number" tickFormatter={(v) => `${formatCOP((v / 1000), 0)}k`} />
+                        <XAxis type="number" tickFormatter={(v) => formatCOP(v, 0)} />
                         <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 11 }} />
                         <Tooltip formatter={(v: number) => formatCOP(v)} />
                         <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Costo" />
@@ -437,7 +437,7 @@ export default function OperationalReports() {
                           cx="50%"
                           cy="50%"
                           outerRadius={90}
-                          label={({ name, percent }) => `${name} {formatCOP((percent * 100), 0)}%`}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                         >
                           {pieData.map((entry, i) => (
                             <Cell key={i} fill={entry.fill} />
@@ -553,7 +553,7 @@ export default function OperationalReports() {
                 {topProducts.length > 0 ? (
                   <ResponsiveContainer width="100%" height={350}>
                     <BarChart data={topProducts} layout="vertical" margin={{ left: 120 }}>
-                      <XAxis type="number" tickFormatter={(v) => `${formatCOP((v / 1000), 0)}k`} />
+                      <XAxis type="number" tickFormatter={(v) => formatCOP(v, 0)} />
                       <YAxis type="category" dataKey="name" width={115} tick={{ fontSize: 11 }} />
                       <Tooltip formatter={(v: number) => formatCOP(v)} />
                       <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Costo" />
