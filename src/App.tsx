@@ -15,6 +15,7 @@ import Products from "./pages/Products";
 import Movements from "./pages/Movements";
 import Categories from "./pages/Categories";
 import Users from "./pages/Users";
+import Restaurants from "./pages/Restaurants";
 import Recipes from "./pages/Recipes";
 import KitchenKiosk from "./pages/KitchenKiosk";
 import Reports from "./pages/Reports";
@@ -131,6 +132,7 @@ const AppRoutes = () => (
     <Route path="/movements" element={<ProtectedRoute permKey="movements"><Movements /></ProtectedRoute>} />
     <Route path="/categories" element={<ProtectedRoute permKey="categories"><Categories /></ProtectedRoute>} />
     <Route path="/users" element={<ProtectedRoute permKey="users"><Users /></ProtectedRoute>} />
+    <Route path="/restaurants" element={<ProtectedRoute permKey="users"><Restaurants /></ProtectedRoute>} />
     <Route path="/recipes" element={<ProtectedRoute permKey="recipes"><Recipes /></ProtectedRoute>} />
     <Route path="/kitchen" element={<ProtectedRoute permKey="kitchen_kiosk"><KitchenKiosk /></ProtectedRoute>} />
     <Route path="/operations" element={<ProtectedRoute permKey="operations_kiosk"><OperationsKiosk /></ProtectedRoute>} />

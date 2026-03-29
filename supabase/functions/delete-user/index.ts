@@ -30,11 +30,29 @@ serve(async (req) => {
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) throw new Error("Solo administradores pueden eliminar usuarios");
 
+    const { data: callerProfile, error: callerProfileError } = await adminClient
+      .from("profiles")
+      .select("restaurant_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    if (callerProfileError) throw callerProfileError;
+    if (!callerProfile?.restaurant_id) throw new Error("Tu perfil no tiene restaurante asignado");
+
     const { user_id } = await req.json();
     if (!user_id) throw new Error("user_id es requerido");
 
     // Prevent self-deletion
     if (user_id === caller.id) throw new Error("No puedes eliminarte a ti mismo");
+
+    const { data: targetProfile, error: targetProfileError } = await adminClient
+      .from("profiles")
+      .select("restaurant_id")
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (targetProfileError) throw targetProfileError;
+    if (!targetProfile || targetProfile.restaurant_id !== callerProfile.restaurant_id) {
+      throw new Error("No puedes eliminar usuarios de otro restaurante");
+    }
 
     // Delete roles first
     await adminClient.from("user_roles").delete().eq("user_id", user_id);

@@ -94,7 +94,7 @@ export default function Users() {
   const createUser = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email, password, full_name: fullName, role, restaurant_id: restaurantId },
+        body: { email, password, full_name: fullName, role },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);

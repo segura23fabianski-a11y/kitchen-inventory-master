@@ -123,6 +123,7 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { to: "/users", icon: Users, label: "Usuarios", permKey: "users" },
+      { to: "/restaurants", icon: Building2, label: "Restaurantes", permKey: "users" },
       { to: "/roles", icon: Shield, label: "Roles y Permisos", permKey: "roles" },
       { to: "/corporate-masters", icon: Building2, label: "Maestros Corp.", permKey: "corporate_masters" },
       { to: "/branding", icon: Paintbrush, label: "Branding", permKey: "branding" },

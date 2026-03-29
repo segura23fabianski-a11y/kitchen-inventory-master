@@ -4509,6 +4509,7 @@ export type Database = {
           function_key: string
         }[]
       }
+      create_restaurant_for_account: { Args: { p_name: string }; Returns: string }
       get_my_restaurant_id: { Args: never; Returns: string }
       has_any_role: { Args: { _user_id: string }; Returns: boolean }
       has_permission: {
@@ -4546,6 +4547,7 @@ export type Database = {
             Returns: undefined
           }
       safe_delete_product: { Args: { _product_id: string }; Returns: Json }
+      switch_active_restaurant: { Args: { p_restaurant_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

@@ -29,8 +29,26 @@ serve(async (req) => {
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) throw new Error("Solo administradores pueden actualizar usuarios");
 
+    const { data: callerProfile, error: callerProfileError } = await adminClient
+      .from("profiles")
+      .select("restaurant_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    if (callerProfileError) throw callerProfileError;
+    if (!callerProfile?.restaurant_id) throw new Error("Tu perfil no tiene restaurante asignado");
+
     const { user_id, full_name, email, password } = await req.json();
     if (!user_id) throw new Error("user_id es requerido");
+
+    const { data: targetProfile, error: targetProfileError } = await adminClient
+      .from("profiles")
+      .select("restaurant_id")
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (targetProfileError) throw targetProfileError;
+    if (!targetProfile || targetProfile.restaurant_id !== callerProfile.restaurant_id) {
+      throw new Error("No puedes modificar usuarios de otro restaurante");
+    }
 
     // Update auth user (email and/or password)
     const authUpdate: any = {};

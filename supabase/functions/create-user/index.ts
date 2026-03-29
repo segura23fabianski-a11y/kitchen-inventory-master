@@ -29,7 +29,18 @@ serve(async (req) => {
     const { data: isAdmin } = await adminClient.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) throw new Error("Solo administradores pueden crear usuarios");
 
-    const { email, password, full_name, role, restaurant_id } = await req.json();
+    const { data: callerProfile, error: callerProfileError } = await adminClient
+      .from("profiles")
+      .select("restaurant_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    if (callerProfileError) throw callerProfileError;
+    if (!callerProfile?.restaurant_id) {
+      throw new Error("Tu perfil no tiene restaurante asignado; no puedes crear usuarios");
+    }
+    const restaurantId = callerProfile.restaurant_id as string;
+
+    const { email, password, full_name, role } = await req.json();
 
     if (!email || !password || !role) throw new Error("email, password y role son requeridos");
     if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres");
@@ -52,7 +63,7 @@ serve(async (req) => {
 
     await adminClient.from("profiles").update({
       full_name: full_name || "",
-      restaurant_id: restaurant_id,
+      restaurant_id: restaurantId,
       status: "active",
       approved_at: new Date().toISOString(),
     }).eq("user_id", newUser.user.id);
